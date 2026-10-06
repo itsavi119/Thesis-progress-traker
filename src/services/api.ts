@@ -5,11 +5,8 @@ import type {
   AppOwnerUser,
   AuditLogEntry,
   AuthResponse,
-  BackupManifest,
-  CaseHistoryEvent,
   CaseRecord,
   CaseStatus,
-  ContactMessage,
   CustomFieldDefinition,
   DashboardStats,
   DuplicateCheckResult,
@@ -74,11 +71,6 @@ class ApiService {
   public logout() {
     this.setToken(null);
     this.setActiveGroupId(null);
-    try {
-      fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
-    } catch {
-      // ignore
-    }
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -99,7 +91,6 @@ class ApiService {
 
     const response = await fetch(endpoint, {
       ...options,
-      credentials: 'include',
       headers,
     });
 
@@ -264,36 +255,6 @@ class ApiService {
     });
   }
 
-  public async deleteGroup(groupId: string): Promise<{ success: boolean; groupName: string }> {
-    return this.request<{ success: boolean; groupName: string }>(`/api/groups/${groupId}`, {
-      method: 'DELETE',
-    });
-  }
-
-  public async getGroupBackup(groupId: string): Promise<{
-    manifest: BackupManifest;
-    group: ResearchGroup;
-    cases: CaseRecord[];
-    files: ResearchFile[];
-    members: any[];
-  }> {
-    return this.request(`/api/groups/${groupId}/backup`);
-  }
-
-  public async restoreGroupBackup(backupData: {
-    manifest?: BackupManifest;
-    group?: Partial<ResearchGroup>;
-    cases?: Partial<CaseRecord>[];
-    files?: Partial<ResearchFile>[];
-    mode?: 'new' | 'merge' | 'replace';
-    targetGroupId?: string;
-  }): Promise<{ success: boolean; group: ResearchGroup; casesRestored: number; filesRestored: number }> {
-    return this.request('/api/groups/restore', {
-      method: 'POST',
-      body: JSON.stringify(backupData),
-    });
-  }
-
   public async createInvitation(
     groupId: string,
     intendedEmail?: string
@@ -384,15 +345,8 @@ class ApiService {
   public async registerCase(params: {
     patientId: string;
     patientName?: string;
-    age?: number;
-    gender?: string;
-    department?: string;
-    location?: string;
     diagnosis?: string;
     drugNames?: string;
-    admissionDate?: string;
-    dischargeDate?: string;
-    notes?: string;
     customValues?: Record<string, any>;
     groupId?: string;
   }): Promise<{ success: boolean; case: CaseRecord }> {
@@ -407,17 +361,9 @@ class ApiService {
     caseId: string,
     details: {
       patientName?: string;
-      age?: number;
-      gender?: string;
-      department?: string;
-      location?: string;
       diagnosis?: string;
       drugNames?: string;
-      admissionDate?: string;
-      dischargeDate?: string;
-      notes?: string;
       customValues?: Record<string, any>;
-      status?: CaseStatus;
     },
     groupId?: string
   ): Promise<{ success: boolean; case: CaseRecord }> {
@@ -667,50 +613,6 @@ class ApiService {
       method: 'PATCH',
       body: JSON.stringify({ content }),
     });
-  }
-
-  // --- PUBLIC CONTACT & SUPPORT INQUIRIES ---
-
-  public async submitContact(data: {
-    name: string;
-    email: string;
-    subject: string;
-    message: string;
-  }): Promise<{ success: boolean; messageId: string; confirmation: string }> {
-    return this.request<{ success: boolean; messageId: string; confirmation: string }>(
-      '/api/contact',
-      {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }
-    );
-  }
-
-  // --- CASE HISTORY & EVENT TRAIL ---
-
-  public async getCaseHistory(groupId?: string): Promise<{ history: CaseHistoryEvent[] }> {
-    const gid = groupId || this.getActiveGroupId();
-    const query = gid ? `?groupId=${encodeURIComponent(gid)}` : '';
-    return this.request<{ history: CaseHistoryEvent[] }>(`/api/cases/history${query}`);
-  }
-
-  // --- ADMIN SUPPORT INQUIRIES ---
-
-  public async getSupportMessages(): Promise<{ messages: ContactMessage[] }> {
-    return this.request<{ messages: ContactMessage[] }>('/api/app-owner/support/messages');
-  }
-
-  public async updateSupportMessageStatus(
-    id: string,
-    status: 'new' | 'reviewed' | 'resolved'
-  ): Promise<{ success: boolean; message: ContactMessage }> {
-    return this.request<{ success: boolean; message: ContactMessage }>(
-      `/api/app-owner/support/messages/${id}/status`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-      }
-    );
   }
 }
 

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   Search,
   CheckCircle2,
@@ -12,16 +12,11 @@ import {
   ExternalLink,
   Pill,
   Stethoscope,
-  Building2,
-  MapPin,
-  FileText,
-  Cloud,
 } from 'lucide-react';
 import { api } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.js';
 import { useGroup } from '../context/GroupContext.js';
 import { normalizePatientId, validatePatientId } from '../utils/normalizePatientId.js';
-import { offlineStorage } from '../services/offlineStorage.js';
 import { PrivacyNotice } from '../components/PrivacyNotice.js';
 import type { CaseRecord } from '../types/index.js';
 
@@ -34,63 +29,26 @@ interface AddPatientProps {
 export const AddPatient: React.FC<AddPatientProps> = ({ onNavigateToMyCases }) => {
   const { user } = useAuth();
   const { currentGroup } = useGroup();
-
-  const terminology = currentGroup?.subjectTerminology || 'Participant';
-
-  // Primary fields
   const [patientIdInput, setPatientIdInput] = useState<string>('');
   const [patientName, setPatientName] = useState<string>('');
   const [diagnosis, setDiagnosis] = useState<string>('');
   const [drugNames, setDrugNames] = useState<string>('');
-
-  // Demographic Details (Sections 10 & 11)
-  const [age, setAge] = useState<string>('');
-  const [gender, setGender] = useState<string>('Male');
-  const [department, setDepartment] = useState<string>('');
-  const [location, setLocation] = useState<string>('');
-
-  // Custom / Study Dates (Sections 12 & 13)
-  const [admissionDate, setAdmissionDate] = useState<string>('');
-  const [dischargeDate, setDischargeDate] = useState<string>('');
-  const [notes, setNotes] = useState<string>('');
-  const [customValues, setCustomValues] = useState<Record<string, any>>({});
-
   const [pageState, setPageState] = useState<PageState>('INPUT');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [duplicateCase, setDuplicateCase] = useState<CaseRecord | null>(null);
   const [registeredCase, setRegisteredCase] = useState<CaseRecord | null>(null);
   const [checkedNormalizedId, setCheckedNormalizedId] = useState<string>('');
-  const [isOfflineSaved, setIsOfflineSaved] = useState<boolean>(false);
-
-  // Derived Length of Stay (Section 13 & 14)
-  const derivedLengthOfStay = useMemo(() => {
-    if (!admissionDate || !dischargeDate) return null;
-    const a = new Date(admissionDate);
-    const d = new Date(dischargeDate);
-    if (isNaN(a.getTime()) || isNaN(d.getTime())) return null;
-    const diff = Math.round((d.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
-    return diff >= 0 ? diff : null;
-  }, [admissionDate, dischargeDate]);
 
   const handleReset = () => {
     setPageState('INPUT');
     setPatientIdInput('');
     setPatientName('');
-    setAge('');
-    setGender('Male');
-    setDepartment('');
-    setLocation('');
     setDiagnosis('');
     setDrugNames('');
-    setAdmissionDate('');
-    setDischargeDate('');
-    setNotes('');
-    setCustomValues({});
     setErrorMessage(null);
     setDuplicateCase(null);
     setRegisteredCase(null);
     setCheckedNormalizedId('');
-    setIsOfflineSaved(false);
   };
 
   const handleCheck = async (e?: React.FormEvent) => {
@@ -104,23 +62,13 @@ export const AddPatient: React.FC<AddPatientProps> = ({ onNavigateToMyCases }) =
 
     const validation = validatePatientId(patientIdInput);
     if (!validation.isValid) {
-      setErrorMessage(validation.errorMessage || `Please enter a valid ${terminology} ID.`);
+      setErrorMessage(validation.errorMessage || 'Please enter a valid Patient ID.');
       return;
     }
 
     setPageState('CHECKING');
 
     try {
-      // Check offline store first
-      const cached = await offlineStorage.getCachedCases(currentGroup.id);
-      const offlineMatch = cached.find((c) => c.normalized_patient_id === validation.normalizedId);
-      if (offlineMatch) {
-        setCheckedNormalizedId(validation.normalizedId);
-        setDuplicateCase(offlineMatch);
-        setPageState('DUPLICATE');
-        return;
-      }
-
       const result = await api.checkPatientId(patientIdInput, currentGroup.id);
       setCheckedNormalizedId(result.normalizedId);
 
@@ -131,19 +79,13 @@ export const AddPatient: React.FC<AddPatientProps> = ({ onNavigateToMyCases }) =
         setPageState('AVAILABLE');
       }
     } catch (err: any) {
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        // Allow proceeding offline if local store verified no conflict
-        setCheckedNormalizedId(validation.normalizedId);
-        setPageState('AVAILABLE');
-      } else {
-        setPageState('INPUT');
-        setErrorMessage(err.message || `Unable to verify ${terminology} ID.`);
-      }
+      setPageState('INPUT');
+      setErrorMessage(err.message || 'Unable to verify Patient ID. Please check connection and try again.');
     }
   };
 
   const handleRegister = async () => {
-    if (!currentGroup || !user) {
+    if (!currentGroup) {
       setErrorMessage('Please select or join a research group first.');
       return;
     }
@@ -151,74 +93,25 @@ export const AddPatient: React.FC<AddPatientProps> = ({ onNavigateToMyCases }) =
     setErrorMessage(null);
     setPageState('REGISTERING');
 
-    const parsedAge = age ? parseInt(age, 10) : undefined;
-    const payload = {
-      groupId: currentGroup.id,
-      patientId: patientIdInput.trim(),
-      patientName: patientName.trim() || undefined,
-      age: parsedAge && !isNaN(parsedAge) ? parsedAge : undefined,
-      gender: gender.trim() || undefined,
-      department: department.trim() || undefined,
-      location: location.trim() || undefined,
-      diagnosis: diagnosis.trim() || undefined,
-      drugNames: drugNames.trim() || undefined,
-      admissionDate: admissionDate || undefined,
-      dischargeDate: dischargeDate || undefined,
-      notes: notes.trim() || undefined,
-      customValues: Object.keys(customValues).length > 0 ? customValues : undefined,
-    };
-
     try {
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        // Offline persistent save to IndexedDB
-        const now = new Date().toISOString();
-        const localCase: CaseRecord = {
-          id: crypto.randomUUID(),
-          group_id: currentGroup.id,
-          patient_id: patientIdInput.trim(),
-          normalized_patient_id: checkedNormalizedId,
-          assigned_to: user.id,
-          assigned_name: user.display_name,
-          assigned_email: user.email,
-          status: 'In Progress',
-          patient_name: payload.patientName,
-          age: payload.age,
-          gender: payload.gender,
-          department: payload.department,
-          location: payload.location,
-          diagnosis: payload.diagnosis,
-          drug_names: payload.drugNames,
-          admission_date: payload.admissionDate,
-          discharge_date: payload.dischargeDate,
-          length_of_stay: derivedLengthOfStay !== null ? derivedLengthOfStay : undefined,
-          notes: payload.notes,
-          custom_values: payload.customValues,
-          registered_at: now,
-          updated_at: now,
-          sync_status: 'pending',
-        };
-
-        await offlineStorage.putLocalCase(localCase);
-        await offlineStorage.enqueue('CREATE_CASE', currentGroup.id, localCase.id, payload);
-        setRegisteredCase(localCase);
-        setIsOfflineSaved(true);
-        setPageState('SUCCESS');
-        return;
-      }
-
-      const res = await api.registerCase(payload);
-      await offlineStorage.putLocalCase(res.case);
+      const res = await api.registerCase({
+        groupId: currentGroup.id,
+        patientId: patientIdInput,
+        patientName: patientName.trim() || undefined,
+        diagnosis: diagnosis.trim() || undefined,
+        drugNames: drugNames.trim() || undefined,
+      });
       setRegisteredCase(res.case);
-      setIsOfflineSaved(false);
       setPageState('SUCCESS');
     } catch (err: any) {
+      // Check if duplicate race condition happened at the authoritative database level
       if (err.data?.error === 'DUPLICATE_CASE' && err.data?.case) {
         setDuplicateCase(err.data.case);
         setPageState('DUPLICATE');
       } else {
         setPageState('AVAILABLE');
         setErrorMessage(
-          err.message || 'Failed to register record. Please check connection and try again.'
+          err.message || 'Failed to register case. Database error or connection interruption.'
         );
       }
     }
@@ -227,9 +120,9 @@ export const AddPatient: React.FC<AddPatientProps> = ({ onNavigateToMyCases }) =
   if (!currentGroup) {
     return (
       <div className="max-w-2xl mx-auto bg-white border border-slate-200 rounded-3xl p-10 text-center space-y-4 shadow-xs">
-        <h3 className="text-base font-bold text-slate-900">No Research Study Selected</h3>
+        <h3 className="text-base font-bold text-slate-900">No Research Group Selected</h3>
         <p className="text-xs text-slate-500 max-w-sm mx-auto">
-          You must be inside an active research study to check and enroll {terminology.toLowerCase()} records.
+          You must be inside an active research group to check and register patient cases.
         </p>
       </div>
     );
@@ -246,62 +139,72 @@ export const AddPatient: React.FC<AddPatientProps> = ({ onNavigateToMyCases }) =
           <span className="text-xs text-slate-400">•</span>
           <span className="text-xs text-slate-500 font-medium">Duplicate Guard</span>
         </div>
-        <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-          Add {terminology}
-        </h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Add Patient</h2>
         <p className="text-xs sm:text-sm text-slate-500 mt-1">
-          Enter the {terminology} ID to verify uniqueness within{' '}
-          <strong>{currentGroup.name}</strong> before registering.
+          Enter the Patient ID to verify it is unique within <strong>{currentGroup.name}</strong> before registering.
         </p>
       </div>
 
-      {/* STATE 1: ID INPUT & CHECK FORM */}
+      {/* STATE 1: INITIAL INPUT OR CHECKING */}
       {(pageState === 'INPUT' || pageState === 'CHECKING') && (
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-7 shadow-xs space-y-5">
           <form onSubmit={handleCheck} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
-                {terminology} ID / Study Code *
+              <label
+                htmlFor="patientIdInput"
+                className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2"
+              >
+                Patient ID
               </label>
+
               <div className="relative">
-                <Search className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
+                  id="patientIdInput"
                   type="text"
-                  required
                   autoFocus
                   disabled={pageState === 'CHECKING'}
                   value={patientIdInput}
-                  onChange={(e) => setPatientIdInput(e.target.value)}
-                  placeholder={`e.g. ${terminology.charAt(0)}-1001, 2026-042`}
-                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-2xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  onChange={(e) => {
+                    setPatientIdInput(e.target.value);
+                    if (errorMessage) setErrorMessage(null);
+                  }}
+                  placeholder="e.g. PSH-2024-001 or 10423"
+                  className="w-full px-4 py-3.5 sm:py-4 bg-slate-50 border-2 border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-base sm:text-lg font-mono font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all uppercase shadow-2xs"
                 />
+                {patientIdInput.trim() && (
+                  <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-blue-700 font-mono font-semibold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                    {normalizePatientId(patientIdInput)}
+                  </div>
+                )}
               </div>
-              <p className="text-[11px] text-slate-400 mt-1.5">
-                Smart Normalization: Automatically strips spaces, hyphens, and casing to prevent duplicates.
-              </p>
+
+              <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+                <span>Normalization: Case-insensitive, trimmed, internal spaces collapsed</span>
+                <span>Max 64 chars</span>
+              </div>
             </div>
 
             {errorMessage && (
               <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-start gap-2.5">
                 <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                <p className="font-medium">{errorMessage}</p>
+                <p className="leading-relaxed font-medium">{errorMessage}</p>
               </div>
             )}
 
             <button
               type="submit"
               disabled={pageState === 'CHECKING' || !patientIdInput.trim()}
-              className="w-full min-h-[48px] py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-blue-500/20 active:scale-98 disabled:opacity-50 transition-all cursor-pointer flex items-center justify-center gap-2"
+              className="w-full py-4 px-6 rounded-xl font-bold text-base bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               {pageState === 'CHECKING' ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Verifying Uniqueness...</span>
-                </>
+                <span className="flex items-center gap-2.5">
+                  <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Checking Patient ID...</span>
+                </span>
               ) : (
                 <>
-                  <Search className="w-4 h-4" />
-                  <span>Verify {terminology} ID</span>
+                  <Search className="w-5 h-5" />
+                  <span>Check Patient ID</span>
                 </>
               )}
             </button>
@@ -309,216 +212,126 @@ export const AddPatient: React.FC<AddPatientProps> = ({ onNavigateToMyCases }) =
         </div>
       )}
 
-      {/* STATE 2: AVAILABLE - SHOW DETAILED DEMOGRAPHIC & STUDY DATES FORM */}
+      {/* STATE 2: PATIENT ID AVAILABLE */}
       {(pageState === 'AVAILABLE' || pageState === 'REGISTERING') && (
-        <div className="bg-white border-2 border-emerald-400/80 rounded-3xl p-6 sm:p-8 shadow-md space-y-6 animate-in fade-in">
-          {/* Uniqueness Confirmation Banner */}
-          <div className="flex items-center gap-3 p-4 bg-emerald-50 rounded-2xl border border-emerald-200">
-            <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
+        <div className="bg-emerald-50/70 border-2 border-emerald-300 rounded-2xl p-6 sm:p-8 shadow-md space-y-6">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-100 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+            </div>
             <div>
-              <span className="text-xs font-bold text-emerald-900 block">
-                ID is Available & Unique in This Study
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                Verified Available
               </span>
-              <span className="text-[11px] text-emerald-700">
-                &ldquo;{patientIdInput.trim()}&rdquo; (Key: {checkedNormalizedId})
+              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mt-1">
+                ✓ Patient ID Available
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600">
+                This Patient ID has not been registered yet in this study.
+              </p>
+            </div>
+          </div>
+
+          {/* Core Case Details */}
+          <div className="p-4 bg-white rounded-xl border border-emerald-200 space-y-2.5 shadow-2xs">
+            <div className="flex items-center justify-between text-xs sm:text-sm">
+              <span className="text-slate-500 font-medium">Patient ID:</span>
+              <span className="font-mono font-bold text-slate-900 text-base sm:text-lg">
+                {patientIdInput.trim()}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500 font-medium">Normalized Key:</span>
+              <span className="font-mono text-blue-700 font-semibold">{checkedNormalizedId}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500 font-medium">Will Be Assigned To:</span>
+              <span className="font-bold text-slate-800">{user?.display_name}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500 font-medium">Default Status:</span>
+              <span className="font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                In Progress
               </span>
             </div>
           </div>
 
-          {/* SECTION A: DEMOGRAPHIC DETAILS (Requirement 11) */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                <User className="w-4 h-4 text-blue-600" />
-                Demographic Details
+          {/* Optional Clinical Fields Section */}
+          <div className="bg-white rounded-xl border border-emerald-200 p-4 space-y-3 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <Stethoscope className="w-4 h-4 text-blue-600" />
+                Optional Clinical Details
               </span>
-              <span className="text-[10px] text-slate-400 font-medium">Configurable per study</span>
+              <span className="text-[11px] text-slate-400">Optional / Can edit later</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Participant Alias / Name (Optional)
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Patient Name <span className="text-slate-400 font-normal">(Optional)</span>
                 </label>
                 <input
                   type="text"
                   value={patientName}
                   onChange={(e) => setPatientName(e.target.value)}
-                  placeholder="e.g. Subject initials or alias"
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-blue-600"
+                  placeholder="e.g. Patient full name or initials"
+                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none transition-colors"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Age</label>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Diagnosis <span className="text-slate-400 font-normal">(Optional)</span>
+                  </label>
                   <input
-                    type="number"
-                    min="0"
-                    max="150"
-                    value={age}
-                    onChange={(e) => setAge(e.target.value)}
-                    placeholder="e.g. 45"
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-blue-600"
+                    type="text"
+                    value={diagnosis}
+                    onChange={(e) => setDiagnosis(e.target.value)}
+                    placeholder="e.g. Hypertension, Diabetes Type 2"
+                    className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none transition-colors"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Sex / Gender</label>
-                  <select
-                    value={gender}
-                    onChange={(e) => setGender(e.target.value)}
-                    className="w-full px-2.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-blue-600 cursor-pointer"
-                  >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                    <option value="Prefer not to say">Unspecified</option>
-                  </select>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Drug Names / Regimen <span className="text-slate-400 font-normal">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={drugNames}
+                    onChange={(e) => setDrugNames(e.target.value)}
+                    placeholder="e.g. Metformin 500mg, Amlodipine"
+                    className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none transition-colors"
+                  />
                 </div>
               </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Department / Unit
-                </label>
-                <input
-                  type="text"
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  placeholder="e.g. General Medicine, Cardiology, ICU"
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-blue-600"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Location / Ward / Clinic
-                </label>
-                <input
-                  type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="e.g. Ward 4B, OPD Room 12"
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-blue-600"
-                />
-              </div>
             </div>
           </div>
 
-          {/* SECTION B: STUDY DATES & DERIVED LENGTH OF STAY (Requirements 12, 13, 14) */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                <Calendar className="w-4 h-4 text-purple-600" />
-                Custom Study Dates
-              </span>
-              <span className="text-[10px] text-slate-400 font-medium">Manually editable</span>
+          {errorMessage && (
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <p className="font-medium">{errorMessage}</p>
             </div>
+          )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Admission / Start / Visit Date
-                </label>
-                <input
-                  type="date"
-                  value={admissionDate}
-                  onChange={(e) => setAdmissionDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-blue-600 cursor-pointer"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Discharge / End / Follow-up Date
-                </label>
-                <input
-                  type="date"
-                  value={dischargeDate}
-                  onChange={(e) => setDischargeDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-blue-600 cursor-pointer"
-                />
-              </div>
-            </div>
-
-            {derivedLengthOfStay !== null && (
-              <div className="p-2.5 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-900 flex items-center justify-between">
-                <span className="font-semibold">Derived Duration / Length of Stay:</span>
-                <span className="font-bold text-sm bg-purple-200/60 px-2.5 py-0.5 rounded-lg">
-                  {derivedLengthOfStay} day{derivedLengthOfStay === 1 ? '' : 's'}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* SECTION C: CLINICAL & STUDY DETAILS */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                <Stethoscope className="w-4 h-4 text-emerald-600" />
-                Study Clinical & Topic Details
-              </span>
-              <span className="text-[10px] text-slate-400 font-medium">Optional</span>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Primary Condition / Indication / Diagnosis
-                </label>
-                <input
-                  type="text"
-                  value={diagnosis}
-                  onChange={(e) => setDiagnosis(e.target.value)}
-                  placeholder="e.g. Type 2 Diabetes, Bacterial Pneumonia"
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-blue-600"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Intervention / Regimen / Drug Names
-                </label>
-                <input
-                  type="text"
-                  value={drugNames}
-                  onChange={(e) => setDrugNames(e.target.value)}
-                  placeholder="e.g. Ceftriaxone 1g IV, Metformin 500mg"
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-blue-600"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Study Notes / Research Observations
-                </label>
-                <textarea
-                  rows={2}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Additional observations, ethics notes, or study parameters..."
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-blue-600"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <button
               onClick={handleRegister}
               disabled={pageState === 'REGISTERING'}
-              className="flex-1 py-3.5 px-6 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20 active:scale-98 disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="flex-1 py-4 px-6 rounded-xl font-bold text-base bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               {pageState === 'REGISTERING' ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Enrolling {terminology}...</span>
-                </>
+                <span className="flex items-center gap-2.5">
+                  <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Registering Case...</span>
+                </span>
               ) : (
                 <>
-                  <UserPlus className="w-4 h-4" />
-                  <span>Register This {terminology}</span>
+                  <UserPlus className="w-5 h-5" />
+                  <span>Register This Case</span>
                 </>
               )}
             </button>
@@ -526,7 +339,7 @@ export const AddPatient: React.FC<AddPatientProps> = ({ onNavigateToMyCases }) =
             <button
               onClick={handleReset}
               disabled={pageState === 'REGISTERING'}
-              className="py-3 px-5 rounded-xl font-semibold text-xs bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              className="py-3 px-5 rounded-xl font-semibold text-xs sm:text-sm bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Cancel / Check Another</span>
@@ -535,99 +348,209 @@ export const AddPatient: React.FC<AddPatientProps> = ({ onNavigateToMyCases }) =
         </div>
       )}
 
-      {/* STATE 3: DUPLICATE ALERT */}
+      {/* STATE 3: ALREADY REGISTERED / DUPLICATE WARNING */}
       {pageState === 'DUPLICATE' && duplicateCase && (
-        <div className="bg-rose-50/80 border-2 border-rose-400 rounded-3xl p-6 sm:p-8 shadow-lg space-y-6 animate-in fade-in">
+        <div className="bg-rose-50/80 border-2 border-rose-400 rounded-2xl p-6 sm:p-8 shadow-lg space-y-6">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-rose-100 border border-rose-300 text-rose-700 flex items-center justify-center shrink-0">
-              <AlertTriangle className="w-6 h-6 text-rose-600" />
+            <div className="w-14 h-14 rounded-2xl bg-rose-100 border border-rose-300 text-rose-700 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-8 h-8 text-rose-600" />
             </div>
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-rose-800 bg-rose-100 px-2.5 py-0.5 rounded-full border border-rose-300">
-                Duplicate Detected in This Study
+                Duplicate Detected
               </span>
-              <h3 className="text-lg font-bold text-rose-950 mt-1">
-                &ldquo;{patientIdInput}&rdquo; is already registered
+              <h3 className="text-xl sm:text-2xl font-black text-rose-950 mt-1">
+                ⚠️ Patient Already Registered
               </h3>
+              <p className="text-xs sm:text-sm text-rose-800 font-medium">
+                This Patient ID is already being handled by another team member.
+              </p>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-rose-200 p-4 space-y-2 text-xs">
-            <div className="flex justify-between">
-              <span className="text-slate-500 font-medium">Record ID:</span>
-              <span className="font-mono font-bold text-rose-900">{duplicateCase.patient_id}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500 font-medium">Assigned Investigator:</span>
-              <span className="font-bold text-slate-800">
-                {duplicateCase.assigned_name || 'Team Colleague'}
+          <div className="p-4 sm:p-5 bg-white rounded-xl border border-rose-200 divide-y divide-slate-100 space-y-2.5 shadow-2xs">
+            <div className="flex items-center justify-between text-xs sm:text-sm pb-2">
+              <span className="text-slate-500 font-medium flex items-center gap-1.5">
+                <Layers className="w-4 h-4 text-slate-400" />
+                Patient ID:
+              </span>
+              <span className="font-mono font-bold text-slate-900 text-base sm:text-lg">
+                {duplicateCase.patient_id}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500 font-medium">Enrolled Date:</span>
-              <span className="text-slate-700">
-                {new Date(duplicateCase.registered_at).toLocaleDateString()}
+
+            <div className="flex items-center justify-between text-xs sm:text-sm py-2">
+              <span className="text-slate-500 font-medium flex items-center gap-1.5">
+                <User className="w-4 h-4 text-slate-400" />
+                Assigned To:
+              </span>
+              <span className="font-bold text-blue-700 text-sm sm:text-base">
+                {duplicateCase.assigned_name || 'Team Member'}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500 font-medium">Current Status:</span>
-              <span className="font-bold text-slate-800">{duplicateCase.status}</span>
+
+            {duplicateCase.patient_name && (
+              <div className="flex items-center justify-between text-xs sm:text-sm py-2">
+                <span className="text-slate-500 font-medium">Patient Name:</span>
+                <span className="font-semibold text-slate-800">{duplicateCase.patient_name}</span>
+              </div>
+            )}
+
+            {duplicateCase.diagnosis && (
+              <div className="flex items-center justify-between text-xs sm:text-sm py-2">
+                <span className="text-slate-500 font-medium">Diagnosis:</span>
+                <span className="font-medium text-slate-700">{duplicateCase.diagnosis}</span>
+              </div>
+            )}
+
+            {duplicateCase.drug_names && (
+              <div className="flex items-center justify-between text-xs sm:text-sm py-2">
+                <span className="text-slate-500 font-medium">Drug Names:</span>
+                <span className="font-medium text-slate-700">{duplicateCase.drug_names}</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between text-xs sm:text-sm py-2">
+              <span className="text-slate-500 font-medium flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-slate-400" />
+                Registered:
+              </span>
+              <span className="font-medium text-slate-800">
+                {new Date(duplicateCase.registered_at).toLocaleString([], {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between text-xs sm:text-sm pt-2">
+              <span className="text-slate-500 font-medium flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-slate-400" />
+                Status:
+              </span>
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                  duplicateCase.status === 'Completed'
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                    : duplicateCase.status === 'Excluded'
+                    ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                    : 'bg-amber-100 text-amber-800 border border-amber-300'
+                }`}
+              >
+                {duplicateCase.status}
+              </span>
             </div>
           </div>
 
-          <p className="text-xs text-rose-800">
-            To prevent skewed study sample sizes, duplicate enrollments within the same research study are blocked.
-          </p>
+          <div className="p-3.5 bg-rose-100/70 rounded-xl border border-rose-200 text-xs text-rose-900 leading-relaxed font-medium">
+            <strong>Protection Notice:</strong> To ensure research integrity and avoid duplicate case collection, DO NOT collect thesis data from this patient. It has already been assigned.
+          </div>
 
           <button
             onClick={handleReset}
-            className="w-full py-3 bg-white border border-rose-300 hover:bg-rose-50 text-rose-900 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
+            className="w-full py-3.5 px-6 rounded-xl font-bold text-sm bg-slate-900 hover:bg-slate-800 text-white transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Check Another {terminology} ID</span>
+            <span>Go Back / Check Another Patient</span>
           </button>
         </div>
       )}
 
-      {/* STATE 4: SUCCESS */}
+      {/* STATE 4: SUCCESS REGISTRATION CARD */}
       {pageState === 'SUCCESS' && registeredCase && (
-        <div className="bg-emerald-50/80 border-2 border-emerald-400 rounded-3xl p-6 sm:p-8 shadow-lg space-y-6 animate-in fade-in">
+        <div className="bg-emerald-50/70 border-2 border-emerald-300 rounded-2xl p-6 sm:p-8 shadow-lg space-y-6">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-100 border border-emerald-300 text-emerald-700 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+            <div className="w-14 h-14 rounded-2xl bg-emerald-100 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-8 h-8 text-emerald-600" />
             </div>
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
-                {isOfflineSaved ? 'Saved Locally (Offline)' : 'Successfully Enrolled'}
+                Confirmed In Cloud Database
               </span>
-              <h3 className="text-lg font-bold text-emerald-950 mt-1">
-                {terminology} {registeredCase.patient_id} Registered
+              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mt-1">
+                ✓ Patient Registered Successfully
               </h3>
+              <p className="text-xs sm:text-sm text-emerald-800 font-medium">
+                You are now the authoritative researcher assigned to this patient case.
+              </p>
             </div>
           </div>
 
-          {isOfflineSaved && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center gap-2">
-              <Cloud className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>
-                Saved locally in browser storage. Will automatically upload to the cloud when internet connection is restored.
+          <div className="p-4 sm:p-5 bg-white rounded-xl border border-emerald-200 divide-y divide-slate-100 space-y-2.5 shadow-2xs">
+            <div className="flex items-center justify-between text-xs sm:text-sm pb-2">
+              <span className="text-slate-500 font-medium">Patient ID:</span>
+              <span className="font-mono font-bold text-slate-900 text-base sm:text-lg">
+                {registeredCase.patient_id}
               </span>
             </div>
-          )}
+
+            <div className="flex items-center justify-between text-xs sm:text-sm py-2">
+              <span className="text-slate-500 font-medium">Assigned To:</span>
+              <span className="font-bold text-blue-700">
+                {registeredCase.assigned_name || user?.display_name}
+              </span>
+            </div>
+
+            {registeredCase.patient_name && (
+              <div className="flex items-center justify-between text-xs sm:text-sm py-2">
+                <span className="text-slate-500 font-medium">Patient Name:</span>
+                <span className="font-semibold text-slate-800">{registeredCase.patient_name}</span>
+              </div>
+            )}
+
+            {registeredCase.diagnosis && (
+              <div className="flex items-center justify-between text-xs sm:text-sm py-2">
+                <span className="text-slate-500 font-medium">Diagnosis:</span>
+                <span className="font-medium text-slate-700">{registeredCase.diagnosis}</span>
+              </div>
+            )}
+
+            {registeredCase.drug_names && (
+              <div className="flex items-center justify-between text-xs sm:text-sm py-2">
+                <span className="text-slate-500 font-medium">Drug Names:</span>
+                <span className="font-medium text-slate-700">{registeredCase.drug_names}</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between text-xs sm:text-sm py-2">
+              <span className="text-slate-500 font-medium">Status:</span>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                {registeredCase.status}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between text-xs sm:text-sm pt-2">
+              <span className="text-slate-500 font-medium">Registered:</span>
+              <span className="font-medium text-slate-800">
+                {new Date(registeredCase.registered_at).toLocaleString([], {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+            </div>
+          </div>
 
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <button
               onClick={handleReset}
-              className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-500/20 active:scale-98 cursor-pointer flex items-center justify-center gap-2"
+              className="flex-1 py-3.5 px-6 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
-              <span>Add Another {terminology}</span>
+              <span>Add Another Patient</span>
             </button>
+
             <button
               onClick={onNavigateToMyCases}
-              className="py-3 px-5 bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-900 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              className="py-3.5 px-6 rounded-xl font-semibold text-sm bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>View My Records</span>
+              <ExternalLink className="w-4 h-4" />
+              <span>View My Cases</span>
             </button>
           </div>
         </div>

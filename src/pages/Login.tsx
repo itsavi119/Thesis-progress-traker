@@ -7,58 +7,18 @@ import { api } from '../services/api.js';
 
 interface LoginProps {
   onSuccessfulLogin?: (isAppOwner: boolean) => void;
-  onBackToPublic?: () => void;
-  initialMode?: 'login' | 'signup' | 'org-login';
 }
 
-export const Login: React.FC<LoginProps> = ({
-  onSuccessfulLogin,
-  onBackToPublic,
-  initialMode = 'login',
-}) => {
+export const Login: React.FC<LoginProps> = ({ onSuccessfulLogin }) => {
   const { login, register, signInWithGoogle } = useAuth();
-  const [isOrgLoginMode, setIsOrgLoginMode] = useState<boolean>(initialMode === 'org-login');
-  const [isRegistering, setIsRegistering] = useState<boolean>(initialMode === 'signup');
-  const [isResetMode, setIsResetMode] = useState<boolean>(false);
+  const [isOrgLoginMode, setIsOrgLoginMode] = useState<boolean>(false);
+  const [isRegistering, setIsRegistering] = useState<boolean>(false);
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [displayName, setDisplayName] = useState<string>('');
-  const [resetEmail, setResetEmail] = useState<string>('');
-  const [newPassword, setNewPassword] = useState<string>('');
-  const [resetSuccess, setResetSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [isResetting, setIsResetting] = useState<boolean>(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState<boolean>(false);
-
-  const handleResetSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setResetSuccess(null);
-    setIsResetting(true);
-
-    try {
-      const res = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: resetEmail.trim(), newPassword }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Failed to reset password.');
-      }
-      setResetSuccess('Password updated successfully. You can now sign in with your new password.');
-      setTimeout(() => {
-        setIsResetMode(false);
-        setResetSuccess(null);
-        setPassword('');
-      }, 3000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to reset password.');
-    } finally {
-      setIsResetting(false);
-    }
-  };
 
   const handleGoogleSignIn = async () => {
     setError(null);
@@ -154,19 +114,6 @@ export const Login: React.FC<LoginProps> = ({
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-center items-center p-4 sm:p-6 antialiased">
       <div className="w-full max-w-md space-y-6">
-        {onBackToPublic && (
-          <div className="flex justify-start">
-            <button
-              type="button"
-              onClick={onBackToPublic}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Public Website</span>
-            </button>
-          </div>
-        )}
-
         {/* Brand & App Title */}
         <Logo
           size="lg"
@@ -279,7 +226,7 @@ export const Login: React.FC<LoginProps> = ({
           </div>
 
           {/* Normal Mode: Sign In vs Create Account Tabs */}
-          {!isOrgLoginMode && !isResetMode && (
+          {!isOrgLoginMode && (
             <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
               <button
                 type="button"
@@ -312,13 +259,6 @@ export const Login: React.FC<LoginProps> = ({
             </div>
           )}
 
-          {resetSuccess && (
-            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-start gap-2.5 text-xs text-emerald-800 animate-in fade-in">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-              <p className="font-medium leading-relaxed">{resetSuccess}</p>
-            </div>
-          )}
-
           {error && (
             <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800 animate-in fade-in">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -326,168 +266,78 @@ export const Login: React.FC<LoginProps> = ({
             </div>
           )}
 
-          {isResetMode ? (
-            /* Password Reset Form */
-            <form onSubmit={handleResetSubmit} className="space-y-4">
-              <div>
-                <h4 className="text-sm font-bold text-slate-900">Reset Account Password</h4>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Enter your registered institutional email and choose a new secure password.
-                </p>
-              </div>
-
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {!isOrgLoginMode && isRegistering && (
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Registered Email Address
+                  Researcher Full Name
                 </label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
-                    type="email"
+                    type="text"
                     required
-                    value={resetEmail}
-                    onChange={(e) => setResetEmail(e.target.value)}
-                    placeholder="investigator@hospital.org"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="e.g., Dr. Sarah Jenkins"
                     className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium"
                   />
                 </div>
               </div>
+            )}
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  New Password
-                </label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="password"
-                    required
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="At least 8 chars, letters and numbers"
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Password must be at least 8 characters with at least one letter and one number.
-                </p>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                {isOrgLoginMode ? 'Administrator Email' : 'Institutional Email'}
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="investigator@hospital.org"
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium"
+                />
               </div>
+            </div>
 
-              <div className="flex gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsResetMode(false);
-                    setError(null);
-                  }}
-                  className="flex-1 py-2.5 px-3 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer"
-                >
-                  Back to Sign In
-                </button>
-                <button
-                  type="submit"
-                  disabled={isResetting}
-                  className="flex-1 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 cursor-pointer disabled:opacity-50"
-                >
-                  {isResetting ? 'Updating...' : 'Set New Password'}
-                </button>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Password</label>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
               </div>
-            </form>
-          ) : (
-            /* Regular Auth Form */
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {!isOrgLoginMode && isRegistering && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Researcher Full Name
-                  </label>
-                  <div className="relative">
-                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      required
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                      placeholder="e.g., Dr. Sarah Jenkins"
-                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium"
-                    />
-                  </div>
-                </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting || isGoogleSubmitting}
+              className={`w-full min-h-[46px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-sm shadow-md transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer ${
+                isOrgLoginMode
+                  ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-slate-900/20'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25'
+              }`}
+            >
+              {isSubmitting ? (
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : isOrgLoginMode ? (
+                'Sign In to Organization Admin'
+              ) : isRegistering ? (
+                'Create Researcher Account'
+              ) : (
+                'Sign In to Research Workspace'
               )}
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  {isOrgLoginMode ? 'Administrator Email' : 'Institutional Email'}
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="investigator@hospital.org"
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-700">Password</label>
-                  {!isRegistering && !isOrgLoginMode && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsResetMode(true);
-                        setResetEmail(email);
-                        setError(null);
-                      }}
-                      className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 cursor-pointer"
-                    >
-                      Forgot password?
-                    </button>
-                  )}
-                </div>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
-                {isRegistering && (
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Password must be at least 8 characters with at least one letter and one number.
-                  </p>
-                )}
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSubmitting || isGoogleSubmitting}
-                className={`w-full min-h-[46px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-sm shadow-md transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer ${
-                  isOrgLoginMode
-                    ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-slate-900/20'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25'
-                }`}
-              >
-                {isSubmitting ? (
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : isOrgLoginMode ? (
-                  'Sign In to Organization Admin'
-                ) : isRegistering ? (
-                  'Create Researcher Account'
-                ) : (
-                  'Sign In to Research Workspace'
-                )}
-              </button>
-            </form>
-          )}
+            </button>
+          </form>
 
           {/* Section 16 Requirement: Visible Organization Login Access Point */}
           {!isOrgLoginMode && (

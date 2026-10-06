@@ -16,9 +16,6 @@ import {
   Check,
   ShieldCheck,
   FileText,
-  History,
-  Archive,
-  Settings,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.js';
 import { useGroup } from '../context/GroupContext.js';
@@ -27,9 +24,6 @@ import { PrivacyNotice } from './PrivacyNotice.js';
 import { Logo } from './Logo.js';
 import { CreateGroupModal } from './CreateGroupModal.js';
 import { JoinGroupModal } from './JoinGroupModal.js';
-import { UserProfileModal } from './UserProfileModal.js';
-import { BackupRestoreModal } from './BackupRestoreModal.js';
-import { StudySettingsModal } from './StudySettingsModal.js';
 
 export type ActiveTab =
   | 'my-groups'
@@ -37,7 +31,6 @@ export type ActiveTab =
   | 'add-patient'
   | 'all-cases'
   | 'my-cases'
-  | 'case-history'
   | 'study-files'
   | 'team-summary'
   | 'app-owner';
@@ -57,9 +50,6 @@ export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, childre
   const [groupDropdownOpen, setGroupDropdownOpen] = useState<boolean>(false);
   const [createGroupModalOpen, setCreateGroupModalOpen] = useState<boolean>(false);
   const [joinGroupModalOpen, setJoinGroupModalOpen] = useState<boolean>(false);
-  const [profileModalOpen, setProfileModalOpen] = useState<boolean>(false);
-  const [backupModalOpen, setBackupModalOpen] = useState<boolean>(false);
-  const [settingsModalOpen, setSettingsModalOpen] = useState<boolean>(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -90,7 +80,6 @@ export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, childre
     { id: 'add-patient' as ActiveTab, label: `Add ${terminology}`, icon: UserPlus, highlight: true },
     { id: 'all-cases' as ActiveTab, label: 'All Records', icon: Files },
     { id: 'my-cases' as ActiveTab, label: 'My Records', icon: UserCheck },
-    { id: 'case-history' as ActiveTab, label: 'History', icon: History },
     { id: 'study-files' as ActiveTab, label: 'Files', icon: FileText },
     { id: 'team-summary' as ActiveTab, label: 'Team', icon: Users },
   ];
@@ -474,16 +463,6 @@ export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, childre
         <div className="w-full max-w-5xl mx-auto px-4 py-5 sm:px-6 sm:py-7 lg:px-8 space-y-6 flex-1 pb-32 sm:pb-12">
           {children}
         </div>
-
-        {/* Academic & Clinical Compliance Footer */}
-        <footer className="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 border-t border-slate-200/60 text-center text-[11px] text-slate-400 space-y-1 mb-16 md:mb-0">
-          <p className="font-medium text-slate-500">
-            Thesis Case Tracker • Academic & Clinical Study Coordination Platform
-          </p>
-          <p className="text-[10px] text-slate-400">
-            Notice: This system coordinates research case enrollment and duplicate checks. It does not provide medical diagnoses or prescribing clinical advice. Studies must adhere to Institutional Ethics Committee (IEC/IRB) approval.
-          </p>
-        </footer>
       </main>
 
       {/* MOBILE BOTTOM NAVIGATION BAR */}

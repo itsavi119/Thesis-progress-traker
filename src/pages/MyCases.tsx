@@ -17,10 +17,6 @@ import {
   AlertTriangle,
   Search,
   FileSpreadsheet,
-  Building2,
-  MapPin,
-  Calendar,
-  FileText,
 } from 'lucide-react';
 import { api } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.js';
@@ -53,23 +49,7 @@ export const MyCases: React.FC<MyCasesProps> = ({ onNavigateToAddPatient }) => {
   const [editPatientName, setEditPatientName] = useState<string>('');
   const [editDiagnosis, setEditDiagnosis] = useState<string>('');
   const [editDrugNames, setEditDrugNames] = useState<string>('');
-  const [editAge, setEditAge] = useState<string>('');
-  const [editGender, setEditGender] = useState<string>('Male');
-  const [editDepartment, setEditDepartment] = useState<string>('');
-  const [editLocation, setEditLocation] = useState<string>('');
-  const [editAdmissionDate, setEditAdmissionDate] = useState<string>('');
-  const [editDischargeDate, setEditDischargeDate] = useState<string>('');
-  const [editNotes, setEditNotes] = useState<string>('');
   const [isSavingDetails, setIsSavingDetails] = useState<boolean>(false);
-
-  const editDerivedStay = useMemo(() => {
-    if (!editAdmissionDate || !editDischargeDate) return null;
-    const a = new Date(editAdmissionDate);
-    const d = new Date(editDischargeDate);
-    if (isNaN(a.getTime()) || isNaN(d.getTime())) return null;
-    const diff = Math.round((d.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
-    return diff >= 0 ? diff : null;
-  }, [editAdmissionDate, editDischargeDate]);
 
   const loadData = useCallback(async () => {
     if (!currentGroup) {
@@ -144,13 +124,6 @@ export const MyCases: React.FC<MyCasesProps> = ({ onNavigateToAddPatient }) => {
     setEditPatientName(c.patient_name || '');
     setEditDiagnosis(c.diagnosis || '');
     setEditDrugNames(c.drug_names || '');
-    setEditAge(c.age !== undefined && c.age !== null ? String(c.age) : '');
-    setEditGender(c.gender || 'Male');
-    setEditDepartment(c.department || '');
-    setEditLocation(c.location || '');
-    setEditAdmissionDate(c.admission_date ? c.admission_date.split('T')[0] : '');
-    setEditDischargeDate(c.discharge_date ? c.discharge_date.split('T')[0] : '');
-    setEditNotes(c.notes || '');
   };
 
   const handleSaveDetails = async (e: React.FormEvent) => {
@@ -160,20 +133,12 @@ export const MyCases: React.FC<MyCasesProps> = ({ onNavigateToAddPatient }) => {
     setError(null);
 
     try {
-      const parsedAge = editAge.trim() ? parseInt(editAge.trim(), 10) : undefined;
       const res = await api.updateCaseDetails(
         editingCase.id,
         {
-          patientName: editPatientName.trim() || undefined,
-          diagnosis: editDiagnosis.trim() || undefined,
-          drugNames: editDrugNames.trim() || undefined,
-          age: !isNaN(parsedAge as any) ? parsedAge : undefined,
-          gender: editGender || undefined,
-          department: editDepartment.trim() || undefined,
-          location: editLocation.trim() || undefined,
-          admissionDate: editAdmissionDate || undefined,
-          dischargeDate: editDischargeDate || undefined,
-          notes: editNotes.trim() || undefined,
+          patientName: editPatientName,
+          diagnosis: editDiagnosis,
+          drugNames: editDrugNames,
         },
         currentGroup.id
       );
@@ -493,82 +458,20 @@ export const MyCases: React.FC<MyCasesProps> = ({ onNavigateToAddPatient }) => {
               </div>
 
               {/* Optional Clinical Details Row (if present) */}
-              {(c.diagnosis || c.drug_names || c.department || c.location || c.age !== undefined || c.gender || c.admission_date || c.discharge_date || c.length_of_stay !== undefined || c.notes) && (
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-2">
-                  {/* Demographics & Location Badges */}
-                  {(c.age !== undefined || c.gender || c.department || c.location || c.length_of_stay !== undefined) && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      {(c.age !== undefined || c.gender) && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 border border-blue-200 text-[11px] font-semibold">
-                          <User className="w-3 h-3 text-blue-600" />
-                          <span>
-                            {c.age !== undefined ? `${c.age} yrs` : ''}
-                            {c.age !== undefined && c.gender ? ' • ' : ''}
-                            {c.gender || ''}
-                          </span>
-                        </span>
-                      )}
-                      {c.department && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 border border-purple-200 text-[11px] font-medium">
-                          <Building2 className="w-3 h-3 text-purple-600" />
-                          <span>Dept: {c.department}</span>
-                        </span>
-                      )}
-                      {c.location && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-medium">
-                          <MapPin className="w-3 h-3 text-amber-600" />
-                          <span>Loc: {c.location}</span>
-                        </span>
-                      )}
-                      {c.length_of_stay !== undefined && c.length_of_stay !== null && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold">
-                          <Clock className="w-3 h-3 text-emerald-600" />
-                          <span>Stay: {c.length_of_stay} {c.length_of_stay === 1 ? 'day' : 'days'}</span>
-                        </span>
-                      )}
+              {(c.diagnosis || c.drug_names) && (
+                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {c.diagnosis && (
+                    <div className="flex items-center gap-1.5 text-slate-700">
+                      <Stethoscope className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      <span className="font-semibold text-slate-500">Diagnosis:</span>
+                      <span className="font-medium truncate">{c.diagnosis}</span>
                     </div>
                   )}
-
-                  {/* Diagnosis and Drugs */}
-                  {(c.diagnosis || c.drug_names) && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-200/60">
-                      {c.diagnosis && (
-                        <div className="flex items-center gap-1.5 text-slate-700">
-                          <Stethoscope className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                          <span className="font-semibold text-slate-500">Diagnosis:</span>
-                          <span className="font-medium truncate">{c.diagnosis}</span>
-                        </div>
-                      )}
-                      {c.drug_names && (
-                        <div className="flex items-center gap-1.5 text-slate-700">
-                          <Pill className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                          <span className="font-semibold text-slate-500">Drugs:</span>
-                          <span className="font-medium truncate">{c.drug_names}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Study Dates & Notes */}
-                  {(c.admission_date || c.discharge_date || c.notes) && (
-                    <div className="space-y-1 pt-1 border-t border-slate-200/60 text-[11px] text-slate-600">
-                      {(c.admission_date || c.discharge_date) && (
-                        <div className="flex items-center gap-2 flex-wrap text-slate-500">
-                          <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
-                          {c.admission_date && (
-                            <span>Admitted: {new Date(c.admission_date).toLocaleDateString()}</span>
-                          )}
-                          {c.discharge_date && (
-                            <span>Discharged: {new Date(c.discharge_date).toLocaleDateString()}</span>
-                          )}
-                        </div>
-                      )}
-                      {c.notes && (
-                        <div className="flex items-start gap-1.5 text-slate-600">
-                          <FileText className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
-                          <span className="italic line-clamp-2">{c.notes}</span>
-                        </div>
-                      )}
+                  {c.drug_names && (
+                    <div className="flex items-center gap-1.5 text-slate-700">
+                      <Pill className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                      <span className="font-semibold text-slate-500">Drugs:</span>
+                      <span className="font-medium truncate">{c.drug_names}</span>
                     </div>
                   )}
                 </div>
@@ -655,14 +558,14 @@ export const MyCases: React.FC<MyCasesProps> = ({ onNavigateToAddPatient }) => {
         </div>
       )}
 
-      {/* EDIT CLINICAL & DEMOGRAPHIC DETAILS MODAL */}
+      {/* EDIT CLINICAL DETAILS MODAL */}
       {editingCase && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
                 <h3 className="text-base font-bold text-slate-900">
-                  Edit Case Details & Demographics
+                  Edit Clinical Details (Optional)
                 </h3>
                 <p className="text-xs text-slate-500 font-mono">
                   Patient ID: <span className="font-bold text-slate-800">{editingCase.patient_id}</span>
@@ -676,7 +579,7 @@ export const MyCases: React.FC<MyCasesProps> = ({ onNavigateToAddPatient }) => {
               </button>
             </div>
 
-            <form onSubmit={handleSaveDetails} className="space-y-4">
+            <form onSubmit={handleSaveDetails} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Patient Name <span className="text-slate-400 font-normal">(Optional)</span>
@@ -688,66 +591,6 @@ export const MyCases: React.FC<MyCasesProps> = ({ onNavigateToAddPatient }) => {
                   placeholder="e.g. Patient full name or initials"
                   className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none"
                 />
-              </div>
-
-              {/* Demographics: Age & Gender */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Age <span className="text-slate-400 font-normal">(Years)</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="130"
-                    value={editAge}
-                    onChange={(e) => setEditAge(e.target.value)}
-                    placeholder="e.g. 45"
-                    className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Gender
-                  </label>
-                  <select
-                    value={editGender}
-                    onChange={(e) => setEditGender(e.target.value)}
-                    className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none"
-                  >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Department & Location */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Department <span className="text-slate-400 font-normal">(Optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={editDepartment}
-                    onChange={(e) => setEditDepartment(e.target.value)}
-                    placeholder="e.g. Cardiology, ICU"
-                    className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Location / Ward <span className="text-slate-400 font-normal">(Optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={editLocation}
-                    onChange={(e) => setEditLocation(e.target.value)}
-                    placeholder="e.g. Ward 4B, Bed 12"
-                    className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none"
-                  />
-                </div>
               </div>
 
               <div>
@@ -773,58 +616,6 @@ export const MyCases: React.FC<MyCasesProps> = ({ onNavigateToAddPatient }) => {
                   onChange={(e) => setEditDrugNames(e.target.value)}
                   placeholder="e.g. Metformin 500mg, Atorvastatin 20mg"
                   className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none"
-                />
-              </div>
-
-              {/* Study Dates & Length of Stay */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Admission Date <span className="text-slate-400 font-normal">(Optional)</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={editAdmissionDate}
-                    onChange={(e) => setEditAdmissionDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Discharge Date <span className="text-slate-400 font-normal">(Optional)</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={editDischargeDate}
-                    onChange={(e) => setEditDischargeDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {editDerivedStay !== null && (
-                <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex items-center justify-between font-semibold">
-                  <span className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-emerald-600" />
-                    Calculated Length of Stay:
-                  </span>
-                  <span className="font-bold text-emerald-900">
-                    {editDerivedStay} {editDerivedStay === 1 ? 'day' : 'days'}
-                  </span>
-                </div>
-              )}
-
-              {/* Research Notes */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Clinical / Research Notes <span className="text-slate-400 font-normal">(Optional)</span>
-                </label>
-                <textarea
-                  rows={2}
-                  value={editNotes}
-                  onChange={(e) => setEditNotes(e.target.value)}
-                  placeholder="e.g. Patient consented, lab panel collected, baseline CBC normal"
-                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none resize-none"
                 />
               </div>
 
