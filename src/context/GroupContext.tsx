@@ -22,6 +22,7 @@ interface GroupContextType {
     customFields?: CustomFieldDefinition[];
   }) => Promise<ResearchGroup>;
   joinGroup: (code: string) => Promise<ResearchGroup>;
+  deleteGroup: (groupId: string) => Promise<void>;
   refreshGroups: () => Promise<void>;
 }
 
@@ -121,6 +122,15 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return res.group;
   };
 
+  const deleteGroup = async (groupId: string): Promise<void> => {
+    await api.deleteGroup(groupId);
+    setUserGroups((prev) => prev.filter((g) => g.id !== groupId));
+    if (currentGroup?.id === groupId) {
+      setCurrentGroup(null);
+      api.setActiveGroupId(null);
+    }
+  };
+
   const currentMember = user && currentGroup ? currentGroup.members.find((m) => m.userId === user.id) : null;
   const isOwner = currentMember?.role === 'owner' || currentGroup?.ownerId === user?.id;
   const myRole: GroupMemberRole | null = currentMember ? currentMember.role : null;
@@ -136,6 +146,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         selectGroup,
         createGroup,
         joinGroup,
+        deleteGroup,
         refreshGroups,
       }}
     >

@@ -112,11 +112,47 @@ export interface CaseRecord {
   assigned_email?: string;
   status: CaseStatus;
   patient_name?: string; // Optional name / participant alias
+  age?: number; // Demographic age
+  gender?: string; // Demographic gender / sex
+  department?: string; // Clinical / study department
+  location?: string; // Ward / clinic / location category
   diagnosis?: string; // Optional clinical condition / indication / topic
   drug_names?: string; // Optional intervention / regimen / response
+  admission_date?: string; // Manually editable study/custom date (e.g. Admission/Start/Visit date)
+  discharge_date?: string; // Manually editable study/custom date (e.g. Discharge/End/Follow-up date)
+  length_of_stay?: number; // Automatically derived in days
+  notes?: string; // Detailed study notes
   custom_values?: Record<string, any>; // Flexible study-specific custom field values
-  registered_at: string;
-  updated_at: string;
+  registered_at: string; // Created Date (immutable creation timestamp)
+  updated_at: string; // Last Updated timestamp
+  last_modified_by?: string;
+  last_modified_by_name?: string;
+  version?: number;
+  sync_status?: 'synced' | 'pending' | 'conflict';
+}
+
+export interface BackupManifest {
+  formatVersion: '1.0';
+  appVersion: string;
+  createdAt: string;
+  createdByEmail: string;
+  createdByName: string;
+  scope: 'study' | 'organization' | 'full';
+  studyId?: string;
+  studyName?: string;
+  studyTitle?: string;
+  targetSampleSize?: number;
+  caseCount: number;
+  fileCount: number;
+}
+
+export interface BackupSummaryPreview {
+  manifest: BackupManifest;
+  casesCount: number;
+  filesCount: number;
+  studyTitle: string;
+  studyName: string;
+  createdDate: string;
 }
 
 export interface DashboardStats {
@@ -244,4 +280,26 @@ export interface LegalPolicyDoc {
   category: 'privacy' | 'terms' | 'responsibility' | 'storage' | 'deletion' | 'disclaimer';
   content: string;
   lastUpdated: string;
+}
+
+export interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  status: 'new' | 'reviewed' | 'resolved';
+  createdAt: string;
+}
+
+export interface CaseHistoryEvent {
+  id: string;
+  action: 'CASE_REGISTERED' | 'CASE_UPDATED' | 'CASE_STATUS_UPDATED' | 'CASE_DELETED' | 'BACKUP_RESTORED' | string;
+  caseId?: string;
+  patientId: string;
+  patientName?: string;
+  details: string;
+  performedBy: string;
+  performedByEmail: string;
+  timestamp: string;
 }

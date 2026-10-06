@@ -11,6 +11,12 @@ import {
   CheckCircle2,
   Download,
   X,
+  User,
+  Building2,
+  MapPin,
+  Clock,
+  Calendar,
+  FileText,
 } from 'lucide-react';
 import { api } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.js';
@@ -324,10 +330,34 @@ export const AllCases: React.FC = () => {
                       </td>
 
                       <td className="py-3.5 px-4 max-w-xs">
-                        {c.patient_name || c.diagnosis || c.drug_names ? (
+                        {c.patient_name || c.diagnosis || c.drug_names || c.department || c.location || c.age !== undefined || c.gender || c.length_of_stay !== undefined ? (
                           <div className="space-y-1">
                             {c.patient_name && (
                               <p className="font-semibold text-slate-800 truncate">{c.patient_name}</p>
+                            )}
+                            {(c.age !== undefined || c.gender || c.department || c.location || c.length_of_stay !== undefined) && (
+                              <div className="flex flex-wrap items-center gap-1 text-[10px]">
+                                {(c.age !== undefined || c.gender) && (
+                                  <span className="px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 font-medium">
+                                    {c.age !== undefined ? `${c.age}y` : ''} {c.gender || ''}
+                                  </span>
+                                )}
+                                {c.department && (
+                                  <span className="px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 font-medium truncate max-w-[100px]">
+                                    {c.department}
+                                  </span>
+                                )}
+                                {c.location && (
+                                  <span className="px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 font-medium truncate max-w-[90px]">
+                                    {c.location}
+                                  </span>
+                                )}
+                                {c.length_of_stay !== undefined && c.length_of_stay !== null && (
+                                  <span className="px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-800 font-bold">
+                                    Stay: {c.length_of_stay}d
+                                  </span>
+                                )}
+                              </div>
                             )}
                             {c.diagnosis && (
                               <p className="text-[11px] text-slate-500 truncate flex items-center gap-1">
@@ -437,9 +467,33 @@ export const AllCases: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Optional Clinical Details in Mobile Card */}
-                  {(c.diagnosis || c.drug_names) && (
-                    <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs space-y-1">
+                  {/* Optional Clinical & Demographic Details in Mobile Card */}
+                  {(c.diagnosis || c.drug_names || c.department || c.location || c.age !== undefined || c.gender || c.length_of_stay !== undefined) && (
+                    <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs space-y-1.5">
+                      {(c.age !== undefined || c.gender || c.department || c.location || c.length_of_stay !== undefined) && (
+                        <div className="flex flex-wrap items-center gap-1 text-[10px]">
+                          {(c.age !== undefined || c.gender) && (
+                            <span className="px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 font-medium">
+                              {c.age !== undefined ? `${c.age}y` : ''} {c.gender || ''}
+                            </span>
+                          )}
+                          {c.department && (
+                            <span className="px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 font-medium">
+                              {c.department}
+                            </span>
+                          )}
+                          {c.location && (
+                            <span className="px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 font-medium">
+                              {c.location}
+                            </span>
+                          )}
+                          {c.length_of_stay !== undefined && c.length_of_stay !== null && (
+                            <span className="px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-800 font-bold">
+                              Stay: {c.length_of_stay}d
+                            </span>
+                          )}
+                        </div>
+                      )}
                       {c.diagnosis && (
                         <div className="flex items-center gap-1.5 text-slate-700">
                           <Stethoscope className="w-3 h-3 text-blue-600 shrink-0" />

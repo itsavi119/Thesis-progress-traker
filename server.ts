@@ -1,8 +1,12 @@
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'node:path';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
 import {
   db,
   DuplicateCaseError,
@@ -10,7 +14,17 @@ import {
   UnauthorizedGroupActionError,
   GroupNotFoundError,
   AccountSuspendedError,
+  AccountLockedError,
 } from './src/server/db.js';
+import {
+  registerSchema,
+  loginSchema,
+  resetPasswordSchema,
+  createGroupSchema,
+  updateGroupSchema,
+  registerCaseSchema,
+  updateCaseDetailsSchema,
+} from './src/server/validation.js';
 import type { UserProfile } from './src/types/index.js';
 
 dotenv.config();
@@ -18,19 +32,126 @@ dotenv.config();
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const isProd = process.env.NODE_ENV === 'production';
-const JWT_SECRET = process.env.JWT_SECRET || 'thesis-tracker-secure-secret-token-key-2026';
 
-app.use(express.json({ limit: '25mb' }));
+// Trust reverse proxy (e.g. Cloud Run, GCP load balancers, AI Studio preview environment)
+app.set('trust proxy', true);
+
+// Robust client IP key generator that safely respects X-Forwarded-For & RFC 7239 Forwarded headers
+const getClientIpKey = (req: Request): string => {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string') {
+    return forwarded.split(',')[0].trim();
+  }
+  if (Array.isArray(forwarded) && forwarded[0]) {
+    return forwarded[0].split(',')[0].trim();
+  }
+  const forwardedRfc = req.headers['forwarded'];
+  if (typeof forwardedRfc === 'string') {
+    const match = /for="?([^";,\s]+)"?/i.exec(forwardedRfc);
+    if (match && match[1]) return match[1].trim();
+  }
+  return req.ip || req.socket?.remoteAddress || '127.0.0.1';
+};
+
+// Cryptographically secure, high-entropy JWT secret enforcement (Roadmap item 1)
+function getOrGenerateJwtSecret(): string {
+  if (process.env.JWT_SECRET && process.env.JWT_SECRET.trim().length >= 32) {
+    return process.env.JWT_SECRET.trim();
+  }
+  if (isProd) {
+    throw new Error('FATAL: JWT_SECRET environment variable is required and must be at least 32 characters in production.');
+  }
+  // Development persistent high-entropy key
+  const secretPath = path.resolve(process.cwd(), '.jwt_secret_dev');
+  if (fs.existsSync(secretPath)) {
+    try {
+      const saved = fs.readFileSync(secretPath, 'utf8').trim();
+      if (saved.length >= 64) return saved;
+    } catch {
+      // fallback to generation
+    }
+  }
+  const generated = crypto.randomBytes(64).toString('hex');
+  try {
+    fs.writeFileSync(secretPath, generated, { mode: 0o600 });
+  } catch {
+    // ignore
+  }
+  return generated;
+}
+
+const JWT_SECRET = getOrGenerateJwtSecret();
+
+// Security Headers via Helmet (tuned safely for Vite dev and preview frames)
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    frameguard: false,
+  })
+);
+
+// Cookie Parser for httpOnly SameSite session cookies (Roadmap item 1)
+app.use(cookieParser());
+
+// Reduced JSON body limit from 25MB to 5MB (Roadmap item 1)
+app.use(express.json({ limit: '5mb' }));
+
+// Global Rate Limiter: 300 requests per 15 minutes
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => getClientIpKey(req),
+  validate: {
+    trustProxy: false,
+    xForwardedForHeader: false,
+    forwardedHeader: false,
+    default: false,
+  },
+  message: { error: 'TOO_MANY_REQUESTS', message: 'Rate limit exceeded. Please try again later.' },
+});
+app.use('/api/', globalLimiter);
+
+// Strict Rate Limiter for Authentication: max 20 attempts per 15 minutes
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => getClientIpKey(req),
+  validate: {
+    trustProxy: false,
+    xForwardedForHeader: false,
+    forwardedHeader: false,
+    default: false,
+  },
+  message: { error: 'TOO_MANY_REQUESTS', message: 'Too many authentication attempts. Please wait 15 minutes.' },
+});
+
+// Helper to set httpOnly, Secure, SameSite cookie
+function setAuthCookie(res: Response, token: string) {
+  res.cookie('auth_token', token, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: '/',
+  });
+}
 
 // Extend Express Request type for authenticated user
 export interface AuthenticatedRequest extends Request {
   user?: UserProfile;
 }
 
-// Authentication Middleware
+// Authentication Middleware: Checks httpOnly cookie first, then Bearer token
 const authenticateToken = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  const cookieToken = req.cookies?.auth_token;
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const headerToken = authHeader && authHeader.split(' ')[1];
+  const token = cookieToken || headerToken;
 
   if (!token) {
     res.status(401).json({ error: 'UNAUTHORIZED', message: 'Authentication required. Please log in.' });
@@ -81,10 +202,55 @@ function getGroupId(req: AuthenticatedRequest): string | null {
   return null;
 }
 
+// --- SYSTEM HEALTH & MONITORING (Roadmap item 4) ---
+
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    version: '1.0.0',
+    service: 'thesis-case-tracker',
+  });
+});
+
 // --- PUBLIC & AUTHENTICATED LEGAL POLICIES ---
 
 app.get('/api/legal/policies', (req, res) => {
   res.json({ policies: db.getLegalPolicies() });
+});
+
+// --- PUBLIC CONTACT INQUIRIES & SUPPORT WORKFLOW ---
+app.post('/api/contact', async (req, res) => {
+  try {
+    const { name, email, subject, message } = req.body;
+    if (!name || typeof name !== 'string' || name.trim().length < 2) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Please provide your full name (at least 2 characters).' });
+      return;
+    }
+    if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Please provide a valid institutional or personal email address.' });
+      return;
+    }
+    if (!subject || typeof subject !== 'string' || subject.trim().length < 3) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Please provide a subject line (at least 3 characters).' });
+      return;
+    }
+    if (!message || typeof message !== 'string' || message.trim().length < 10) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Please provide your message details (at least 10 characters).' });
+      return;
+    }
+
+    const saved = await db.saveContactMessage({ name, email, subject, message });
+    res.status(201).json({
+      success: true,
+      messageId: saved.id,
+      confirmation: 'Your inquiry has been received. Our team will review your message promptly.',
+    });
+  } catch (err: any) {
+    console.error('[Contact Error]:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to process inquiry. Please try again.' });
+  }
 });
 
 // --- AUTHENTICATION ROUTES ---
@@ -98,32 +264,50 @@ app.get('/api/auth/team-capacity', async (req, res) => {
   });
 });
 
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
-    const { email, password, displayName } = req.body;
+    const parseRes = registerSchema.safeParse(req.body);
+    if (!parseRes.success) {
+      res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: parseRes.error.issues[0]?.message || 'Invalid registration details.',
+      });
+      return;
+    }
+    const { email, password, displayName } = parseRes.data;
     const user = await db.registerUser({ email, password, displayName });
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+    setAuthCookie(res, token);
     res.status(201).json({ token, user });
   } catch (err: any) {
     res.status(400).json({ error: 'REGISTRATION_FAILED', message: err.message });
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'Email and password are required.' });
+    const parseRes = loginSchema.safeParse(req.body);
+    if (!parseRes.success) {
+      res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: parseRes.error.issues[0]?.message || 'Email and password are required.',
+      });
       return;
     }
+    const { email, password } = parseRes.data;
     const user = await db.verifyUserCredentials({ email, password });
     if (!user) {
       res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid email or password.' });
       return;
     }
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+    setAuthCookie(res, token);
     res.json({ token, user });
   } catch (err: any) {
+    if (err instanceof AccountLockedError) {
+      res.status(429).json({ error: 'ACCOUNT_LOCKED', message: err.message });
+      return;
+    }
     if (err instanceof AccountSuspendedError) {
       res.status(403).json({ error: 'ACCOUNT_SUSPENDED', message: err.message });
       return;
@@ -131,6 +315,33 @@ app.post('/api/auth/login', async (req, res) => {
     console.error('[Auth Error]:', err);
     res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
   }
+});
+
+app.post('/api/auth/reset-password', authLimiter, async (req, res) => {
+  try {
+    const parseRes = resetPasswordSchema.safeParse(req.body);
+    if (!parseRes.success) {
+      res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: parseRes.error.issues[0]?.message || 'Invalid password reset input.',
+      });
+      return;
+    }
+    const { email, newPassword } = parseRes.data;
+    await db.resetUserPassword({ email, newPassword });
+    res.json({ success: true, message: 'Password has been reset successfully. You can now log in.' });
+  } catch (err: any) {
+    if (err instanceof AccountSuspendedError) {
+      res.status(403).json({ error: 'ACCOUNT_SUSPENDED', message: err.message });
+      return;
+    }
+    res.status(400).json({ error: 'RESET_FAILED', message: err.message });
+  }
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  res.clearCookie('auth_token', { path: '/' });
+  res.json({ success: true, message: 'Logged out successfully.' });
 });
 
 app.post('/api/auth/google-sync', async (req, res) => {
@@ -148,6 +359,7 @@ app.post('/api/auth/google-sync', async (req, res) => {
     });
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+    setAuthCookie(res, token);
     res.json({ token, user });
   } catch (err: any) {
     if (err instanceof AccountSuspendedError) {
@@ -187,6 +399,7 @@ app.post('/api/auth/organization-login', async (req, res) => {
     }
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+    setAuthCookie(res, token);
     res.json({ token, user });
   } catch (err: any) {
     if (err instanceof AccountSuspendedError) {
@@ -251,28 +464,20 @@ app.get('/api/groups', authenticateToken, async (req: AuthenticatedRequest, res)
 // Create a new research study/group (creator becomes Owner)
 app.post('/api/groups', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
-    const {
-      name,
-      studyTitle,
-      studyType,
-      subjectTerminology,
-      targetSampleSize,
-      description,
-      institution,
-      organizationId,
-      customFields,
-    } = req.body;
+    const parseRes = createGroupSchema.safeParse(req.body);
+    if (!parseRes.success) {
+      res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: parseRes.error.issues[0]?.message || 'Invalid group details provided.',
+      });
+      return;
+    }
 
     const group = await db.createGroup(req.user!.id, {
-      name,
-      studyTitle,
-      studyType,
-      subjectTerminology,
-      targetSampleSize,
-      description,
-      institution,
-      organizationId,
-      customFields,
+      ...parseRes.data,
+      studyType: parseRes.data.studyType as any,
+      subjectTerminology: parseRes.data.subjectTerminology as any,
+      customFields: req.body.customFields,
     });
     res.status(201).json({ group });
   } catch (err: any) {
@@ -302,6 +507,15 @@ app.get('/api/groups/:groupId', authenticateToken, async (req: AuthenticatedRequ
 // Update group settings (Owner only)
 app.patch('/api/groups/:groupId/settings', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
+    const parseRes = updateGroupSchema.safeParse(req.body);
+    if (!parseRes.success) {
+      res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: parseRes.error.issues[0]?.message || 'Invalid settings parameters.',
+      });
+      return;
+    }
+
     const group = await db.updateGroupSettings(req.params.groupId, req.user!.id, req.body);
     res.json({ group });
   } catch (err: any) {
@@ -362,6 +576,48 @@ app.delete('/api/groups/:groupId/members/:targetUserId', authenticateToken, asyn
       return;
     }
     res.status(400).json({ error: 'REMOVE_FAILED', message: err.message });
+  }
+});
+
+// Delete a research group/study (Owner only with confirmation)
+app.delete('/api/groups/:groupId', authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    const result = await db.deleteGroup(req.params.groupId, req.user!.id);
+    res.json(result);
+  } catch (err: any) {
+    if (err instanceof UnauthorizedGroupActionError) {
+      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
+      return;
+    }
+    if (err instanceof GroupNotFoundError) {
+      res.status(404).json({ error: 'NOT_FOUND', message: err.message });
+      return;
+    }
+    res.status(400).json({ error: 'DELETE_FAILED', message: err.message });
+  }
+});
+
+// Full Study Backup Package Export
+app.get('/api/groups/:groupId/backup', authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    const backupPkg = await db.getGroupBackupPackage(req.params.groupId, req.user!.id);
+    res.json(backupPkg);
+  } catch (err: any) {
+    if (err instanceof UnauthorizedGroupActionError) {
+      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
+      return;
+    }
+    res.status(400).json({ error: 'BACKUP_FAILED', message: err.message });
+  }
+});
+
+// Restore Study from Backup
+app.post('/api/groups/restore', authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    const result = await db.restoreGroupBackup(req.user!.id, req.body);
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ error: 'RESTORE_FAILED', message: err.message });
   }
 });
 
@@ -450,20 +706,30 @@ app.post('/api/cases/register', authenticateToken, async (req: AuthenticatedRequ
       return;
     }
 
-    const { patientId, patientName, diagnosis, drugNames, customValues } = req.body;
-    if (!patientId) {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'Participant / Patient ID is required.' });
+    const parseRes = registerCaseSchema.safeParse({ ...req.body, groupId });
+    if (!parseRes.success) {
+      res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: parseRes.error.issues[0]?.message || 'Invalid case registration details.',
+      });
       return;
     }
 
     const newCase = await db.registerCase({
       groupId,
-      patientId,
+      patientId: parseRes.data.patientId,
       assignedToUserId: req.user!.id,
-      patientName,
-      diagnosis,
-      drugNames,
-      customValues,
+      patientName: parseRes.data.patientName,
+      age: parseRes.data.age,
+      gender: parseRes.data.gender,
+      department: parseRes.data.department,
+      location: parseRes.data.location,
+      diagnosis: parseRes.data.diagnosis,
+      drugNames: parseRes.data.drugNames,
+      admissionDate: parseRes.data.admissionDate,
+      dischargeDate: parseRes.data.dischargeDate,
+      notes: parseRes.data.notes,
+      customValues: parseRes.data.customValues,
     });
 
     res.status(201).json({ success: true, case: newCase });
@@ -507,6 +773,27 @@ app.get('/api/cases', authenticateToken, async (req: AuthenticatedRequest, res) 
       return;
     }
     console.error('[Get Cases Error]:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+  }
+});
+
+// Get Case History & Event Trail for active group
+app.get('/api/cases/history', authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    const groupId = getGroupId(req);
+    if (!groupId) {
+      res.status(400).json({ error: 'MISSING_GROUP', message: 'Research group ID is required.' });
+      return;
+    }
+
+    const history = await db.getGroupCaseHistory(groupId, req.user!.id);
+    res.json({ history });
+  } catch (err: any) {
+    if (err instanceof UnauthorizedGroupActionError) {
+      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
+      return;
+    }
+    console.error('[Case History Error]:', err);
     res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
   }
 });
@@ -574,6 +861,17 @@ app.get('/api/cases/export/csv', authenticateToken, async (req: AuthenticatedReq
       `attachment; filename="${safeGroupName}_records_export_${dateStr}.csv"`
     );
     res.send(csvContent);
+
+    // Audit log case export event (Roadmap item 3)
+    await db.recordAuditLog({
+      action: 'CASES_EXPORTED_CSV',
+      entityType: 'group',
+      entityId: group.id,
+      entityName: group.name,
+      details: `Exported ${cases.length} cases to CSV file "${safeGroupName}_records_export_${dateStr}.csv".`,
+      performedBy: req.user!.display_name,
+      performedByEmail: req.user!.email,
+    });
   } catch (err: any) {
     if (err instanceof UnauthorizedGroupActionError) {
       res.status(403).json({ error: 'FORBIDDEN', message: err.message });
@@ -647,15 +945,20 @@ app.patch('/api/cases/:id/details', authenticateToken, async (req: Authenticated
       return;
     }
 
-    const { patientName, diagnosis, drugNames, customValues } = req.body;
+    const parseRes = updateCaseDetailsSchema.safeParse(req.body);
+    if (!parseRes.success) {
+      res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: parseRes.error.issues[0]?.message || 'Invalid case details payload.',
+      });
+      return;
+    }
+
     const updated = await db.updateCaseDetails({
       groupId,
       caseId: req.params.id,
       userId: req.user!.id,
-      patientName,
-      diagnosis,
-      drugNames,
-      customValues,
+      ...parseRes.data,
     });
 
     res.json({ success: true, case: updated });
@@ -876,6 +1179,32 @@ app.patch('/api/app-owner/legal-policies/:id', authenticateAppOwner, async (req:
     const updated = await db.updateLegalPolicy(req.params.id, content, req.user!.email);
     res.json({ policy: updated });
   } catch (err: any) {
+    res.status(400).json({ error: 'UPDATE_FAILED', message: err.message });
+  }
+});
+
+// 11. Support Inquiries (App Owner / Admin)
+app.get('/api/app-owner/support/messages', authenticateAppOwner, async (req, res) => {
+  try {
+    const messages = await db.getContactMessages();
+    res.json({ messages });
+  } catch (err: any) {
+    console.error('[Admin Support Error]:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to retrieve support inquiries.' });
+  }
+});
+
+app.patch('/api/app-owner/support/messages/:id/status', authenticateAppOwner, async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!status || !['new', 'reviewed', 'resolved'].includes(status)) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Status must be new, reviewed, or resolved.' });
+      return;
+    }
+    const updated = await db.updateContactMessageStatus(req.params.id, status);
+    res.json({ success: true, message: updated });
+  } catch (err: any) {
+    console.error('[Admin Support Status Error]:', err);
     res.status(400).json({ error: 'UPDATE_FAILED', message: err.message });
   }
 });
