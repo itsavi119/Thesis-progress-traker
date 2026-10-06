@@ -117,8 +117,269 @@
       "role": "member",
       "created_at": "2026-10-05T11:47:18.209Z",
       "updated_at": "2026-10-05T11:47:18.209Z"
+    },
+    {
+      "id": "d00cda20-9d89-48e1-93fe-2706b40d1f2c",
+      "email": "sec_test_alice_1791308883327@hospital.test",
+      "password_hash": "$2b$10$RhnAB1WjxLnf7QRK0A3ZHe5YDZrsU9AEGTqlZc9w50pZJdGyVxk4y",
+      "display_name": "Dr. Synthetic Alice",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T17:48:03.475Z",
+      "updated_at": "2026-10-06T17:48:03.475Z"
+    },
+    {
+      "id": "27328fa5-2828-4b7a-860c-307e8ef09f2e",
+      "email": "sec_test_bob_1791308883327@hospital.test",
+      "password_hash": "$2b$10$Iqg6guhM7B5AjMwzeVsAquWAM4I3ahCXtKS3e5Q.Dnnco.9/Hro5u",
+      "display_name": "Dr. Synthetic Bob",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T17:48:03.575Z",
+      "updated_at": "2026-10-06T17:48:03.575Z"
+    },
+    {
+      "id": "4d565d12-e94f-4e41-b682-146b2c61aa98",
+      "email": "sec_test_alice_1791308920491@hospital.test",
+      "password_hash": "$2b$10$z0P5IaHwVlNXCYfDbk1XEOMw0/hfun.4XJhuktjEjWARb.O1z64xW",
+      "display_name": "Dr. Synthetic Alice",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T17:48:40.601Z",
+      "updated_at": "2026-10-06T17:48:40.601Z"
+    },
+    {
+      "id": "20abbbb3-4c94-4917-8065-db2c3d42c2f1",
+      "email": "sec_test_bob_1791308920491@hospital.test",
+      "password_hash": "$2b$10$jvtyPT2Sf9D4XXCuxn97hOqrsX8iDAmy41/uTDNh2s9O0YJ5FS6EC",
+      "display_name": "Dr. Synthetic Bob",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T17:48:40.696Z",
+      "updated_at": "2026-10-06T17:48:40.696Z"
+    },
+    {
+      "id": "f1ac191a-f937-407e-9635-62c85ef59a2a",
+      "email": "sec_test_alice_1791308937899@hospital.test",
+      "password_hash": "$2b$10$m4h9PTy4EcJjLDfhG5NfHOiuVnaKzXzqS2G50WsAyNNBFQgfyhpnC",
+      "display_name": "Dr. Synthetic Alice",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T17:48:58.006Z",
+      "updated_at": "2026-10-06T17:48:58.006Z"
+    },
+    {
+      "id": "32ab394e-5552-41f8-873b-6d54004b6ce8",
+      "email": "sec_test_bob_1791308937899@hospital.test",
+      "password_hash": "$2b$10$QAvMCEARcZzntXHrHX0yyO5ipJJzOKZ8sCRtO2nkrVvQQPQweTxEK",
+      "display_name": "Dr. Synthetic Bob",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T17:48:58.108Z",
+      "updated_at": "2026-10-06T17:48:58.108Z"
+    },
+    {
+      "id": "35e54d67-edf0-486f-8747-9d4ca138a60e",
+      "email": "sec_test_alice_1791308964941@hospital.test",
+      "password_hash": "$2b$10$uxYih9MhoFSCGj3W6BXCpu/XBY1JmREFYVmeZ8D3JgabLMclYbIgq",
+      "display_name": "Dr. Synthetic Alice",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T17:49:25.062Z",
+      "updated_at": "2026-10-06T17:49:25.062Z"
+    },
+    {
+      "id": "08caf3c5-f198-4b4e-8b30-3a08cfd889c7",
+      "email": "sec_test_bob_1791308964941@hospital.test",
+      "password_hash": "$2b$10$lAbIJ.x2cYMu3k3CF3nBR.ol9trB/.63r.2Be4IB22TQQyKHGokWK",
+      "display_name": "Dr. Synthetic Bob",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T17:49:25.168Z",
+      "updated_at": "2026-10-06T17:49:25.168Z"
+    },
+    {
+      "id": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "email": "owner_alice_1791309698525@hospital.test",
+      "password_hash": "$2b$10$YCwUNa2SNb.Znu6nOJn8muCo1wPTNwom8LZ3vFbbe4ZGTTxr1Drk.",
+      "display_name": "Dr. Alice Owner",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T18:01:38.690Z",
+      "updated_at": "2026-10-06T18:01:38.690Z"
+    },
+    {
+      "id": "242e37f7-70e9-4110-b7bf-e7eff6b01a40",
+      "email": "collab_bob_1791309698525@hospital.test",
+      "password_hash": "$2b$10$ZQc9szRohksNcUSjZWv/v.tLEilyMlUoyY2MyrSeqYE6Bp8jlU3bK",
+      "display_name": "Dr. Bob Collab",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T18:01:38.799Z",
+      "updated_at": "2026-10-06T18:01:38.799Z"
+    },
+    {
+      "id": "699d9397-2c0d-4c82-a8f6-0a4f1d014217",
+      "email": "collab_charlie_1791309698525@hospital.test",
+      "password_hash": "$2b$10$hNeaY/6QzyAApOK7xQdCR./EoDAs1F.XDo9ine7Ofj7y0q5oJ94ba",
+      "display_name": "Dr. Charlie Collab",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T18:01:38.898Z",
+      "updated_at": "2026-10-06T18:01:38.898Z"
+    },
+    {
+      "id": "b32577c1-f8c7-4cf5-8c1c-7ecd866149d2",
+      "email": "collab_david_1791309698525@hospital.test",
+      "password_hash": "$2b$10$I5Sss9dt59aRqHR4WKYcwupY76l2TI.A47wzOwFoIxRwpxtXvC1Tu",
+      "display_name": "Dr. David Collab",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T18:01:40.436Z",
+      "updated_at": "2026-10-06T18:01:40.436Z"
+    },
+    {
+      "id": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "email": "owner_alice_1791309751754@hospital.test",
+      "password_hash": "$2b$10$V1f/xemIzm1uj4pv4H1XdOV3WkCD2m.qK42fDeJ4FRVxT471NR9VS",
+      "display_name": "Dr. Alice Owner",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T18:02:31.868Z",
+      "updated_at": "2026-10-06T18:02:31.868Z"
+    },
+    {
+      "id": "737ae6ae-e531-488a-a825-0ec7e69e8e55",
+      "email": "collab_bob_1791309751754@hospital.test",
+      "password_hash": "$2b$10$G7rzFrMnGMih.7hQjYw42OJSOF.F1DjjsUFRjB3ZAyjtv0Dg04sRq",
+      "display_name": "Dr. Bob Collab",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T18:02:31.966Z",
+      "updated_at": "2026-10-06T18:02:31.966Z"
+    },
+    {
+      "id": "d951ff5a-6050-47c3-9df6-221f331aaa18",
+      "email": "collab_charlie_1791309751754@hospital.test",
+      "password_hash": "$2b$10$aU0zR/w9ejGMeRjRaRFHruRGQPpdu49qztCvf5asZTNh2yYhL8wim",
+      "display_name": "Dr. Charlie Collab",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T18:02:32.069Z",
+      "updated_at": "2026-10-06T18:02:32.069Z"
+    },
+    {
+      "id": "8782cc5d-8013-4a01-8eb5-b105d2bf5d74",
+      "email": "collab_david_1791309751754@hospital.test",
+      "password_hash": "$2b$10$Ep6JkdKC6J77ju.VyaDuWewGyO17yRsuswk0nzBD3akvbnwL2aIaK",
+      "display_name": "Dr. David Collab",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T18:02:33.568Z",
+      "updated_at": "2026-10-06T18:02:33.568Z"
+    },
+    {
+      "id": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "email": "owner_alice_1791309818746@hospital.test",
+      "password_hash": "$2b$10$6RyqZRBEJiCfV/AOPJEcOeYnu9afO7rcNuKOu..jIg4RUwP9/nFcu",
+      "display_name": "Dr. Alice Owner",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T18:03:38.877Z",
+      "updated_at": "2026-10-06T18:03:38.877Z"
+    },
+    {
+      "id": "e10779cf-b1b0-4fae-8bfe-5d14df649064",
+      "email": "collab_bob_1791309818746@hospital.test",
+      "password_hash": "$2b$10$rtJiF2fW0B5AIMrXbiHwx.EXjPBVpUHyM3e.cWc6j6hNDUFY2mtpy",
+      "display_name": "Dr. Bob Collab",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T18:03:38.981Z",
+      "updated_at": "2026-10-06T18:03:38.981Z"
+    },
+    {
+      "id": "de9dbf26-2d64-4d04-886e-fc66af7e0e80",
+      "email": "collab_charlie_1791309818746@hospital.test",
+      "password_hash": "$2b$10$plyE1kZ4odjn8XROlC6HpuU.D.k0gdlCb4TnXz.j.LLk1vf69Klky",
+      "display_name": "Dr. Charlie Collab",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T18:03:39.119Z",
+      "updated_at": "2026-10-06T18:03:39.119Z"
+    },
+    {
+      "id": "ea51153d-c652-4d48-8a53-e4988c91d08f",
+      "email": "collab_david_1791309818746@hospital.test",
+      "password_hash": "$2b$10$gaWZ4ha6ty3GstINhwIdle2whdu1.G5VJP2x9lX6smutU3oBJ3hzK",
+      "display_name": "Dr. David Collab",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T18:03:40.680Z",
+      "updated_at": "2026-10-06T18:03:40.680Z"
+    },
+    {
+      "id": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "email": "owner_alice_1791309844038@hospital.test",
+      "password_hash": "$2b$10$ueiuLLY9nvLE2aFAFaxjfOj95/snZLcLhw3v67NQIcv7K5u1YpOHC",
+      "display_name": "Dr. Alice Owner",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T18:04:04.164Z",
+      "updated_at": "2026-10-06T18:04:04.164Z"
+    },
+    {
+      "id": "2e0f3a38-afda-44e2-a796-a5a66360f3e3",
+      "email": "collab_bob_1791309844038@hospital.test",
+      "password_hash": "$2b$10$4MpDvPxdhD68FYOm06Ps7OYMdwrvLuH74UARNX9mudM4quZyd5E9S",
+      "display_name": "Dr. Bob Collab",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T18:04:04.276Z",
+      "updated_at": "2026-10-06T18:04:04.276Z"
+    },
+    {
+      "id": "9fcde7a4-b17f-4668-a49c-acf9826feceb",
+      "email": "collab_charlie_1791309844038@hospital.test",
+      "password_hash": "$2b$10$7susMBa2ArBzv7ZstHT1bOdH/AqXatteGp2cCQPxsBH/tx4YFicee",
+      "display_name": "Dr. Charlie Collab",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T18:04:04.380Z",
+      "updated_at": "2026-10-06T18:04:04.380Z"
+    },
+    {
+      "id": "93a95cec-c9bd-4e29-b615-bf279b0c0bda",
+      "email": "collab_david_1791309844038@hospital.test",
+      "password_hash": "$2b$10$H0dhjhjNEROrnrurRfmObOMzjFpxQb9SXTIKQ6hChEnC7epZ1n/La",
+      "display_name": "Dr. David Collab",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T18:04:05.939Z",
+      "updated_at": "2026-10-06T18:04:05.939Z"
+    },
+    {
+      "id": "862f4c28-e2ec-470a-a890-78fdb060debe",
+      "email": "sec_test_alice_1791309855168@hospital.test",
+      "password_hash": "$2b$10$uFUPEB2DCIQ3inoO0jYHxOz4hV6iUZibERfnPHNEirObNR/YBzHli",
+      "display_name": "Dr. Synthetic Alice",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T18:04:15.276Z",
+      "updated_at": "2026-10-06T18:04:15.276Z"
+    },
+    {
+      "id": "0856c97c-bcff-4469-a584-84faa134d6a5",
+      "email": "sec_test_bob_1791309855168@hospital.test",
+      "password_hash": "$2b$10$mE/3X9oCY8LA7FTdf/iYA.m5GVTV3Nwo5aDfRM2/5SErRD5aAJ5ze",
+      "display_name": "Dr. Synthetic Bob",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-06T18:04:15.373Z",
+      "updated_at": "2026-10-06T18:04:15.373Z"
     }
   ],
+  "organizations": [],
   "groups": [
     {
       "id": "ivos-research-group",
@@ -295,6 +556,479 @@
       ],
       "created_at": "2026-10-05T11:47:18.286Z",
       "updated_at": "2026-10-05T11:47:18.286Z"
+    },
+    {
+      "id": "e64d0f7f-b8b4-4c7e-8e7b-caa70e7ae9ae",
+      "name": "Cardiology Study A 1791308883327",
+      "study_title": "Prospective Clinical Evaluation of Cardiology Records",
+      "study_type": "Clinical Pharmacy",
+      "subject_terminology": "Patient",
+      "target_sample_size": 50,
+      "custom_fields": [],
+      "owner_id": "d00cda20-9d89-48e1-93fe-2706b40d1f2c",
+      "status": "active",
+      "members": [
+        {
+          "user_id": "d00cda20-9d89-48e1-93fe-2706b40d1f2c",
+          "email": "sec_test_alice_1791308883327@hospital.test",
+          "display_name": "Dr. Synthetic Alice",
+          "role": "owner",
+          "joined_at": "2026-10-06T17:48:03.580Z"
+        }
+      ],
+      "created_at": "2026-10-06T17:48:03.580Z",
+      "updated_at": "2026-10-06T17:48:03.580Z"
+    },
+    {
+      "id": "2a978de7-41f1-404f-90c9-e52656876bbe",
+      "name": "Oncology Study B 1791308883327",
+      "study_title": "Prospective Clinical Evaluation of Oncology Records",
+      "study_type": "Clinical Pharmacy",
+      "subject_terminology": "Patient",
+      "target_sample_size": 50,
+      "custom_fields": [],
+      "owner_id": "27328fa5-2828-4b7a-860c-307e8ef09f2e",
+      "status": "active",
+      "members": [
+        {
+          "user_id": "27328fa5-2828-4b7a-860c-307e8ef09f2e",
+          "email": "sec_test_bob_1791308883327@hospital.test",
+          "display_name": "Dr. Synthetic Bob",
+          "role": "owner",
+          "joined_at": "2026-10-06T17:48:03.583Z"
+        }
+      ],
+      "created_at": "2026-10-06T17:48:03.583Z",
+      "updated_at": "2026-10-06T17:48:03.583Z"
+    },
+    {
+      "id": "63da1180-f75f-4acf-a2bf-e8a798ce664b",
+      "name": "Cardiology Study A 1791308920491",
+      "study_title": "Prospective Clinical Evaluation of Cardiology Records",
+      "study_type": "Clinical Pharmacy",
+      "subject_terminology": "Patient",
+      "target_sample_size": 50,
+      "custom_fields": [],
+      "owner_id": "4d565d12-e94f-4e41-b682-146b2c61aa98",
+      "status": "active",
+      "members": [
+        {
+          "user_id": "4d565d12-e94f-4e41-b682-146b2c61aa98",
+          "email": "sec_test_alice_1791308920491@hospital.test",
+          "display_name": "Dr. Synthetic Alice",
+          "role": "owner",
+          "joined_at": "2026-10-06T17:48:40.701Z"
+        }
+      ],
+      "created_at": "2026-10-06T17:48:40.701Z",
+      "updated_at": "2026-10-06T17:48:40.701Z"
+    },
+    {
+      "id": "df462223-a515-409b-be63-c0d2e3787af4",
+      "name": "Oncology Study B 1791308920491",
+      "study_title": "Prospective Clinical Evaluation of Oncology Records",
+      "study_type": "Clinical Pharmacy",
+      "subject_terminology": "Patient",
+      "target_sample_size": 50,
+      "custom_fields": [],
+      "owner_id": "20abbbb3-4c94-4917-8065-db2c3d42c2f1",
+      "status": "active",
+      "members": [
+        {
+          "user_id": "20abbbb3-4c94-4917-8065-db2c3d42c2f1",
+          "email": "sec_test_bob_1791308920491@hospital.test",
+          "display_name": "Dr. Synthetic Bob",
+          "role": "owner",
+          "joined_at": "2026-10-06T17:48:40.704Z"
+        }
+      ],
+      "created_at": "2026-10-06T17:48:40.704Z",
+      "updated_at": "2026-10-06T17:48:40.704Z"
+    },
+    {
+      "id": "f91b65d8-d2f2-4f54-a90b-87b850956144",
+      "name": "Cardiology Study A 1791308937899",
+      "study_title": "Prospective Clinical Evaluation of Cardiology Records",
+      "study_type": "Clinical Pharmacy",
+      "subject_terminology": "Patient",
+      "target_sample_size": 50,
+      "custom_fields": [],
+      "owner_id": "f1ac191a-f937-407e-9635-62c85ef59a2a",
+      "status": "active",
+      "members": [
+        {
+          "user_id": "f1ac191a-f937-407e-9635-62c85ef59a2a",
+          "email": "sec_test_alice_1791308937899@hospital.test",
+          "display_name": "Dr. Synthetic Alice",
+          "role": "owner",
+          "joined_at": "2026-10-06T17:48:58.113Z"
+        }
+      ],
+      "created_at": "2026-10-06T17:48:58.113Z",
+      "updated_at": "2026-10-06T17:48:58.113Z"
+    },
+    {
+      "id": "ae4835e6-4391-4548-bc15-e06a1455cfb9",
+      "name": "Oncology Study B 1791308937899",
+      "study_title": "Prospective Clinical Evaluation of Oncology Records",
+      "study_type": "Clinical Pharmacy",
+      "subject_terminology": "Patient",
+      "target_sample_size": 50,
+      "custom_fields": [],
+      "owner_id": "32ab394e-5552-41f8-873b-6d54004b6ce8",
+      "status": "active",
+      "members": [
+        {
+          "user_id": "32ab394e-5552-41f8-873b-6d54004b6ce8",
+          "email": "sec_test_bob_1791308937899@hospital.test",
+          "display_name": "Dr. Synthetic Bob",
+          "role": "owner",
+          "joined_at": "2026-10-06T17:48:58.118Z"
+        }
+      ],
+      "created_at": "2026-10-06T17:48:58.118Z",
+      "updated_at": "2026-10-06T17:48:58.118Z"
+    },
+    {
+      "id": "2435c0f4-7056-4eb8-a833-9f00bc65c8f0",
+      "name": "Cardiology Study A 1791308964941",
+      "study_title": "Prospective Clinical Evaluation of Cardiology Records",
+      "study_type": "Clinical Pharmacy",
+      "subject_terminology": "Patient",
+      "target_sample_size": 50,
+      "custom_fields": [],
+      "owner_id": "35e54d67-edf0-486f-8747-9d4ca138a60e",
+      "status": "active",
+      "members": [
+        {
+          "user_id": "35e54d67-edf0-486f-8747-9d4ca138a60e",
+          "email": "sec_test_alice_1791308964941@hospital.test",
+          "display_name": "Dr. Synthetic Alice",
+          "role": "owner",
+          "joined_at": "2026-10-06T17:49:25.175Z"
+        }
+      ],
+      "created_at": "2026-10-06T17:49:25.175Z",
+      "updated_at": "2026-10-06T17:49:25.175Z"
+    },
+    {
+      "id": "b770c2b6-fb0c-4f5a-98c7-61deef66e0eb",
+      "name": "Oncology Study B 1791308964941",
+      "study_title": "Prospective Clinical Evaluation of Oncology Records",
+      "study_type": "Clinical Pharmacy",
+      "subject_terminology": "Patient",
+      "target_sample_size": 50,
+      "custom_fields": [],
+      "owner_id": "08caf3c5-f198-4b4e-8b30-3a08cfd889c7",
+      "status": "active",
+      "members": [
+        {
+          "user_id": "08caf3c5-f198-4b4e-8b30-3a08cfd889c7",
+          "email": "sec_test_bob_1791308964941@hospital.test",
+          "display_name": "Dr. Synthetic Bob",
+          "role": "owner",
+          "joined_at": "2026-10-06T17:49:25.178Z"
+        }
+      ],
+      "created_at": "2026-10-06T17:49:25.178Z",
+      "updated_at": "2026-10-06T17:49:25.178Z"
+    },
+    {
+      "id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "name": "Auditory Research Study 1791309698525",
+      "study_title": "Auditory Evoked Potentials in Intensive Care Units",
+      "study_type": "Clinical Pharmacy",
+      "subject_terminology": "Patient",
+      "target_sample_size": 100,
+      "custom_fields": [],
+      "owner_id": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "status": "active",
+      "members": [
+        {
+          "user_id": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+          "email": "owner_alice_1791309698525@hospital.test",
+          "display_name": "Dr. Alice Owner",
+          "role": "owner",
+          "joined_at": "2026-10-06T18:01:38.904Z"
+        },
+        {
+          "user_id": "242e37f7-70e9-4110-b7bf-e7eff6b01a40",
+          "email": "collab_bob_1791309698525@hospital.test",
+          "display_name": "Dr. Bob Collab",
+          "role": "researcher",
+          "joined_at": "2026-10-06T18:01:39.082Z"
+        },
+        {
+          "user_id": "699d9397-2c0d-4c82-a8f6-0a4f1d014217",
+          "email": "collab_charlie_1791309698525@hospital.test",
+          "display_name": "Dr. Charlie Collab",
+          "role": "researcher",
+          "joined_at": "2026-10-06T18:01:39.095Z"
+        }
+      ],
+      "created_at": "2026-10-06T18:01:38.904Z",
+      "updated_at": "2026-10-06T18:01:39.095Z"
+    },
+    {
+      "id": "4031e5b5-3adf-4f70-bb9b-755fe47e1386",
+      "name": "Cardiology Study 1791309698525",
+      "study_title": "Coronary Care Trials",
+      "study_type": "Clinical Pharmacy",
+      "subject_terminology": "Patient",
+      "target_sample_size": 80,
+      "custom_fields": [],
+      "owner_id": "242e37f7-70e9-4110-b7bf-e7eff6b01a40",
+      "status": "active",
+      "members": [
+        {
+          "user_id": "242e37f7-70e9-4110-b7bf-e7eff6b01a40",
+          "email": "collab_bob_1791309698525@hospital.test",
+          "display_name": "Dr. Bob Collab",
+          "role": "owner",
+          "joined_at": "2026-10-06T18:01:38.910Z"
+        },
+        {
+          "user_id": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+          "email": "owner_alice_1791309698525@hospital.test",
+          "display_name": "Dr. Alice Owner",
+          "role": "researcher",
+          "joined_at": "2026-10-06T18:01:39.105Z"
+        }
+      ],
+      "created_at": "2026-10-06T18:01:38.910Z",
+      "updated_at": "2026-10-06T18:01:39.105Z"
+    },
+    {
+      "id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "name": "Auditory Research Study 1791309751754",
+      "study_title": "Auditory Evoked Potentials in Intensive Care Units",
+      "study_type": "Clinical Pharmacy",
+      "subject_terminology": "Patient",
+      "target_sample_size": 100,
+      "custom_fields": [],
+      "owner_id": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "status": "active",
+      "members": [
+        {
+          "user_id": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+          "email": "owner_alice_1791309751754@hospital.test",
+          "display_name": "Dr. Alice Owner",
+          "role": "owner",
+          "joined_at": "2026-10-06T18:02:32.076Z"
+        }
+      ],
+      "created_at": "2026-10-06T18:02:32.076Z",
+      "updated_at": "2026-10-06T18:02:32.076Z"
+    },
+    {
+      "id": "710e86bf-a212-48f9-9174-9e091379257c",
+      "name": "Cardiology Study 1791309751754",
+      "study_title": "Coronary Care Trials",
+      "study_type": "Clinical Pharmacy",
+      "subject_terminology": "Patient",
+      "target_sample_size": 80,
+      "custom_fields": [],
+      "owner_id": "737ae6ae-e531-488a-a825-0ec7e69e8e55",
+      "status": "active",
+      "members": [
+        {
+          "user_id": "737ae6ae-e531-488a-a825-0ec7e69e8e55",
+          "email": "collab_bob_1791309751754@hospital.test",
+          "display_name": "Dr. Bob Collab",
+          "role": "owner",
+          "joined_at": "2026-10-06T18:02:32.079Z"
+        }
+      ],
+      "created_at": "2026-10-06T18:02:32.079Z",
+      "updated_at": "2026-10-06T18:02:32.079Z"
+    },
+    {
+      "id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "name": "Auditory Research Study 1791309818746",
+      "study_title": "Auditory Evoked Potentials in Intensive Care Units",
+      "study_type": "Clinical Pharmacy",
+      "subject_terminology": "Patient",
+      "target_sample_size": 100,
+      "custom_fields": [],
+      "owner_id": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "status": "active",
+      "members": [
+        {
+          "user_id": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+          "email": "owner_alice_1791309818746@hospital.test",
+          "display_name": "Dr. Alice Owner",
+          "role": "owner",
+          "joined_at": "2026-10-06T18:03:39.127Z"
+        },
+        {
+          "user_id": "e10779cf-b1b0-4fae-8bfe-5d14df649064",
+          "email": "collab_bob_1791309818746@hospital.test",
+          "display_name": "Dr. Bob Collab",
+          "role": "researcher",
+          "joined_at": "2026-10-06T18:03:39.275Z"
+        },
+        {
+          "user_id": "de9dbf26-2d64-4d04-886e-fc66af7e0e80",
+          "email": "collab_charlie_1791309818746@hospital.test",
+          "display_name": "Dr. Charlie Collab",
+          "role": "researcher",
+          "joined_at": "2026-10-06T18:03:39.287Z"
+        }
+      ],
+      "created_at": "2026-10-06T18:03:39.127Z",
+      "updated_at": "2026-10-06T18:03:39.287Z"
+    },
+    {
+      "id": "ccb1a18f-257a-4a4b-9201-3f4a105577f0",
+      "name": "Cardiology Study 1791309818746",
+      "study_title": "Coronary Care Trials",
+      "study_type": "Clinical Pharmacy",
+      "subject_terminology": "Patient",
+      "target_sample_size": 80,
+      "custom_fields": [],
+      "owner_id": "e10779cf-b1b0-4fae-8bfe-5d14df649064",
+      "status": "active",
+      "members": [
+        {
+          "user_id": "e10779cf-b1b0-4fae-8bfe-5d14df649064",
+          "email": "collab_bob_1791309818746@hospital.test",
+          "display_name": "Dr. Bob Collab",
+          "role": "owner",
+          "joined_at": "2026-10-06T18:03:39.132Z"
+        },
+        {
+          "user_id": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+          "email": "owner_alice_1791309818746@hospital.test",
+          "display_name": "Dr. Alice Owner",
+          "role": "researcher",
+          "joined_at": "2026-10-06T18:03:39.298Z"
+        },
+        {
+          "user_id": "de9dbf26-2d64-4d04-886e-fc66af7e0e80",
+          "email": "collab_charlie_1791309818746@hospital.test",
+          "display_name": "Dr. Charlie Collab",
+          "role": "researcher",
+          "joined_at": "2026-10-06T18:03:40.685Z"
+        }
+      ],
+      "created_at": "2026-10-06T18:03:39.132Z",
+      "updated_at": "2026-10-06T18:03:40.685Z"
+    },
+    {
+      "id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "name": "Auditory Research Study 1791309844038",
+      "study_title": "Auditory Evoked Potentials in Intensive Care Units",
+      "study_type": "Clinical Pharmacy",
+      "subject_terminology": "Patient",
+      "target_sample_size": 100,
+      "custom_fields": [],
+      "owner_id": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "status": "active",
+      "members": [
+        {
+          "user_id": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+          "email": "owner_alice_1791309844038@hospital.test",
+          "display_name": "Dr. Alice Owner",
+          "role": "owner",
+          "joined_at": "2026-10-06T18:04:04.386Z"
+        },
+        {
+          "user_id": "2e0f3a38-afda-44e2-a796-a5a66360f3e3",
+          "email": "collab_bob_1791309844038@hospital.test",
+          "display_name": "Dr. Bob Collab",
+          "role": "researcher",
+          "joined_at": "2026-10-06T18:04:04.554Z"
+        },
+        {
+          "user_id": "9fcde7a4-b17f-4668-a49c-acf9826feceb",
+          "email": "collab_charlie_1791309844038@hospital.test",
+          "display_name": "Dr. Charlie Collab",
+          "role": "researcher",
+          "joined_at": "2026-10-06T18:04:04.570Z"
+        }
+      ],
+      "created_at": "2026-10-06T18:04:04.386Z",
+      "updated_at": "2026-10-06T18:04:04.570Z"
+    },
+    {
+      "id": "e7dced5c-8ede-4f1b-841e-090a05ca6d22",
+      "name": "Cardiology Study 1791309844038",
+      "study_title": "Coronary Care Trials",
+      "study_type": "Clinical Pharmacy",
+      "subject_terminology": "Patient",
+      "target_sample_size": 80,
+      "custom_fields": [],
+      "owner_id": "2e0f3a38-afda-44e2-a796-a5a66360f3e3",
+      "status": "active",
+      "members": [
+        {
+          "user_id": "2e0f3a38-afda-44e2-a796-a5a66360f3e3",
+          "email": "collab_bob_1791309844038@hospital.test",
+          "display_name": "Dr. Bob Collab",
+          "role": "owner",
+          "joined_at": "2026-10-06T18:04:04.390Z"
+        },
+        {
+          "user_id": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+          "email": "owner_alice_1791309844038@hospital.test",
+          "display_name": "Dr. Alice Owner",
+          "role": "researcher",
+          "joined_at": "2026-10-06T18:04:04.583Z"
+        },
+        {
+          "user_id": "9fcde7a4-b17f-4668-a49c-acf9826feceb",
+          "email": "collab_charlie_1791309844038@hospital.test",
+          "display_name": "Dr. Charlie Collab",
+          "role": "researcher",
+          "joined_at": "2026-10-06T18:04:05.945Z"
+        }
+      ],
+      "created_at": "2026-10-06T18:04:04.390Z",
+      "updated_at": "2026-10-06T18:04:05.945Z"
+    },
+    {
+      "id": "312a9090-3ebc-4e36-8bc2-7a7fce7941ca",
+      "name": "Cardiology Study A 1791309855168",
+      "study_title": "Prospective Clinical Evaluation of Cardiology Records",
+      "study_type": "Clinical Pharmacy",
+      "subject_terminology": "Patient",
+      "target_sample_size": 50,
+      "custom_fields": [],
+      "owner_id": "862f4c28-e2ec-470a-a890-78fdb060debe",
+      "status": "active",
+      "members": [
+        {
+          "user_id": "862f4c28-e2ec-470a-a890-78fdb060debe",
+          "email": "sec_test_alice_1791309855168@hospital.test",
+          "display_name": "Dr. Synthetic Alice",
+          "role": "owner",
+          "joined_at": "2026-10-06T18:04:15.378Z"
+        }
+      ],
+      "created_at": "2026-10-06T18:04:15.378Z",
+      "updated_at": "2026-10-06T18:04:15.378Z"
+    },
+    {
+      "id": "adfad1f9-7b90-49ac-a9ff-ca4662e6b60d",
+      "name": "Oncology Study B 1791309855168",
+      "study_title": "Prospective Clinical Evaluation of Oncology Records",
+      "study_type": "Clinical Pharmacy",
+      "subject_terminology": "Patient",
+      "target_sample_size": 50,
+      "custom_fields": [],
+      "owner_id": "0856c97c-bcff-4469-a584-84faa134d6a5",
+      "status": "active",
+      "members": [
+        {
+          "user_id": "0856c97c-bcff-4469-a584-84faa134d6a5",
+          "email": "sec_test_bob_1791309855168@hospital.test",
+          "display_name": "Dr. Synthetic Bob",
+          "role": "owner",
+          "joined_at": "2026-10-06T18:04:15.382Z"
+        }
+      ],
+      "created_at": "2026-10-06T18:04:15.382Z",
+      "updated_at": "2026-10-06T18:04:15.382Z"
     }
   ],
   "invitations": [
@@ -307,7 +1041,8 @@
       "created_at": "2026-10-05T11:46:34.991Z",
       "expires_at": "2026-10-12T11:46:34.991Z",
       "status": "accepted",
-      "intended_email": "bob_1791200794620@hospital.org"
+      "intended_email": "bob_1791200794620@hospital.org",
+      "token_hash": "5358e74714a95cb6bad02606b28946856d21dddd16beefd3f55ab7c34f2674db"
     },
     {
       "id": "607fe4de-2e31-4b1e-864b-72b79fe98105",
@@ -317,7 +1052,8 @@
       "created_by": "0d4cd189-5876-496c-a631-6fbd64db554c",
       "created_at": "2026-10-05T11:46:35.020Z",
       "expires_at": "2026-10-12T11:46:35.020Z",
-      "status": "accepted"
+      "status": "accepted",
+      "token_hash": "a2dfbdc58c8690c1917003341bda672f465cae45097bc86bc3fbfdc7aba028de"
     },
     {
       "id": "d7de128f-ba16-473b-b694-33306067baaf",
@@ -328,7 +1064,8 @@
       "created_at": "2026-10-05T11:47:04.823Z",
       "expires_at": "2026-10-12T11:47:04.823Z",
       "status": "accepted",
-      "intended_email": "bob_1791200824468@hospital.org"
+      "intended_email": "bob_1791200824468@hospital.org",
+      "token_hash": "7a212cf328f6725afb92aa48f964c93fa51f1da5abe833bff705474471cce1f9"
     },
     {
       "id": "a3381e0a-a199-4926-ada0-c587e75e92f8",
@@ -338,7 +1075,8 @@
       "created_by": "fcaf2317-12d6-44b9-96c1-12ed3ede58e7",
       "created_at": "2026-10-05T11:47:04.843Z",
       "expires_at": "2026-10-12T11:47:04.843Z",
-      "status": "accepted"
+      "status": "accepted",
+      "token_hash": "688c9d17d8702cbd88bd1b70b03ec5061c139b8ce769c1c80bb042ba48ff1719"
     },
     {
       "id": "c87884ca-03f8-443c-ae59-32b844ddadb0",
@@ -349,7 +1087,8 @@
       "created_at": "2026-10-05T11:47:18.235Z",
       "expires_at": "2026-10-12T11:47:18.235Z",
       "status": "accepted",
-      "intended_email": "bob_1791200837738@hospital.org"
+      "intended_email": "bob_1791200837738@hospital.org",
+      "token_hash": "bfe80c8d8b69deba72f6bfa5951f736f9815b81e33da0a581ccf3e087cd4144b"
     },
     {
       "id": "07a50a59-e2fd-4ea4-91a6-7f44da707ce0",
@@ -359,7 +1098,1670 @@
       "created_by": "65f76587-6468-4f62-ae76-f5d4525470f4",
       "created_at": "2026-10-05T11:47:18.259Z",
       "expires_at": "2026-10-12T11:47:18.259Z",
-      "status": "accepted"
+      "status": "accepted",
+      "token_hash": "3227f389dfb8a80ceb97cc8b18ef877f1c1b6acc10a248749d98e3c18b434875"
+    },
+    {
+      "id": "cf8546ed-eb21-4a9b-a0fd-6a48776f645e",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "cceb12b50017d0ec10db40fa9f097af5487107e37eaf97b0f6e0ea01f1ccf4ed",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.915Z",
+      "expires_at": "2026-10-13T18:01:38.915Z",
+      "status": "pending"
+    },
+    {
+      "id": "fd8050c1-3742-4ee8-8fab-da2b79a63948",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "6f424dea7dae7912fcc675469783c7615ae2890c97f6bd0dc4e2cf0b4ccf66b3",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.919Z",
+      "expires_at": "2026-10-13T18:01:38.919Z",
+      "status": "pending"
+    },
+    {
+      "id": "89c06f53-a61b-48dd-bf36-6f63713c9856",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "87886eb18e1479e128ed9423d7f0958cf93a10a8f507e8defff1126f8a92c596",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.922Z",
+      "expires_at": "2026-10-13T18:01:38.922Z",
+      "status": "pending"
+    },
+    {
+      "id": "841af767-4644-40e3-8ed9-1c14d879fe5c",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "d5cfa0f99563ead32d8840c2acbeb53cd362e5e5847cb2f55f2a8c63b5f6688b",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.928Z",
+      "expires_at": "2026-10-13T18:01:38.928Z",
+      "status": "pending"
+    },
+    {
+      "id": "0081fb1b-2005-4d80-a7da-b742c1161218",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "53892737abd476a686aad79e1c9a96b5098d2470078282a20a72d6cf5303bcd9",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.933Z",
+      "expires_at": "2026-10-13T18:01:38.933Z",
+      "status": "pending"
+    },
+    {
+      "id": "a15f691e-6baf-4aff-b6c9-efa52f14a963",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "73a8c4434e41f7d8a528646f7ffda1844dd703754d91d3004640ffeb8b450491",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.938Z",
+      "expires_at": "2026-10-13T18:01:38.938Z",
+      "status": "pending"
+    },
+    {
+      "id": "5e9e1a72-eda1-4c00-8c8e-6aaaf5b57427",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "aa2eefa57cf8dacd920b0237b0b30bdf60f26d59cbb0a29e2862864959d11905",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.942Z",
+      "expires_at": "2026-10-13T18:01:38.942Z",
+      "status": "pending"
+    },
+    {
+      "id": "41f8e9a6-4ffe-4413-b398-0b4d24c8492f",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "bfe79f56193d6e6c44a6837618d5f3c94027a303714b515bfd670a7f8e1406ee",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.945Z",
+      "expires_at": "2026-10-13T18:01:38.945Z",
+      "status": "pending"
+    },
+    {
+      "id": "35c3bb15-3ce7-4ceb-a28a-ce0b102305a3",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "9ff57702582daeb322114dc8b421035571ea8038591c40d3019f8e47d8f865b1",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.948Z",
+      "expires_at": "2026-10-13T18:01:38.948Z",
+      "status": "pending"
+    },
+    {
+      "id": "a5dfc1e2-67d2-4213-86ce-4844930cc616",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "f436cdc1c8d0e3e3090eca92dd890ba0f1830c8045445f6a618a02d46065a4c4",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.951Z",
+      "expires_at": "2026-10-13T18:01:38.951Z",
+      "status": "pending"
+    },
+    {
+      "id": "93a0f1f0-cac7-4466-b294-5f990949d854",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "e8424db9fb8b4155c6de681c0c90257c453712e241fbcb3ea187b40fc6d539b3",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.954Z",
+      "expires_at": "2026-10-13T18:01:38.954Z",
+      "status": "pending"
+    },
+    {
+      "id": "bf04b33a-1a2d-420d-8e3a-0cb90d98eb63",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "3176eaed3334bd8684220c64ca3cfaeb8b0bca2d62214b83ee8ff937c9ff3da7",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.957Z",
+      "expires_at": "2026-10-13T18:01:38.957Z",
+      "status": "pending"
+    },
+    {
+      "id": "400f49dd-b362-4e03-a6ce-e0cefb6dcccd",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "c83b836187acacaa7bac58969bdaf17c550904be7308a9119c4378a6e178d1f6",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.969Z",
+      "expires_at": "2026-10-13T18:01:38.969Z",
+      "status": "pending"
+    },
+    {
+      "id": "97471f39-5958-41fa-b581-8cb57650df42",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "2e206ff790c17cb8d11a4f68796fd47ae6223e670be0ef2a7778d0ba6399fbc7",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.973Z",
+      "expires_at": "2026-10-13T18:01:38.973Z",
+      "status": "pending"
+    },
+    {
+      "id": "7481a411-8da4-46e9-a0f5-921818f3dd78",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "6091e43125f57d20ad2ad446c0677c07ca0c74314aa7a79dd4a46eada8ffa868",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.976Z",
+      "expires_at": "2026-10-13T18:01:38.976Z",
+      "status": "pending"
+    },
+    {
+      "id": "633b891a-c9d9-45e3-93ed-8cb376d4d12d",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "c89080317931cc9a11029ac6f310e32cf53d0874744e9ef5e8496d4834cd3f07",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.979Z",
+      "expires_at": "2026-10-13T18:01:38.979Z",
+      "status": "pending"
+    },
+    {
+      "id": "0270921a-b52c-44ea-92f4-230808d56e95",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "4fc288889251a02f3477a0cc4189ca69522aa0fd58907004f164bc34fddd2ace",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.981Z",
+      "expires_at": "2026-10-13T18:01:38.981Z",
+      "status": "pending"
+    },
+    {
+      "id": "8a88f489-285c-457d-8a21-bb7ac1d2643a",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "46d12de04b0463214c1b2ee38fd11a9ae0f410fc0167a16e5a4813010967c7c2",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.983Z",
+      "expires_at": "2026-10-13T18:01:38.983Z",
+      "status": "pending"
+    },
+    {
+      "id": "89167789-aa30-49cb-97eb-4406532c373c",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "09c231688e95941eb505b9302f8ee3dc1159fe5612f78e1de8e019e1655293b4",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.986Z",
+      "expires_at": "2026-10-13T18:01:38.986Z",
+      "status": "pending"
+    },
+    {
+      "id": "6dca364f-a46f-4c3f-9c5c-0521ea33604c",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "74677d767723cb88dbde8aac92052e003c7853970fa85d80bca8ccc167a58408",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.990Z",
+      "expires_at": "2026-10-13T18:01:38.990Z",
+      "status": "pending"
+    },
+    {
+      "id": "f0eb9a4a-95e0-4b2a-857e-0ef80649c5e1",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "36fcc9dce93854c08ab7898dcdc722aa5300a3cc78f807ac961e438f18e636d2",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.993Z",
+      "expires_at": "2026-10-13T18:01:38.993Z",
+      "status": "pending"
+    },
+    {
+      "id": "5b1396f7-183c-483e-9a20-b3be964adc81",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "fc81b2d1ddd8ed7597c66a85015796e28f850528c2fa1b633df87d2e30428627",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:38.996Z",
+      "expires_at": "2026-10-13T18:01:38.996Z",
+      "status": "pending"
+    },
+    {
+      "id": "579ee32c-50c3-4884-8149-b5ae4fe7fb8f",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "cb2c0ec0aebd2937a4d8fb98b806a811b640a39030c7444cdc31c1d9b1a9aa71",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:39.000Z",
+      "expires_at": "2026-10-13T18:01:39.000Z",
+      "status": "pending"
+    },
+    {
+      "id": "2c1f711c-605f-4e4f-80fe-a80efebe4164",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "f3fd7b01d5a71b64944ec7e9414fa1174ff133a59214788a070a1a16e4e23c04",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:39.005Z",
+      "expires_at": "2026-10-13T18:01:39.005Z",
+      "status": "pending"
+    },
+    {
+      "id": "3b25f0fe-2560-4377-a291-4244a20eb5aa",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "3323cea49b539db9a7cb2c6c8e5efec3428518dbf90714d31b83d2a7efb932e6",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:39.009Z",
+      "expires_at": "2026-10-13T18:01:39.009Z",
+      "status": "pending"
+    },
+    {
+      "id": "45982a8c-d055-47ce-9392-73976091486c",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "570fbac176a93aa203405bcf99751f653d005c7a5716fc24ef593c3329feea75",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:39.014Z",
+      "expires_at": "2026-10-13T18:01:39.014Z",
+      "status": "pending"
+    },
+    {
+      "id": "c85a3b9f-49ab-4035-8542-38abcb9f78a1",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "691c3f0c154ac3c1c86c4c8d106f29c3f66d3677328c4de07f9ce0e606bbeb49",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:39.024Z",
+      "expires_at": "2026-10-13T18:01:39.024Z",
+      "status": "pending"
+    },
+    {
+      "id": "775e440b-d2e0-40f2-9259-8ef315fb4a0d",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "f08bb43faf49cde4ba9c26ec4db749d9970550dbc42a1dd2a726c9f2bb2b5560",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:39.029Z",
+      "expires_at": "2026-10-13T18:01:39.029Z",
+      "status": "pending"
+    },
+    {
+      "id": "cef656c8-bec7-4bd1-934a-bbe74ee26ab9",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "e5082165e1327c63a81ec13ae259bebad41f87b63171fa1c1c8583ed144a2239",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:39.032Z",
+      "expires_at": "2026-10-13T18:01:39.032Z",
+      "status": "pending"
+    },
+    {
+      "id": "a406cb21-00fc-480f-b32a-2d74dc9f1b7f",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "f574006f08d32405d797c8b4bc9489a5efd7cd0aab24acd41bbd814fde19f781",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:39.035Z",
+      "expires_at": "2026-10-13T18:01:39.035Z",
+      "status": "pending"
+    },
+    {
+      "id": "b68596a2-d432-4497-98f6-f18eb5ddc35e",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "999af4c23a32fe4c8648f6aa02fb393044d237977fd0ba45aa8b84f524267c11",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:39.039Z",
+      "expires_at": "2026-10-13T18:01:39.039Z",
+      "status": "pending"
+    },
+    {
+      "id": "4e0832d6-439f-4f09-b9f0-116c991b91d5",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "5024b33b0e0b88f678b60545e0d600fd8808ac066d2b873372bd24014ab60e6d",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:39.044Z",
+      "expires_at": "2026-10-13T18:01:39.044Z",
+      "status": "pending"
+    },
+    {
+      "id": "b3784dc5-c7ce-418f-ba45-dff70e206f09",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "f0a063449ecd97bd3eaff422b83448cbb160f88b4f08803fc9768b875f2b2d90",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:39.047Z",
+      "expires_at": "2026-10-13T18:01:39.047Z",
+      "status": "pending"
+    },
+    {
+      "id": "3497ed05-5788-4554-a16e-f2b968310a0d",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "017af8e525db64eeed266176ebe0492a142ccf0c5ee7999c9e67cc4d2fbe6e14",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:39.050Z",
+      "expires_at": "2026-10-13T18:01:39.050Z",
+      "status": "pending"
+    },
+    {
+      "id": "f4be64e0-78a0-4777-8f10-0539549b8395",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "539e73d2b46628cb9f2bc8aebdf175fe37bce5e4ad630d98be72b6599d625442",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:39.056Z",
+      "expires_at": "2026-10-13T18:01:39.056Z",
+      "status": "pending"
+    },
+    {
+      "id": "f89c37bd-f837-4db6-aa7a-95d9cc1fa3e7",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "86ca4da9cd213b1e5c669f43ff2714c24334b05d22db46427a2f99409669a7fc",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:39.072Z",
+      "expires_at": "2026-10-13T18:01:39.072Z",
+      "status": "pending"
+    },
+    {
+      "id": "96e2d469-8587-478e-b8bd-c10fa3941a13",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "9399f5160d32c12f65df03970ba83b6b2844aae6198bf68eb674c407f5bc333d",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:39.078Z",
+      "expires_at": "2026-10-13T18:01:39.078Z",
+      "status": "accepted",
+      "accepted_by": "242e37f7-70e9-4110-b7bf-e7eff6b01a40",
+      "accepted_at": "2026-10-06T18:01:39.082Z"
+    },
+    {
+      "id": "5db3b4e5-ac32-474d-8b3d-b0a392f3f1d2",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "1cd493e2714cec230cbaad8c9de3ca71aa39fc41e05c1a1c3286b468910427aa",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:39.089Z",
+      "expires_at": "2026-10-13T18:01:39.089Z",
+      "status": "accepted",
+      "accepted_by": "699d9397-2c0d-4c82-a8f6-0a4f1d014217",
+      "accepted_at": "2026-10-06T18:01:39.095Z"
+    },
+    {
+      "id": "a280a622-74b6-489b-a05f-9da2ceea519c",
+      "group_id": "4031e5b5-3adf-4f70-bb9b-755fe47e1386",
+      "group_name": "Cardiology Study 1791309698525",
+      "token_hash": "3b056d4973fa27d05bb0cc413fa42a5e1c00f58451a0d6d6f52ceebc2a511fb1",
+      "created_by": "242e37f7-70e9-4110-b7bf-e7eff6b01a40",
+      "created_at": "2026-10-06T18:01:39.103Z",
+      "expires_at": "2026-10-13T18:01:39.103Z",
+      "status": "accepted",
+      "accepted_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "accepted_at": "2026-10-06T18:01:39.105Z"
+    },
+    {
+      "id": "b8598e7d-009b-4ed8-97d9-914f709ad275",
+      "group_id": "41fe6e01-0862-49af-abaf-7a36c3c23d46",
+      "group_name": "Auditory Research Study 1791309698525",
+      "token_hash": "26a190387798eb9da2f706c6d12a253462f5d23fcc7e25dc428892118ca78454",
+      "created_by": "1c6dfb5d-4cb1-4725-af78-ea294ee6f006",
+      "created_at": "2026-10-06T18:01:40.331Z",
+      "expires_at": "2026-10-13T18:01:40.331Z",
+      "status": "pending"
+    },
+    {
+      "id": "5ff4842a-1f99-4432-8704-8190f5ed8c94",
+      "group_id": "4031e5b5-3adf-4f70-bb9b-755fe47e1386",
+      "group_name": "Cardiology Study 1791309698525",
+      "token_hash": "591aa8f2a0b5929af96ac7a80e1c93a90e2782293339df2f191477fa099c2ba9",
+      "created_by": "242e37f7-70e9-4110-b7bf-e7eff6b01a40",
+      "created_at": "2026-10-06T18:01:40.336Z",
+      "expires_at": "2026-10-13T18:01:40.336Z",
+      "status": "pending"
+    },
+    {
+      "id": "3501f113-937c-4024-b823-c7e1d90a8127",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "93f588c64a8d65a9f97b99445c0b342fd50c753fc8a7da7bf472c9944bdeb9c6",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.084Z",
+      "expires_at": "2026-10-13T18:02:32.084Z",
+      "status": "pending"
+    },
+    {
+      "id": "226b77b7-f090-4aff-8d2e-abf51cd37dd5",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "e0df5d25e55cdcce89c694a7dd270f5c93237d24c7b1a9985ea2b87597ce2b43",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.088Z",
+      "expires_at": "2026-10-13T18:02:32.088Z",
+      "status": "pending"
+    },
+    {
+      "id": "42952dd7-2aac-45a0-a564-eb8d701f5bf6",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "075d21fabfc3d20f8b7cb10c1a82f9785c79dacc0ef24cea4c7132b5a014fb1c",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.093Z",
+      "expires_at": "2026-10-13T18:02:32.093Z",
+      "status": "pending"
+    },
+    {
+      "id": "765d4cc6-5874-4185-887b-804057292182",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "4dfddddb4bdf20b73b149682eee66951531919a2a4b46c98c36a3c4194e81401",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.098Z",
+      "expires_at": "2026-10-13T18:02:32.098Z",
+      "status": "pending"
+    },
+    {
+      "id": "090d695e-5045-4733-a9ea-e06c34d81831",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "f50bc99ddf88086b5a692fcd0f2bb37bde1913968b5a4efdf40752d39c6dae69",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.102Z",
+      "expires_at": "2026-10-13T18:02:32.102Z",
+      "status": "pending"
+    },
+    {
+      "id": "11f64dff-6e41-46ba-a9fa-a3f8b384e3fb",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "7581857a2526c5ac830551e3ef4d66633f7d0c2c16e7fb13008ac9dec56f0a0e",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.105Z",
+      "expires_at": "2026-10-13T18:02:32.105Z",
+      "status": "pending"
+    },
+    {
+      "id": "7f74f93b-01e7-4d01-9942-5a5a60cfdb5e",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "56c0b26dba6e865f4cbb921b36e62bb1ad82a23b40df2213ff6ab5e37089957b",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.108Z",
+      "expires_at": "2026-10-13T18:02:32.108Z",
+      "status": "pending"
+    },
+    {
+      "id": "69d0af42-fd77-4bff-80a0-5a57d6a56fd0",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "b6bd6f7db5a9f58f1648f81a49de278dcf376dee678d2c34feb5146ced33a574",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.111Z",
+      "expires_at": "2026-10-13T18:02:32.111Z",
+      "status": "pending"
+    },
+    {
+      "id": "7b334186-7364-4df4-aa58-6c437b107a15",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "3f86e87c89f370dae1e44ecb57475cea3e15514c8242b4cb450f2236593e28f1",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.114Z",
+      "expires_at": "2026-10-13T18:02:32.114Z",
+      "status": "pending"
+    },
+    {
+      "id": "0a984867-cb2e-4800-9614-ebbca2e95153",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "70a53cfa3b29686f824f0d34774fa264576d3fbccb9e70b18a4fdbaf6db1d0f1",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.118Z",
+      "expires_at": "2026-10-13T18:02:32.118Z",
+      "status": "pending"
+    },
+    {
+      "id": "98dbab48-e92a-4368-a700-cfebe05ccc94",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "2a01094a0023d0c95458c7470c78460b198ed46708f9d06ca9aa35b7ad43e223",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.122Z",
+      "expires_at": "2026-10-13T18:02:32.122Z",
+      "status": "pending"
+    },
+    {
+      "id": "986b9ade-7a67-4722-9e00-4eed926dba16",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "cef50a3105bfb3fea94fb1a675ae0c44bdb4ca50c0e703affa1f79f2dcfd997f",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.125Z",
+      "expires_at": "2026-10-13T18:02:32.125Z",
+      "status": "pending"
+    },
+    {
+      "id": "1bb7614e-cca3-41ef-9f8a-6717e0bcd415",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "22eb57db984acd0778502572d9e83df0da6d4e5375c9bd121b0b8c07bfb1e39f",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.130Z",
+      "expires_at": "2026-10-13T18:02:32.130Z",
+      "status": "pending"
+    },
+    {
+      "id": "b0adebce-e7b2-4cb8-a050-c4de50f544b4",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "d2dcc945c864b690c1132f38042fa4e172871a2fd44b46c0015203068e4f109f",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.133Z",
+      "expires_at": "2026-10-13T18:02:32.133Z",
+      "status": "pending"
+    },
+    {
+      "id": "b1b24790-257d-4da9-be99-1bf3f22c4c28",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "de7e542a4c2d4a0a4ae9c12d7a7dc349dbaff35e699e9b5ebf1b267577fa9452",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.136Z",
+      "expires_at": "2026-10-13T18:02:32.136Z",
+      "status": "pending"
+    },
+    {
+      "id": "62631984-2fda-4d71-93bb-a0fc7a92c211",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "d7c3a4281612ec484fd904d0434769c5a9073781d12f42313bb2814970130f99",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.139Z",
+      "expires_at": "2026-10-13T18:02:32.139Z",
+      "status": "pending"
+    },
+    {
+      "id": "a2a60265-0184-46ec-8e77-2cad226af8bd",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "707232f87391733bb3197be847d13f79bffe7aab5f9e9fe81b578d77b3c6b310",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.143Z",
+      "expires_at": "2026-10-13T18:02:32.143Z",
+      "status": "pending"
+    },
+    {
+      "id": "319befe8-3f31-4107-848c-5d4264491954",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "4b1d04907846067e4b68e3d3dbb9b0556ec9330184700c24de430f7439e7fd9f",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.146Z",
+      "expires_at": "2026-10-13T18:02:32.146Z",
+      "status": "pending"
+    },
+    {
+      "id": "957753d2-c029-4ef4-b839-32d04de1a792",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "f86177e8fef852ca8ecc0b5d7205d0b6537f416ae3643b6acabbc32cadbc1913",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.149Z",
+      "expires_at": "2026-10-13T18:02:32.149Z",
+      "status": "pending"
+    },
+    {
+      "id": "13d5d096-548c-48f7-b736-5e04d2cee6c2",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "9836f2637bd3127c01f27bb004dfd117ad067b8ba526430aeb20ab83a34f05f5",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.152Z",
+      "expires_at": "2026-10-13T18:02:32.152Z",
+      "status": "pending"
+    },
+    {
+      "id": "09e73ed3-1016-4ba1-b7e7-d1ed7fceeb52",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "c2ac8e0afc30e4b3134dddbbeb94761b7b27bff6444530b64e3ad0b580c17515",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.155Z",
+      "expires_at": "2026-10-13T18:02:32.155Z",
+      "status": "pending"
+    },
+    {
+      "id": "e7c96543-761e-41ce-84f6-494fafdde030",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "3d792519ddc0a2c576bab1e527265d46629b5afc73255bf266446d32d20eb237",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.158Z",
+      "expires_at": "2026-10-13T18:02:32.158Z",
+      "status": "pending"
+    },
+    {
+      "id": "c2587eb6-581d-4b38-9461-621892880dee",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "122fe5a2733a10644649170b07da26ec805fe0af1db26af7036cd1893de805c4",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.161Z",
+      "expires_at": "2026-10-13T18:02:32.161Z",
+      "status": "pending"
+    },
+    {
+      "id": "baba89e2-cfca-4151-a1db-b691cdfbc64d",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "3ce7c766608d377e465469d655e0b347891ab04473bbcfece3a04793ee8c06d3",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.164Z",
+      "expires_at": "2026-10-13T18:02:32.164Z",
+      "status": "pending"
+    },
+    {
+      "id": "02e99a11-bab6-43f8-abe4-42170e3f2bf4",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "75d48cf10395ad574fead961c0d45fdd36d5534002826b205c7fb2fef158d5d5",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.168Z",
+      "expires_at": "2026-10-13T18:02:32.168Z",
+      "status": "pending"
+    },
+    {
+      "id": "17891eed-37db-4c37-b7a0-ca77deab1025",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "f05be88c296ee50576cdf214534ad28910f989dec79240c3d59765acf07d2a53",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.172Z",
+      "expires_at": "2026-10-13T18:02:32.172Z",
+      "status": "pending"
+    },
+    {
+      "id": "1f0a2989-06ed-4dbe-933c-309b0e66c010",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "cebd43910b3b3e8421c542d7af4039cb9ea91e07c75a13bd163447482292a370",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.176Z",
+      "expires_at": "2026-10-13T18:02:32.176Z",
+      "status": "pending"
+    },
+    {
+      "id": "5ca33cd3-13a5-4173-9ace-13f747b4e34f",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "37e250ab054afa34970aeaf7d45dbcfd2dc54c9551aff5a9ab98888b6f2c5bff",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.179Z",
+      "expires_at": "2026-10-13T18:02:32.179Z",
+      "status": "pending"
+    },
+    {
+      "id": "91522932-a624-434e-9f64-fc59236bc5af",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "6c2822aeb306706665fd9d5487d94de1cfc681f796ac004ba70e42677fd2df82",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.182Z",
+      "expires_at": "2026-10-13T18:02:32.182Z",
+      "status": "pending"
+    },
+    {
+      "id": "a350618f-58af-4649-a4c6-578c2fe36689",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "d958f4cd3970fc0d1861384b481bb36d5ba79b268fbe70219ae54da5e09b1963",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.185Z",
+      "expires_at": "2026-10-13T18:02:32.185Z",
+      "status": "pending"
+    },
+    {
+      "id": "c2331aa1-cb4b-4c23-a8c7-06e4eb7a174c",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "3ebaf8e2a9351368dbc3b06df584f7169bddc7f3df8808f026b6a672efcde017",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.187Z",
+      "expires_at": "2026-10-13T18:02:32.187Z",
+      "status": "pending"
+    },
+    {
+      "id": "e1aa4df3-4b23-4fcc-a638-bb5accad37a0",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "6bcc070771cb046ad770c2db30cdfb51506d23903736e82a70c8bf1241245623",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.190Z",
+      "expires_at": "2026-10-13T18:02:32.190Z",
+      "status": "pending"
+    },
+    {
+      "id": "cc665058-d6c3-4923-a7ec-c732d7a6605a",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "187e995e20c8acac07b9a673465d208fa2ca6bd3979765b3727b27efbd0ac269",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.193Z",
+      "expires_at": "2026-10-13T18:02:32.193Z",
+      "status": "pending"
+    },
+    {
+      "id": "3aff484a-c452-42fa-9874-a404c4f5ba4d",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "505bd4247e25d04cc75e29235b3013529c86f82b27b44fa94f694f97b8b0887f",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.195Z",
+      "expires_at": "2026-10-13T18:02:32.195Z",
+      "status": "pending"
+    },
+    {
+      "id": "8d28b0e4-f643-4614-a229-1f064b4d6055",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "59568f5338ab25fba4527bba514062640b01966a9583a5e789bfc3ca3642594f",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.199Z",
+      "expires_at": "2026-10-13T18:02:32.199Z",
+      "status": "pending"
+    },
+    {
+      "id": "53e33b09-4df2-4ded-9e0f-f0274ba8e3ad",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "a2152e020d3f9a93e32af3cfdc3c4cda585d802c065a99f6a334a4cf9d4721d2",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.204Z",
+      "expires_at": "2026-10-13T18:02:32.204Z",
+      "status": "pending"
+    },
+    {
+      "id": "35a06383-1017-4c7b-95e5-f61ee87e1466",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "b194b6687ec82a0a878d6693b8fd69aeae18f0b70568a5a8143e98f7abb91c22",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.209Z",
+      "expires_at": "2026-10-13T18:02:32.209Z",
+      "status": "pending"
+    },
+    {
+      "id": "cbad190a-8b1a-4f1a-b979-d9bbc1aeb8a3",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "5eba878b897203fbaa23f7161ac0eaf859b069fb48064928a3c4a9c6395a21f2",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:32.214Z",
+      "expires_at": "2026-10-13T18:02:32.214Z",
+      "status": "pending"
+    },
+    {
+      "id": "bc122a9b-26b0-4114-990d-1aad6007aa88",
+      "group_id": "710e86bf-a212-48f9-9174-9e091379257c",
+      "group_name": "Cardiology Study 1791309751754",
+      "token_hash": "a2900158d670c88854d8a7be8c6bb55f7639652b3645f999117f01a896aea1dd",
+      "created_by": "737ae6ae-e531-488a-a825-0ec7e69e8e55",
+      "created_at": "2026-10-06T18:02:32.222Z",
+      "expires_at": "2026-10-13T18:02:32.222Z",
+      "status": "pending"
+    },
+    {
+      "id": "ff171b35-4b83-4dfa-a830-307574494162",
+      "group_id": "2b06a317-3b65-40d7-8876-2688665b3698",
+      "group_name": "Auditory Research Study 1791309751754",
+      "token_hash": "60abd60c060b720e3ca9bd682800d5d338b04b2fd01b4a7fea432f48fe8a650a",
+      "created_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "created_at": "2026-10-06T18:02:33.459Z",
+      "expires_at": "2026-10-13T18:02:33.459Z",
+      "status": "pending"
+    },
+    {
+      "id": "1debc0e0-46b9-44d6-9180-2c7357f1d2a9",
+      "group_id": "710e86bf-a212-48f9-9174-9e091379257c",
+      "group_name": "Cardiology Study 1791309751754",
+      "token_hash": "8f5966679caef3ddc2b9d5d424b29c161cac69c9d8361269bcd677ea0836c901",
+      "created_by": "737ae6ae-e531-488a-a825-0ec7e69e8e55",
+      "created_at": "2026-10-06T18:02:33.467Z",
+      "expires_at": "2026-10-13T18:02:33.467Z",
+      "status": "pending"
+    },
+    {
+      "id": "e5140500-69c1-409b-8460-5ba231ddfb53",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "c8c74e82a9230c90dc389a8f5c09b8c0ef9c24170f28da680b8ebdabad4125b8",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.139Z",
+      "expires_at": "2026-10-13T18:03:39.139Z",
+      "status": "pending"
+    },
+    {
+      "id": "54ddb45c-eb83-4082-9d74-1b99e8a25fe4",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "8617a4b32ead3e60ba19635587a620b5403f2f9036dc20cf73d0de7111a97f2e",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.143Z",
+      "expires_at": "2026-10-13T18:03:39.143Z",
+      "status": "pending"
+    },
+    {
+      "id": "d940c928-2512-4b6a-a958-3413aca1dabb",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "7cf2c17ed4ebdf7cb0f89d9cf706ea2b325dc176d7bb82f77615674814ad94ed",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.148Z",
+      "expires_at": "2026-10-13T18:03:39.148Z",
+      "status": "pending"
+    },
+    {
+      "id": "751adad9-2cdd-497d-ae6e-9f7645cb9aef",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "d088e8e2e06af59c607d553ed0e225213bc6fbf2ff9696a432397b684fc1b2fc",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.153Z",
+      "expires_at": "2026-10-13T18:03:39.153Z",
+      "status": "pending"
+    },
+    {
+      "id": "ad64f080-ed22-44c2-a23a-1ebbac5071a8",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "bf10988aa7ec139cbb9b293172b3d49f647308ec0b7e1b3bb69fa0edd78a104f",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.157Z",
+      "expires_at": "2026-10-13T18:03:39.157Z",
+      "status": "pending"
+    },
+    {
+      "id": "b296f5f1-c4af-4a28-85cc-77216288eb59",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "4a513672a9972461be342839d379d1712afd61c9f01cfd091a0da6df9504e729",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.160Z",
+      "expires_at": "2026-10-13T18:03:39.160Z",
+      "status": "pending"
+    },
+    {
+      "id": "9edf45f1-05eb-4e1f-973b-bc5be75c7004",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "a5dbfbeb5ac4d40541175eb802df2c9d4e46be4431b94fb7ae84555a43435754",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.164Z",
+      "expires_at": "2026-10-13T18:03:39.164Z",
+      "status": "pending"
+    },
+    {
+      "id": "bdda35c6-ba5d-4cf1-b8eb-36387bedaed3",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "bb8fc17f541cfe507f7224039795bc80ffa5060ec15ef9d113196df9cf4327bc",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.167Z",
+      "expires_at": "2026-10-13T18:03:39.167Z",
+      "status": "pending"
+    },
+    {
+      "id": "648ad23d-d633-442d-a2af-d16263c43ceb",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "3358f7fcb2dc7edf19d91ecbdbcca33f7b9d2d4114c1680dd3ea2f4336536341",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.172Z",
+      "expires_at": "2026-10-13T18:03:39.172Z",
+      "status": "pending"
+    },
+    {
+      "id": "37fcddfd-f509-4eed-8fe2-93c7d713a948",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "f412e67e2134f3df15a743d54bb914627dc91d23a99999e50c191b88161ecb27",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.177Z",
+      "expires_at": "2026-10-13T18:03:39.177Z",
+      "status": "pending"
+    },
+    {
+      "id": "1f4e17f4-eada-4b2c-a349-90135fbd6737",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "b79999a7f8ec740c807e9db38c84ddef1a9faf53c0210172481b81a740c783f6",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.181Z",
+      "expires_at": "2026-10-13T18:03:39.181Z",
+      "status": "pending"
+    },
+    {
+      "id": "f20a3f02-de0a-4649-847a-6f59e840c2c8",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "65a47d818a2632014e4efd0003a4aab19b9c92301d2c364c24d319adfea3596e",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.184Z",
+      "expires_at": "2026-10-13T18:03:39.184Z",
+      "status": "pending"
+    },
+    {
+      "id": "4ee0442f-a62a-4d82-aa47-b96a99de90c6",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "7977be224ac460f9afe0332573fd39f9c850047da8d5d16be2fce4710b8c2d5d",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.187Z",
+      "expires_at": "2026-10-13T18:03:39.187Z",
+      "status": "pending"
+    },
+    {
+      "id": "ab5d3e3b-f78d-4843-8985-69ed135cc145",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "e95d8ee65975e836597a89be9bed63cf32bf881770643ae12bf0acb7c50a8fc9",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.189Z",
+      "expires_at": "2026-10-13T18:03:39.189Z",
+      "status": "pending"
+    },
+    {
+      "id": "9fdd9c91-5edc-46b4-92b9-a04836438e16",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "74658073eba953414994217a7009a03e01627b1a4894434ac0363983f273352c",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.193Z",
+      "expires_at": "2026-10-13T18:03:39.193Z",
+      "status": "pending"
+    },
+    {
+      "id": "9c474b7e-96c8-4f3a-87cc-0e99c470a0bc",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "87b8eecd29b742f23998585ec855ad95b4f26f39f5bdd0b0e191310201cc4044",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.196Z",
+      "expires_at": "2026-10-13T18:03:39.196Z",
+      "status": "pending"
+    },
+    {
+      "id": "20e831f3-7753-4e81-ac48-f64d42bec6bd",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "d34f7476e632d6002c8a212c9de096894bd4e5b12c8e971ccd75f695815bb639",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.199Z",
+      "expires_at": "2026-10-13T18:03:39.199Z",
+      "status": "pending"
+    },
+    {
+      "id": "577c8a7f-df2e-4dc2-b959-b1d433a91af2",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "a5a189584c2d1141e22d984935d437b8836ad9e100b585d8608aa6ba9304173c",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.201Z",
+      "expires_at": "2026-10-13T18:03:39.201Z",
+      "status": "pending"
+    },
+    {
+      "id": "65435ddc-0663-4eeb-89eb-4843841d375f",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "2df8f941b9e268ce487edb248c92cd814f3bd3a3cdb383101d16983870aaa9f8",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.204Z",
+      "expires_at": "2026-10-13T18:03:39.204Z",
+      "status": "pending"
+    },
+    {
+      "id": "24fca098-6c8e-46fe-b0e1-7c85faeb9fdd",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "27983cec3bcb08c1648f58b6f482a74e05aeb4582e6e6e7ca94a8c2c34a16fd6",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.207Z",
+      "expires_at": "2026-10-13T18:03:39.207Z",
+      "status": "pending"
+    },
+    {
+      "id": "70bcb06e-80f7-43f9-8c1b-a9935f0ed3fc",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "677b2faacb8de5e8a9219fb32123149f6622ec65f5be72476a274941e24564ca",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.210Z",
+      "expires_at": "2026-10-13T18:03:39.210Z",
+      "status": "pending"
+    },
+    {
+      "id": "0a7d1ae8-f1a5-46a0-a86a-fee87bb97c78",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "b11ba8feca3f7e25669d4aa65dcb6370f53f8d267f03a407368d25b812fc1dc6",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.214Z",
+      "expires_at": "2026-10-13T18:03:39.214Z",
+      "status": "pending"
+    },
+    {
+      "id": "00f8928c-d015-4c3d-b531-3228c5ff3f33",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "1c98233ef1393dd068c8eb28513e09d71135c98a9b1f5faba7f40bc94fea83a4",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.217Z",
+      "expires_at": "2026-10-13T18:03:39.217Z",
+      "status": "pending"
+    },
+    {
+      "id": "8d64a45e-174f-48ca-bd84-9e711410d259",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "8eeeff6b7ddcfadc362485c7f5a3b16fc2b65d4ed064b84844cae4032dd67a05",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.221Z",
+      "expires_at": "2026-10-13T18:03:39.221Z",
+      "status": "pending"
+    },
+    {
+      "id": "7f9339b6-bae6-4f76-9fbe-cb09b7695176",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "5a108d2f7fb300c3e74d2487fc2b0976851e9e4577bdf5f665df9f9d9b72afdf",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.224Z",
+      "expires_at": "2026-10-13T18:03:39.224Z",
+      "status": "pending"
+    },
+    {
+      "id": "8b41ca00-4fd4-4165-ae47-bcfd2fe063cb",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "f3ba1ee01fa93e4d55330c5fdc3cad21df7e1a8e0d275b3e95c544c5f8d3d63c",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.227Z",
+      "expires_at": "2026-10-13T18:03:39.227Z",
+      "status": "pending"
+    },
+    {
+      "id": "2c2f3289-db81-4465-a681-a4fc60c6d58b",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "f478a054baca357b37b93d8924754a77e73c564e684d41223177a507c2cd0e9e",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.230Z",
+      "expires_at": "2026-10-13T18:03:39.230Z",
+      "status": "pending"
+    },
+    {
+      "id": "4e5fdcef-4910-46d0-84d8-6388bc0046e2",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "5a665c307d7120eb857f809aec184f2e312d088a6151df95de1b6cec47920bea",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.233Z",
+      "expires_at": "2026-10-13T18:03:39.233Z",
+      "status": "pending"
+    },
+    {
+      "id": "c5223dfe-4979-4da7-9b47-4317fdfbf4d1",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "a008d40c98b99582cb398c89e40cc1186723a953bf61fb5c0ca83ab5950f29bc",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.236Z",
+      "expires_at": "2026-10-13T18:03:39.236Z",
+      "status": "pending"
+    },
+    {
+      "id": "cf3ab802-dd35-4aae-adef-973e58b90b05",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "d714deb1e941cc0ddbe4de6690f6025620b437f4bccde4f88ce068024a8f915e",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.239Z",
+      "expires_at": "2026-10-13T18:03:39.239Z",
+      "status": "pending"
+    },
+    {
+      "id": "8ec0f8ff-0e13-4357-9d68-e1a33317b16a",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "0576ac80777b49a70668a715f6a1ffed0f46bbf59ab491ec3521a8e7f589bc29",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.243Z",
+      "expires_at": "2026-10-13T18:03:39.243Z",
+      "status": "pending"
+    },
+    {
+      "id": "b4769965-3522-4e6d-bbd1-3fbc0e58663c",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "51bbd882081ec8291366f8ada4a4c2f9550c73d9101d86efd9660e3edf8b5d96",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.246Z",
+      "expires_at": "2026-10-13T18:03:39.246Z",
+      "status": "pending"
+    },
+    {
+      "id": "0b3f0f56-f69d-4582-aa11-29a1d44a2f85",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "32c96a3c42762b52d6459bd22a24e6178ccdbf58f36bf0935ec83960a6d690a2",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.249Z",
+      "expires_at": "2026-10-13T18:03:39.249Z",
+      "status": "pending"
+    },
+    {
+      "id": "ba70f7a0-4283-48c5-bba3-a1b9aec265be",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "973bf2a7e1b5df547c57b9c5fecb64c5309e1ec5cb65595e603722fd97aadb60",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.253Z",
+      "expires_at": "2026-10-13T18:03:39.253Z",
+      "status": "pending"
+    },
+    {
+      "id": "a287446d-13d8-4f85-8403-7a4ec0773ccb",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "949a14f947ab5f5b80c8164f42d072852611106329e4df98064f6267c0066b1b",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.256Z",
+      "expires_at": "2026-10-13T18:03:39.256Z",
+      "status": "pending"
+    },
+    {
+      "id": "2f5596a3-43ef-4e17-b66b-de8ebaf2b1e2",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "c4a0ee03e103bc432d1bf64415b72f8e8ac11829f1b3ddebd1f8a15f52fb0bcc",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.265Z",
+      "expires_at": "2026-10-13T18:03:39.265Z",
+      "status": "pending"
+    },
+    {
+      "id": "d93cb919-9184-497c-96f9-414f55f26490",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "3321397e4605ddba031931a05497c78d706bc6965c9f81b0691e2ad626e3512f",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.271Z",
+      "expires_at": "2026-10-13T18:03:39.271Z",
+      "status": "accepted",
+      "accepted_by": "e10779cf-b1b0-4fae-8bfe-5d14df649064",
+      "accepted_at": "2026-10-06T18:03:39.275Z"
+    },
+    {
+      "id": "37712f3d-93fb-4e72-a36d-fa2c4d879244",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "3dc85d093d365893078fccc98aa31154d67036eb78727fcd3e69b7473e0ca395",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:39.283Z",
+      "expires_at": "2026-10-13T18:03:39.283Z",
+      "status": "accepted",
+      "accepted_by": "de9dbf26-2d64-4d04-886e-fc66af7e0e80",
+      "accepted_at": "2026-10-06T18:03:39.287Z"
+    },
+    {
+      "id": "e5fe9b9c-b341-4fb7-98ec-2c49709d05b7",
+      "group_id": "ccb1a18f-257a-4a4b-9201-3f4a105577f0",
+      "group_name": "Cardiology Study 1791309818746",
+      "token_hash": "6b9126abd447ce4fc9f0262f38b3b47e7fd268f00eec4d06e2f55ab557e4d36a",
+      "created_by": "e10779cf-b1b0-4fae-8bfe-5d14df649064",
+      "created_at": "2026-10-06T18:03:39.294Z",
+      "expires_at": "2026-10-13T18:03:39.294Z",
+      "status": "accepted",
+      "accepted_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "accepted_at": "2026-10-06T18:03:39.298Z"
+    },
+    {
+      "id": "59e529b4-89c0-4860-ac47-a963eed76d0e",
+      "group_id": "e44c979b-c4e7-41d5-8563-f360e7204ee7",
+      "group_name": "Auditory Research Study 1791309818746",
+      "token_hash": "c78bad722b52c08b1cbabc569fb59d558454b10af915521c80c8277622046253",
+      "created_by": "c33d3b5b-62ba-4f25-a1b2-6f749b23af2a",
+      "created_at": "2026-10-06T18:03:40.560Z",
+      "expires_at": "2026-10-13T18:03:40.560Z",
+      "status": "pending"
+    },
+    {
+      "id": "cee32c18-314f-4826-a371-b1e73e1dbb3b",
+      "group_id": "ccb1a18f-257a-4a4b-9201-3f4a105577f0",
+      "group_name": "Cardiology Study 1791309818746",
+      "token_hash": "a1fafb5408e5407a0f5c24170caa53e9e388033a15d1eb4264965d7dd4820705",
+      "created_by": "e10779cf-b1b0-4fae-8bfe-5d14df649064",
+      "created_at": "2026-10-06T18:03:40.572Z",
+      "expires_at": "2026-10-13T18:03:40.572Z",
+      "status": "accepted",
+      "accepted_by": "de9dbf26-2d64-4d04-886e-fc66af7e0e80",
+      "accepted_at": "2026-10-06T18:03:40.685Z"
+    },
+    {
+      "id": "2b4f3619-5121-4f51-9c6f-5cebd824d981",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "9151a554f70234d7a68b6410f1346077e46404b10fd9a67bebeb722f99b6f7ad",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.395Z",
+      "expires_at": "2026-10-13T18:04:04.395Z",
+      "status": "pending"
+    },
+    {
+      "id": "84d1dce7-3ba6-4336-8de8-30cd6ed7a49f",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "e270b3fd7fe2d2a5bdbf0aad049d47e109eb2d6971a04cfa8c3fb5b13bba7f6f",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.399Z",
+      "expires_at": "2026-10-13T18:04:04.399Z",
+      "status": "pending"
+    },
+    {
+      "id": "19db2721-3331-42b8-9a70-860cf8b7bf74",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "b9a3b1538c5a4519da4cba340ba73a1de8a2855c7a1c51ae2afeb3cdf105d480",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.403Z",
+      "expires_at": "2026-10-13T18:04:04.403Z",
+      "status": "pending"
+    },
+    {
+      "id": "dd000f2f-40f2-49f6-ae85-37e338ec5d9f",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "9df82aa58797f72f76ec08f27681b56a967cbe36793564275ae8bba0e105799c",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.407Z",
+      "expires_at": "2026-10-13T18:04:04.407Z",
+      "status": "pending"
+    },
+    {
+      "id": "488f3401-ab23-48d0-b476-8b9628718e3c",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "8bc3cbf97bb45a69a72ff2ede85658df4231be8765ade9d1998eff61b6b045a8",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.411Z",
+      "expires_at": "2026-10-13T18:04:04.411Z",
+      "status": "pending"
+    },
+    {
+      "id": "150cdc21-1d7b-454e-9c31-6e861f52d87e",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "0f922a46d62fdfad832dc277f3c8f5dd791ae042497b4a6f88264048656ff0f8",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.416Z",
+      "expires_at": "2026-10-13T18:04:04.416Z",
+      "status": "pending"
+    },
+    {
+      "id": "425bf0de-b386-4ecc-9af0-44320ee63533",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "df1cdf3c75b0769de7d9e1486b64629285cbd52662326eec82e0dab178208ac9",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.419Z",
+      "expires_at": "2026-10-13T18:04:04.419Z",
+      "status": "pending"
+    },
+    {
+      "id": "5d912bb1-4bf9-432a-80b0-5a52cd1de6b2",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "a4a6caee63781f4979f6a701ceefe460c3d11b623de3730ce9984e375181aaff",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.422Z",
+      "expires_at": "2026-10-13T18:04:04.422Z",
+      "status": "pending"
+    },
+    {
+      "id": "7be31f39-d9bf-4735-86e3-4c85bac5bf7f",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "314b8966765e90111fa8b78ada3b14e2faf7a58aaa5bc6bb5ecb8cb30b762097",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.425Z",
+      "expires_at": "2026-10-13T18:04:04.425Z",
+      "status": "pending"
+    },
+    {
+      "id": "3bc0122e-854f-46fc-83a2-557b28cc270a",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "b0da48bbdae87314551e4be9e7ae3b3901eb40db045f707884eaa7679fadf9b5",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.428Z",
+      "expires_at": "2026-10-13T18:04:04.428Z",
+      "status": "pending"
+    },
+    {
+      "id": "10eec579-392f-4b91-9845-6d3dc366fd99",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "966d2a3ebbba670e7fb0efeae511345405023aa6d897851c3cbeab76fe42be67",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.432Z",
+      "expires_at": "2026-10-13T18:04:04.432Z",
+      "status": "pending"
+    },
+    {
+      "id": "d4c46ee6-55aa-400a-8503-ef589228629f",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "f831bebf908740ddd6790c6ce8fdee2c21d7f0b2e51449370078bb3b8035ec0a",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.435Z",
+      "expires_at": "2026-10-13T18:04:04.435Z",
+      "status": "pending"
+    },
+    {
+      "id": "fae0b19c-76d2-437d-8ad7-44e2985bda00",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "504fc01c75de1becd62a81df23ac88e1bcae843a9e256e262afda3d8ccb24455",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.439Z",
+      "expires_at": "2026-10-13T18:04:04.439Z",
+      "status": "pending"
+    },
+    {
+      "id": "a99173fe-c4bf-4262-bde1-cba6318c5c83",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "5c6861d3d4265ea815a0bc4c52aba6afa2166f88e50cff71c882a6622c0e06fc",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.443Z",
+      "expires_at": "2026-10-13T18:04:04.443Z",
+      "status": "pending"
+    },
+    {
+      "id": "a54854af-260a-4459-b84b-03e787fd2570",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "899111d7b1d53de200d2dd6bb0016d7a00cdb19943597441a3302f10552f3930",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.447Z",
+      "expires_at": "2026-10-13T18:04:04.447Z",
+      "status": "pending"
+    },
+    {
+      "id": "5b2bc591-542e-4e1f-91be-6ea39e524bf8",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "a0036763d8b001e6b586b90bec693323bc93d4a2c0b87697d5767fd50e2a84bd",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.451Z",
+      "expires_at": "2026-10-13T18:04:04.451Z",
+      "status": "pending"
+    },
+    {
+      "id": "f2217264-41d0-4018-a7dd-cfcbe48a4c73",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "dad7b39f9e84c84a332cefe55e8c09591f4cec70adcb7512eb64635afbb388f5",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.455Z",
+      "expires_at": "2026-10-13T18:04:04.455Z",
+      "status": "pending"
+    },
+    {
+      "id": "9f9a26c1-6989-4c4a-8bad-27771b3f2dc9",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "93bba0fc34587132b187bfeb5db4d2b7741460ee4bb50f35a723ea018c22e104",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.458Z",
+      "expires_at": "2026-10-13T18:04:04.458Z",
+      "status": "pending"
+    },
+    {
+      "id": "d9226770-4b13-4ee9-82de-ed3ded25e339",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "70c86b120ae39d2e5b14ea2553558ebb922bfc62536a780c318204805fca64d9",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.465Z",
+      "expires_at": "2026-10-13T18:04:04.465Z",
+      "status": "pending"
+    },
+    {
+      "id": "35cafa46-6836-47bb-80bc-c12954e52b82",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "89896061557698eab2f21a2c8929482c6f6b14e5f24eb46d76ce02b5dd898c4a",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.474Z",
+      "expires_at": "2026-10-13T18:04:04.474Z",
+      "status": "pending"
+    },
+    {
+      "id": "10af5048-a5f1-40ee-8526-490d140b84c3",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "33263d75cca568b520c6e3214e0d1c44fe5650bd2e4bb45a47462ea966384ea8",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.478Z",
+      "expires_at": "2026-10-13T18:04:04.478Z",
+      "status": "pending"
+    },
+    {
+      "id": "bd6567fe-0384-444f-8b86-753d47e22ebb",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "80f84654e581d08e213837a13edd4047412b103c7696b003ee01e67f44ae3ca2",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.483Z",
+      "expires_at": "2026-10-13T18:04:04.483Z",
+      "status": "pending"
+    },
+    {
+      "id": "3752dd08-b185-4f0c-890a-91d5b6adc080",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "6f957467fedfd2ce883dec2187e36c943789cfeb0fa39572fcab5af9eced91a0",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.487Z",
+      "expires_at": "2026-10-13T18:04:04.487Z",
+      "status": "pending"
+    },
+    {
+      "id": "587ca42f-1d2b-41b2-9110-e30c5598fbdf",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "167a2097aef3cba71ade94eaf0bb056a51c6208447b8cbc8a5f2fa526852ac9b",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.491Z",
+      "expires_at": "2026-10-13T18:04:04.491Z",
+      "status": "pending"
+    },
+    {
+      "id": "75c4894d-2f6a-4642-8771-61cabcdf367c",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "c46cd4d1341e4293764cd305f395204fa16cf70ed5a6d2fd0725d667c8b772b3",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.495Z",
+      "expires_at": "2026-10-13T18:04:04.495Z",
+      "status": "pending"
+    },
+    {
+      "id": "519b5d98-649b-49ee-91bf-4b87c791a8f0",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "dd7f19fd6dc1fc2240413f0528cd5e236e62cf340609ea42aedd3b848b359f31",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.498Z",
+      "expires_at": "2026-10-13T18:04:04.498Z",
+      "status": "pending"
+    },
+    {
+      "id": "983ffd0f-3ca1-42b6-987f-bc3e632ba347",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "70e72e63390c33699fd0e0d869e00c8ada85cc7448d303a6fb254c602ab86e8e",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.502Z",
+      "expires_at": "2026-10-13T18:04:04.502Z",
+      "status": "pending"
+    },
+    {
+      "id": "39b60887-4a25-489b-8ac7-7a8472257fb9",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "e30c141f60b23bf80c426d9d495101592d4ea2828c5917f5cceb15827718996f",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.505Z",
+      "expires_at": "2026-10-13T18:04:04.505Z",
+      "status": "pending"
+    },
+    {
+      "id": "d9047e05-e609-450b-83bb-41d2718e4431",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "9bfde1b5af5e343f6cbb3d61a9c30062bf928782fdc3c13bdf562b8a183a8313",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.511Z",
+      "expires_at": "2026-10-13T18:04:04.511Z",
+      "status": "pending"
+    },
+    {
+      "id": "0266ef2c-1918-46da-a008-717c5aa16e2f",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "8ad36aa52d0150c323b93e2127810519da6d6a071a8577cedb626a094775e4ed",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.515Z",
+      "expires_at": "2026-10-13T18:04:04.515Z",
+      "status": "pending"
+    },
+    {
+      "id": "da8cdb25-16c3-4844-a1d3-8a769f82d469",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "2e0291bf1b29416f6efb7d199330aaef374a93533899c9f295131c4887adeb16",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.520Z",
+      "expires_at": "2026-10-13T18:04:04.520Z",
+      "status": "pending"
+    },
+    {
+      "id": "84d653c6-e929-4370-9128-4e084f7baa54",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "1b1a0ec2a42ececfb166fc78a2872d868261fb5e18e2192b10e038a1a5b60b41",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.526Z",
+      "expires_at": "2026-10-13T18:04:04.526Z",
+      "status": "pending"
+    },
+    {
+      "id": "e754a5fb-5950-47cd-81e9-092d0d18bb01",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "d5e6bc3655abe92208ab35d6e10d030eb9a7b15e9e6fb9b64ef7b9d356ed0675",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.531Z",
+      "expires_at": "2026-10-13T18:04:04.531Z",
+      "status": "pending"
+    },
+    {
+      "id": "cb13ffcd-5f7b-4c73-8f10-9b3cdccd19f6",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "868a22da33bef5613abcb4c6bea296b70fd5fbfe88a9817c07bb1bba18ccb660",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.535Z",
+      "expires_at": "2026-10-13T18:04:04.535Z",
+      "status": "pending"
+    },
+    {
+      "id": "4220026a-1e0d-4065-a9c7-3d2af6b3d5a8",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "7cff1697b3448a7a9f2ea867c56a986049bcf961456394d87c3fcba15d9a0048",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.538Z",
+      "expires_at": "2026-10-13T18:04:04.538Z",
+      "status": "pending"
+    },
+    {
+      "id": "da01bfd5-e8ab-4197-a84f-7197a1bbe2a0",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "c2c04e4189ff9b28ba465795ed9edf59d2a7cbb4c4267ea7ceec058b06b75efd",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.545Z",
+      "expires_at": "2026-10-13T18:04:04.545Z",
+      "status": "pending"
+    },
+    {
+      "id": "829341dd-97ea-4570-9628-beb52aebef3a",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "2a287cc1380afa015f996a5701d44b613e6110810b1ef28112d8e7dd9247813e",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.550Z",
+      "expires_at": "2026-10-13T18:04:04.550Z",
+      "status": "accepted",
+      "accepted_by": "2e0f3a38-afda-44e2-a796-a5a66360f3e3",
+      "accepted_at": "2026-10-06T18:04:04.554Z"
+    },
+    {
+      "id": "d83f2029-9df9-4178-819e-5417d68a0c0e",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "1007228145a947924d83a494dc18b7bc001b177f14daeaff48e64501d50d9eda",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:04.566Z",
+      "expires_at": "2026-10-13T18:04:04.566Z",
+      "status": "accepted",
+      "accepted_by": "9fcde7a4-b17f-4668-a49c-acf9826feceb",
+      "accepted_at": "2026-10-06T18:04:04.570Z"
+    },
+    {
+      "id": "26ea63dc-4800-4997-943e-460d186d1baf",
+      "group_id": "e7dced5c-8ede-4f1b-841e-090a05ca6d22",
+      "group_name": "Cardiology Study 1791309844038",
+      "token_hash": "e7a44681bc17ad4c0070521add6cdd66b12c96d3362c8967b477fdf6f20aa137",
+      "created_by": "2e0f3a38-afda-44e2-a796-a5a66360f3e3",
+      "created_at": "2026-10-06T18:04:04.579Z",
+      "expires_at": "2026-10-13T18:04:04.579Z",
+      "status": "accepted",
+      "accepted_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "accepted_at": "2026-10-06T18:04:04.583Z"
+    },
+    {
+      "id": "460477a6-560b-48b9-93f9-7306381594c4",
+      "group_id": "1c495090-01d6-44c6-bcf5-de5678772ca3",
+      "group_name": "Auditory Research Study 1791309844038",
+      "token_hash": "9dd1758885dae369bb71e5526f398a092f6a334a5b3ca5dbc382d2fc44a6fc6f",
+      "created_by": "2d180aa2-ba92-487b-a0fe-0a312ccd12b6",
+      "created_at": "2026-10-06T18:04:05.836Z",
+      "expires_at": "2026-10-13T18:04:05.836Z",
+      "status": "pending"
+    },
+    {
+      "id": "023ed897-379b-4470-8431-d5aa681224ef",
+      "group_id": "e7dced5c-8ede-4f1b-841e-090a05ca6d22",
+      "group_name": "Cardiology Study 1791309844038",
+      "token_hash": "4b1aa84bd27edfb4ff64202b085bdb9d66ebc4afb4f1070db8a7d2c3ff573117",
+      "created_by": "2e0f3a38-afda-44e2-a796-a5a66360f3e3",
+      "created_at": "2026-10-06T18:04:05.844Z",
+      "expires_at": "2026-10-13T18:04:05.844Z",
+      "status": "accepted",
+      "accepted_by": "9fcde7a4-b17f-4668-a49c-acf9826feceb",
+      "accepted_at": "2026-10-06T18:04:05.945Z"
     }
   ],
   "cases": [
@@ -472,6 +2874,1178 @@
       "diagnosis": "Non-Small Cell Lung Cancer",
       "registered_at": "2026-10-05T11:47:18.304Z",
       "updated_at": "2026-10-05T11:47:18.304Z"
+    },
+    {
+      "id": "15e8075c-96ed-4072-8b33-4dfb7266d51e",
+      "group_id": "e64d0f7f-b8b4-4c7e-8e7b-caa70e7ae9ae",
+      "patient_id": "CARDIO-1791308883327-01",
+      "normalized_patient_id": "CARDIO179130888332701",
+      "assigned_to": "d00cda20-9d89-48e1-93fe-2706b40d1f2c",
+      "status": "In Progress",
+      "patient_name": "Confidential Patient Alpha",
+      "diagnosis": "Acute Coronary Syndrome",
+      "registered_at": "2026-10-06T17:48:03.608Z",
+      "updated_at": "2026-10-06T17:48:03.608Z"
+    },
+    {
+      "id": "cd2e16b0-23ee-4d77-83e8-82fa8de87339",
+      "group_id": "2a978de7-41f1-404f-90c9-e52656876bbe",
+      "patient_id": "ONCO-1791308883327-01",
+      "normalized_patient_id": "ONCO179130888332701",
+      "assigned_to": "27328fa5-2828-4b7a-860c-307e8ef09f2e",
+      "status": "In Progress",
+      "patient_name": "Confidential Patient Beta",
+      "diagnosis": "Stage II Lymphoma",
+      "registered_at": "2026-10-06T17:48:03.625Z",
+      "updated_at": "2026-10-06T17:48:03.625Z"
+    },
+    {
+      "id": "f017a36b-d3a7-4ef8-9fe5-b521a7ca27e8",
+      "group_id": "63da1180-f75f-4acf-a2bf-e8a798ce664b",
+      "patient_id": "CARDIO-1791308920491-01",
+      "normalized_patient_id": "CARDIO179130892049101",
+      "assigned_to": "4d565d12-e94f-4e41-b682-146b2c61aa98",
+      "status": "In Progress",
+      "patient_name": "Confidential Patient Alpha",
+      "diagnosis": "Acute Coronary Syndrome",
+      "registered_at": "2026-10-06T17:48:40.722Z",
+      "updated_at": "2026-10-06T17:48:40.722Z"
+    },
+    {
+      "id": "628e10b3-97a1-413c-a704-ad92e4d6ea5e",
+      "group_id": "df462223-a515-409b-be63-c0d2e3787af4",
+      "patient_id": "ONCO-1791308920491-01",
+      "normalized_patient_id": "ONCO179130892049101",
+      "assigned_to": "20abbbb3-4c94-4917-8065-db2c3d42c2f1",
+      "status": "In Progress",
+      "patient_name": "Confidential Patient Beta",
+      "diagnosis": "Stage II Lymphoma",
+      "registered_at": "2026-10-06T17:48:40.735Z",
+      "updated_at": "2026-10-06T17:48:40.735Z"
+    },
+    {
+      "id": "848e76e8-094e-4800-8e5d-eecad3fc30ca",
+      "group_id": "f91b65d8-d2f2-4f54-a90b-87b850956144",
+      "patient_id": "CARDIO-1791308937899-01",
+      "normalized_patient_id": "CARDIO179130893789901",
+      "assigned_to": "f1ac191a-f937-407e-9635-62c85ef59a2a",
+      "status": "In Progress",
+      "patient_name": "Confidential Patient Alpha",
+      "diagnosis": "Acute Coronary Syndrome",
+      "registered_at": "2026-10-06T17:48:58.136Z",
+      "updated_at": "2026-10-06T17:48:58.136Z"
+    },
+    {
+      "id": "92505079-116b-4f0d-bb6b-5a97e1b8b2b0",
+      "group_id": "ae4835e6-4391-4548-bc15-e06a1455cfb9",
+      "patient_id": "ONCO-1791308937899-01",
+      "normalized_patient_id": "ONCO179130893789901",
+      "assigned_to": "32ab394e-5552-41f8-873b-6d54004b6ce8",
+      "status": "In Progress",
+      "patient_name": "Confidential Patient Beta",
+      "diagnosis": "Stage II Lymphoma",
+      "registered_at": "2026-10-06T17:48:58.152Z",
+      "updated_at": "2026-10-06T17:48:58.152Z"
+    },
+    {
+      "id": "021595d4-c723-43b2-979b-d024b03ab4f9",
+      "group_id": "2435c0f4-7056-4eb8-a833-9f00bc65c8f0",
+      "patient_id": "CARDIO-1791308964941-01",
+      "normalized_patient_id": "CARDIO179130896494101",
+      "assigned_to": "35e54d67-edf0-486f-8747-9d4ca138a60e",
+      "status": "In Progress",
+      "patient_name": "Confidential Patient Alpha",
+      "diagnosis": "Acute Coronary Syndrome",
+      "registered_at": "2026-10-06T17:49:25.197Z",
+      "updated_at": "2026-10-06T17:49:25.197Z"
+    },
+    {
+      "id": "be3f07c5-1ada-4960-80bb-dda96b550d04",
+      "group_id": "b770c2b6-fb0c-4f5a-98c7-61deef66e0eb",
+      "patient_id": "ONCO-1791308964941-01",
+      "normalized_patient_id": "ONCO179130896494101",
+      "assigned_to": "08caf3c5-f198-4b4e-8b30-3a08cfd889c7",
+      "status": "In Progress",
+      "patient_name": "Confidential Patient Beta",
+      "diagnosis": "Stage II Lymphoma",
+      "registered_at": "2026-10-06T17:49:25.217Z",
+      "updated_at": "2026-10-06T17:49:25.217Z"
+    },
+    {
+      "id": "b4ecb8cc-a830-4bd2-a1c8-fc39f9451aca",
+      "group_id": "312a9090-3ebc-4e36-8bc2-7a7fce7941ca",
+      "patient_id": "CARDIO-1791309855168-01",
+      "normalized_patient_id": "CARDIO179130985516801",
+      "assigned_to": "862f4c28-e2ec-470a-a890-78fdb060debe",
+      "status": "In Progress",
+      "patient_name": "Confidential Patient Alpha",
+      "diagnosis": "Acute Coronary Syndrome",
+      "registered_at": "2026-10-06T18:04:15.404Z",
+      "updated_at": "2026-10-06T18:04:15.404Z"
+    },
+    {
+      "id": "e58b69f5-9901-4a7f-b02f-46ccc98115ca",
+      "group_id": "adfad1f9-7b90-49ac-a9ff-ca4662e6b60d",
+      "patient_id": "ONCO-1791309855168-01",
+      "normalized_patient_id": "ONCO179130985516801",
+      "assigned_to": "0856c97c-bcff-4469-a584-84faa134d6a5",
+      "status": "In Progress",
+      "patient_name": "Confidential Patient Beta",
+      "diagnosis": "Stage II Lymphoma",
+      "registered_at": "2026-10-06T18:04:15.418Z",
+      "updated_at": "2026-10-06T18:04:15.418Z"
+    }
+  ],
+  "files": [],
+  "audit_logs": [
+    {
+      "id": "846f66a8-c338-46eb-8a0d-5d0e943ebee1",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "312a9090-3ebc-4e36-8bc2-7a7fce7941ca",
+      "details": "Unauthorized attempt by user 0856c97c-bcff-4469-a584-84faa134d6a5 (sec_test_bob_1791309855168@hospital.test) to access group 312a9090-3ebc-4e36-8bc2-7a7fce7941ca.",
+      "performed_by": "0856c97c-bcff-4469-a584-84faa134d6a5",
+      "performed_by_email": "sec_test_bob_1791309855168@hospital.test",
+      "created_at": "2026-10-06T18:04:15.638Z"
+    },
+    {
+      "id": "1fb216e3-cb1e-4c0b-bcf4-4437eb41ebf6",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "312a9090-3ebc-4e36-8bc2-7a7fce7941ca",
+      "details": "Unauthorized attempt by user 0856c97c-bcff-4469-a584-84faa134d6a5 (sec_test_bob_1791309855168@hospital.test) to access group 312a9090-3ebc-4e36-8bc2-7a7fce7941ca.",
+      "performed_by": "0856c97c-bcff-4469-a584-84faa134d6a5",
+      "performed_by_email": "sec_test_bob_1791309855168@hospital.test",
+      "created_at": "2026-10-06T18:04:15.427Z"
+    },
+    {
+      "id": "5d66514c-e618-42b2-b9f8-a516de97fe10",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "312a9090-3ebc-4e36-8bc2-7a7fce7941ca",
+      "details": "Unauthorized attempt by user 0856c97c-bcff-4469-a584-84faa134d6a5 (sec_test_bob_1791309855168@hospital.test) to access group 312a9090-3ebc-4e36-8bc2-7a7fce7941ca.",
+      "performed_by": "0856c97c-bcff-4469-a584-84faa134d6a5",
+      "performed_by_email": "sec_test_bob_1791309855168@hospital.test",
+      "created_at": "2026-10-06T18:04:15.421Z"
+    },
+    {
+      "id": "a754d29b-f530-48a4-9cc3-e93af9daaf85",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "312a9090-3ebc-4e36-8bc2-7a7fce7941ca",
+      "details": "Unauthorized attempt by user 0856c97c-bcff-4469-a584-84faa134d6a5 (sec_test_bob_1791309855168@hospital.test) to access group 312a9090-3ebc-4e36-8bc2-7a7fce7941ca.",
+      "performed_by": "0856c97c-bcff-4469-a584-84faa134d6a5",
+      "performed_by_email": "sec_test_bob_1791309855168@hospital.test",
+      "created_at": "2026-10-06T18:04:15.399Z"
+    },
+    {
+      "id": "eb54a307-0987-4712-817f-c9636669af99",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "312a9090-3ebc-4e36-8bc2-7a7fce7941ca",
+      "details": "Unauthorized attempt by user 0856c97c-bcff-4469-a584-84faa134d6a5 (sec_test_bob_1791309855168@hospital.test) to access group 312a9090-3ebc-4e36-8bc2-7a7fce7941ca.",
+      "performed_by": "0856c97c-bcff-4469-a584-84faa134d6a5",
+      "performed_by_email": "sec_test_bob_1791309855168@hospital.test",
+      "created_at": "2026-10-06T18:04:15.393Z"
+    },
+    {
+      "id": "0c6fc529-6198-4f6d-865a-2f75429b78d2",
+      "action": "INVALID_INVITATION_ACCEPT_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation acceptance attempt by user 93a95cec-c9bd-4e29-b615-bf279b0c0bda (collab_david_1791309844038@hospital.test).",
+      "performed_by": "93a95cec-c9bd-4e29-b615-bf279b0c0bda",
+      "performed_by_email": "collab_david_1791309844038@hospital.test",
+      "created_at": "2026-10-06T18:04:05.948Z"
+    },
+    {
+      "id": "42e24d25-bc19-430c-b477-5cf6e875cddd",
+      "action": "INVITATION_RATE_LIMIT_EXCEEDED",
+      "entity_type": "security",
+      "details": "Rate limit exceeded for invitation operations from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:04:04.632Z"
+    },
+    {
+      "id": "0cf74c5c-2f8f-4103-826a-ee49fa18f613",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:04:04.629Z"
+    },
+    {
+      "id": "4a7e4367-6205-4338-85dd-abb7900b67d1",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:04:04.627Z"
+    },
+    {
+      "id": "f3e60e1e-fe4e-4a0f-a704-5b632a0eade3",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:04:04.623Z"
+    },
+    {
+      "id": "6358e0fe-6b92-4fcf-a0be-63ebce927431",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:04:04.620Z"
+    },
+    {
+      "id": "fb32aa0d-e740-43c9-8bba-3f092c84caca",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:04:04.617Z"
+    },
+    {
+      "id": "a71331f3-4b83-4b59-b174-a275ea04a46a",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:04:04.612Z"
+    },
+    {
+      "id": "b47afcb2-f5c1-4e28-a854-696e0de5a685",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:04:04.610Z"
+    },
+    {
+      "id": "c44cd2d0-ed61-495b-9f54-c6db546ff4fc",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:04:04.607Z"
+    },
+    {
+      "id": "0670690e-b1ca-49d0-a767-f1885680dabd",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:04:04.603Z"
+    },
+    {
+      "id": "890de861-adeb-4bb7-b0ec-9176bd02312a",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:04:04.601Z"
+    },
+    {
+      "id": "d3e3eabd-4cff-40e5-badd-dc070d3687b4",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:04:04.598Z"
+    },
+    {
+      "id": "9db2471f-2931-4d6e-9518-7210e366ec1e",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:04:04.596Z"
+    },
+    {
+      "id": "d216f64b-01b2-4d64-aeeb-8cd60a31d8a1",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:04:04.594Z"
+    },
+    {
+      "id": "a31c1835-8b9d-4a35-93b0-e4291c37ca15",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:04:04.591Z"
+    },
+    {
+      "id": "2729d85b-234d-4f0c-b34a-2a1a8d67a2a9",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:04:04.588Z"
+    },
+    {
+      "id": "34c86808-33ed-4cd6-a882-29da31f24ade",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:04:04.586Z"
+    },
+    {
+      "id": "27f39164-73e9-4908-b7ef-be19999bf96c",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:04:04.576Z"
+    },
+    {
+      "id": "8aaf825f-822c-4329-8399-0df041496163",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:04:04.561Z"
+    },
+    {
+      "id": "283eed8a-8a7d-476b-9347-0695b992c49e",
+      "action": "INVALID_INVITATION_ACCEPT_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation acceptance attempt by user 9fcde7a4-b17f-4668-a49c-acf9826feceb (collab_charlie_1791309844038@hospital.test).",
+      "performed_by": "9fcde7a4-b17f-4668-a49c-acf9826feceb",
+      "performed_by_email": "collab_charlie_1791309844038@hospital.test",
+      "created_at": "2026-10-06T18:04:04.558Z"
+    },
+    {
+      "id": "1556f25d-f2d5-4307-b097-e13210197ec4",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:04:04.542Z"
+    },
+    {
+      "id": "e7a647d9-dff6-4aa7-984c-62de83676d31",
+      "action": "INVALID_INVITATION_ACCEPT_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation acceptance attempt by user ea51153d-c652-4d48-8a53-e4988c91d08f (collab_david_1791309818746@hospital.test).",
+      "performed_by": "ea51153d-c652-4d48-8a53-e4988c91d08f",
+      "performed_by_email": "collab_david_1791309818746@hospital.test",
+      "created_at": "2026-10-06T18:03:40.688Z"
+    },
+    {
+      "id": "a8580867-4630-42d4-8c8a-c905ff0884cc",
+      "action": "INVITATION_RATE_LIMIT_EXCEEDED",
+      "entity_type": "security",
+      "details": "Rate limit exceeded for invitation operations from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:03:39.349Z"
+    },
+    {
+      "id": "da04bb05-96d6-45ec-9070-deb0404a8bf4",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:03:39.347Z"
+    },
+    {
+      "id": "82210607-0df5-4d61-9d4a-46e23965f5fb",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:03:39.344Z"
+    },
+    {
+      "id": "a3680fb3-fcbd-4248-b076-ad744e625932",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:03:39.337Z"
+    },
+    {
+      "id": "c624faf1-f4f4-4da0-b0d8-477f9775081d",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:03:39.335Z"
+    },
+    {
+      "id": "37dba3e5-1f9d-47eb-8fd8-9d323ef0848b",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:03:39.332Z"
+    },
+    {
+      "id": "21b30c89-fefd-4fa4-bba4-145379965440",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:03:39.330Z"
+    },
+    {
+      "id": "78eb0c92-9c35-48b0-bdfe-e7e5e65b80ca",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:03:39.327Z"
+    },
+    {
+      "id": "7e8f20ba-ba8b-4bb2-a754-27ce542f3954",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:03:39.325Z"
+    },
+    {
+      "id": "9199295f-3a95-49e7-9dfc-80c1ca619cbf",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:03:39.317Z"
+    },
+    {
+      "id": "a6c3c901-050c-4359-9b10-aae912d9681b",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:03:39.315Z"
+    },
+    {
+      "id": "4f183271-3e8e-43cc-b1e8-869e0af63422",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:03:39.313Z"
+    },
+    {
+      "id": "5d3e3d6d-271c-4d7c-8e34-76615c0eb83d",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:03:39.311Z"
+    },
+    {
+      "id": "0622e4c0-5116-4226-b342-4ad70b0bcf43",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:03:39.309Z"
+    },
+    {
+      "id": "fa3b305a-78c4-466c-b0c2-fc8803fbd17a",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:03:39.306Z"
+    },
+    {
+      "id": "053b7da7-c384-4b31-8b98-e57c77feedeb",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:03:39.304Z"
+    },
+    {
+      "id": "b93d8665-862d-4e50-9748-25f69957437c",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:03:39.301Z"
+    },
+    {
+      "id": "bcf7c9e6-5721-4991-88d9-aa7870338b0f",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:03:39.292Z"
+    },
+    {
+      "id": "cdffd576-899a-40df-ab3a-6468ab48ec92",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:03:39.281Z"
+    },
+    {
+      "id": "baa64f99-36c6-47ed-8bfe-768b1f77341c",
+      "action": "INVALID_INVITATION_ACCEPT_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation acceptance attempt by user de9dbf26-2d64-4d04-886e-fc66af7e0e80 (collab_charlie_1791309818746@hospital.test).",
+      "performed_by": "de9dbf26-2d64-4d04-886e-fc66af7e0e80",
+      "performed_by_email": "collab_charlie_1791309818746@hospital.test",
+      "created_at": "2026-10-06T18:03:39.279Z"
+    },
+    {
+      "id": "92fb43bc-0dce-4514-96f9-918890862bf4",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:03:39.261Z"
+    },
+    {
+      "id": "91725d6b-3000-40a4-bb5c-fb0836ef456f",
+      "action": "INVITATION_RATE_LIMIT_EXCEEDED",
+      "entity_type": "security",
+      "details": "Rate limit exceeded for invitation operations from IP 127.0.0.1 (user 8782cc5d-8013-4a01-8eb5-b105d2bf5d74).",
+      "performed_by": "8782cc5d-8013-4a01-8eb5-b105d2bf5d74",
+      "performed_by_email": "collab_david_1791309751754@hospital.test",
+      "created_at": "2026-10-06T18:02:33.575Z"
+    },
+    {
+      "id": "a393f983-596b-48a1-aace-a666de92180d",
+      "action": "INVITATION_RATE_LIMIT_EXCEEDED",
+      "entity_type": "security",
+      "details": "Rate limit exceeded for invitation operations from IP 127.0.0.1 (user d951ff5a-6050-47c3-9df6-221f331aaa18).",
+      "performed_by": "d951ff5a-6050-47c3-9df6-221f331aaa18",
+      "performed_by_email": "collab_charlie_1791309751754@hospital.test",
+      "created_at": "2026-10-06T18:02:33.573Z"
+    },
+    {
+      "id": "4927b44d-eb19-4264-b45d-bdcba7b794f5",
+      "action": "INVITATION_RATE_LIMIT_EXCEEDED",
+      "entity_type": "security",
+      "details": "Rate limit exceeded for invitation operations from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:02:32.254Z"
+    },
+    {
+      "id": "687902f7-0df5-433b-8d71-d30ebec72ee3",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:02:32.253Z"
+    },
+    {
+      "id": "6ca840f2-1f44-42c7-954e-5d4a57265ed3",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:02:32.252Z"
+    },
+    {
+      "id": "ad1693c2-c9a8-4b2a-b7b7-afd3a0685a5e",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:02:32.250Z"
+    },
+    {
+      "id": "c9961e23-a0a7-4638-83af-6a311e7f23ce",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:02:32.248Z"
+    },
+    {
+      "id": "8485ed0c-cc53-4ef0-b763-ed77ef96522f",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:02:32.246Z"
+    },
+    {
+      "id": "cb53a5f5-f50d-4da2-a219-ee7b086cd1cb",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:02:32.245Z"
+    },
+    {
+      "id": "9a233648-5fac-45c2-a117-790ea80c66ce",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:02:32.243Z"
+    },
+    {
+      "id": "d5c57f33-d71d-4a51-8541-d78b5cfa1a70",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:02:32.241Z"
+    },
+    {
+      "id": "caa81a31-0308-4045-a02b-d9ceef5bf1a5",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:02:32.240Z"
+    },
+    {
+      "id": "84dae46c-e665-4215-aeeb-783f34c6ea1c",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:02:32.238Z"
+    },
+    {
+      "id": "ac3e346c-2434-491a-9706-b7a5a5f83ddc",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:02:32.236Z"
+    },
+    {
+      "id": "867689ab-7d94-4b8c-a5f9-4572e5680973",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:02:32.235Z"
+    },
+    {
+      "id": "a0bb66bd-0ad4-4c12-935a-6a2e983b5160",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:02:32.233Z"
+    },
+    {
+      "id": "dee48d20-5db6-4d0c-8ef5-99d63e044ab4",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:02:32.230Z"
+    },
+    {
+      "id": "bf5409ad-a016-488f-83f1-3a6fcf074a65",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 198.51.100.99.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:02:32.228Z"
+    },
+    {
+      "id": "f0dbc515-c589-4fb1-b0a0-bdbb8204c1ac",
+      "action": "INVITATION_RATE_LIMIT_EXCEEDED",
+      "entity_type": "security",
+      "details": "Rate limit exceeded for invitation operations from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:02:32.226Z"
+    },
+    {
+      "id": "8e9943aa-2c08-4251-83a3-1ad2d8cd4650",
+      "action": "INVITATION_RATE_LIMIT_EXCEEDED",
+      "entity_type": "security",
+      "details": "Rate limit exceeded for invitation operations from IP 127.0.0.1 (user 153b1142-b44e-4326-ba7f-9aa2038e3f97).",
+      "performed_by": "153b1142-b44e-4326-ba7f-9aa2038e3f97",
+      "performed_by_email": "owner_alice_1791309751754@hospital.test",
+      "created_at": "2026-10-06T18:02:32.225Z"
+    },
+    {
+      "id": "43e03b82-690f-423c-b95b-bbb8a8960fa1",
+      "action": "INVITATION_RATE_LIMIT_EXCEEDED",
+      "entity_type": "security",
+      "details": "Rate limit exceeded for invitation operations from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:02:32.220Z"
+    },
+    {
+      "id": "3b1b063a-325f-49cf-a8f1-d8f7a2ae9eac",
+      "action": "INVITATION_RATE_LIMIT_EXCEEDED",
+      "entity_type": "security",
+      "details": "Rate limit exceeded for invitation operations from IP 127.0.0.1 (user d951ff5a-6050-47c3-9df6-221f331aaa18).",
+      "performed_by": "d951ff5a-6050-47c3-9df6-221f331aaa18",
+      "performed_by_email": "collab_charlie_1791309751754@hospital.test",
+      "created_at": "2026-10-06T18:02:32.217Z"
+    },
+    {
+      "id": "4f58b6a6-a2e2-4c79-ad0d-40bc58c07ff4",
+      "action": "INVITATION_RATE_LIMIT_EXCEEDED",
+      "entity_type": "security",
+      "details": "Rate limit exceeded for invitation operations from IP 127.0.0.1 (user 737ae6ae-e531-488a-a825-0ec7e69e8e55).",
+      "performed_by": "737ae6ae-e531-488a-a825-0ec7e69e8e55",
+      "performed_by_email": "collab_bob_1791309751754@hospital.test",
+      "created_at": "2026-10-06T18:02:32.212Z"
+    },
+    {
+      "id": "6107ef30-d60a-44b9-b2b3-7f29ea94913e",
+      "action": "INVITATION_RATE_LIMIT_EXCEEDED",
+      "entity_type": "security",
+      "details": "Rate limit exceeded for invitation operations from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:02:32.207Z"
+    },
+    {
+      "id": "68e1f365-979c-4299-8a7c-de9a4a29fb16",
+      "action": "INVITATION_RATE_LIMIT_EXCEEDED",
+      "entity_type": "security",
+      "details": "Rate limit exceeded for invitation operations from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:02:32.201Z"
+    },
+    {
+      "id": "f9a3515d-97d4-44d1-a03c-339216b56504",
+      "action": "INVITATION_RATE_LIMIT_EXCEEDED",
+      "entity_type": "security",
+      "details": "Rate limit exceeded for invitation operations from IP 127.0.0.1 (user b32577c1-f8c7-4cf5-8c1c-7ecd866149d2).",
+      "performed_by": "b32577c1-f8c7-4cf5-8c1c-7ecd866149d2",
+      "performed_by_email": "collab_david_1791309698525@hospital.test",
+      "created_at": "2026-10-06T18:01:40.442Z"
+    },
+    {
+      "id": "a7e8eac2-9190-4574-9d55-b717153798b3",
+      "action": "INVITATION_RATE_LIMIT_EXCEEDED",
+      "entity_type": "security",
+      "details": "Rate limit exceeded for invitation operations from IP 127.0.0.1 (user 699d9397-2c0d-4c82-a8f6-0a4f1d014217).",
+      "performed_by": "699d9397-2c0d-4c82-a8f6-0a4f1d014217",
+      "performed_by_email": "collab_charlie_1791309698525@hospital.test",
+      "created_at": "2026-10-06T18:01:40.440Z"
+    },
+    {
+      "id": "c1bc362d-cfa2-44e0-b47c-464f62fcfb50",
+      "action": "INVITATION_RATE_LIMIT_EXCEEDED",
+      "entity_type": "security",
+      "details": "Rate limit exceeded for invitation operations from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:01:39.127Z"
+    },
+    {
+      "id": "2429fe22-8293-4a9f-b044-b65a6414ca8a",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:01:39.125Z"
+    },
+    {
+      "id": "cdb86a5d-08bb-4f9f-8172-468816dcad0c",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:01:39.123Z"
+    },
+    {
+      "id": "50d22fed-59a6-4c08-94ac-ab693ca87052",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:01:39.118Z"
+    },
+    {
+      "id": "d71c5373-11b5-451b-885b-1ec3f0cc857f",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:01:39.116Z"
+    },
+    {
+      "id": "dc2070c6-bfb1-4fb2-93d6-2dacc13dfee2",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:01:39.112Z"
+    },
+    {
+      "id": "ad3ec586-fefd-4f2e-88fa-8abd2afa674d",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:01:39.109Z"
+    },
+    {
+      "id": "b554cca0-9251-4d55-848f-f88fe922e66e",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:01:39.108Z"
+    },
+    {
+      "id": "eca5e0c6-aa08-4339-91d7-b78226188d33",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:01:39.099Z"
+    },
+    {
+      "id": "b7c4bb72-34c5-4efd-94d5-cbb3c470e213",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:01:39.086Z"
+    },
+    {
+      "id": "8a6a562a-fb04-443c-ab36-7afee7a894ce",
+      "action": "INVALID_INVITATION_ACCEPT_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation acceptance attempt by user 699d9397-2c0d-4c82-a8f6-0a4f1d014217 (collab_charlie_1791309698525@hospital.test).",
+      "performed_by": "699d9397-2c0d-4c82-a8f6-0a4f1d014217",
+      "performed_by_email": "collab_charlie_1791309698525@hospital.test",
+      "created_at": "2026-10-06T18:01:39.085Z"
+    },
+    {
+      "id": "e0161188-2672-491f-9da8-c8b351104124",
+      "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
+      "entity_type": "security",
+      "details": "Invalid or expired invitation lookup attempt from IP 127.0.0.1.",
+      "performed_by": "anonymous",
+      "performed_by_email": "anonymous",
+      "created_at": "2026-10-06T18:01:39.067Z"
+    },
+    {
+      "id": "687f2ab6-44cb-4ae9-97f9-632b4ba8c9d4",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "2435c0f4-7056-4eb8-a833-9f00bc65c8f0",
+      "details": "Unauthorized attempt by user 08caf3c5-f198-4b4e-8b30-3a08cfd889c7 (sec_test_bob_1791308964941@hospital.test) to access group 2435c0f4-7056-4eb8-a833-9f00bc65c8f0.",
+      "performed_by": "08caf3c5-f198-4b4e-8b30-3a08cfd889c7",
+      "performed_by_email": "sec_test_bob_1791308964941@hospital.test",
+      "created_at": "2026-10-06T17:49:25.432Z"
+    },
+    {
+      "id": "844fde8a-466c-4a79-9fee-dbe81bd3475a",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "2435c0f4-7056-4eb8-a833-9f00bc65c8f0",
+      "details": "Unauthorized attempt by user 08caf3c5-f198-4b4e-8b30-3a08cfd889c7 (sec_test_bob_1791308964941@hospital.test) to access group 2435c0f4-7056-4eb8-a833-9f00bc65c8f0.",
+      "performed_by": "08caf3c5-f198-4b4e-8b30-3a08cfd889c7",
+      "performed_by_email": "sec_test_bob_1791308964941@hospital.test",
+      "created_at": "2026-10-06T17:49:25.224Z"
+    },
+    {
+      "id": "6cb91e98-b066-4911-8f10-fbdeaefc161f",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "2435c0f4-7056-4eb8-a833-9f00bc65c8f0",
+      "details": "Unauthorized attempt by user 08caf3c5-f198-4b4e-8b30-3a08cfd889c7 (sec_test_bob_1791308964941@hospital.test) to access group 2435c0f4-7056-4eb8-a833-9f00bc65c8f0.",
+      "performed_by": "08caf3c5-f198-4b4e-8b30-3a08cfd889c7",
+      "performed_by_email": "sec_test_bob_1791308964941@hospital.test",
+      "created_at": "2026-10-06T17:49:25.221Z"
+    },
+    {
+      "id": "323499ae-d768-47da-a437-6dc5d133d401",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "2435c0f4-7056-4eb8-a833-9f00bc65c8f0",
+      "details": "Unauthorized attempt by user 08caf3c5-f198-4b4e-8b30-3a08cfd889c7 (sec_test_bob_1791308964941@hospital.test) to access group 2435c0f4-7056-4eb8-a833-9f00bc65c8f0.",
+      "performed_by": "08caf3c5-f198-4b4e-8b30-3a08cfd889c7",
+      "performed_by_email": "sec_test_bob_1791308964941@hospital.test",
+      "created_at": "2026-10-06T17:49:25.193Z"
+    },
+    {
+      "id": "508df6ba-9844-49dd-b1d5-b8eae8c4f3a5",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "2435c0f4-7056-4eb8-a833-9f00bc65c8f0",
+      "details": "Unauthorized attempt by user 08caf3c5-f198-4b4e-8b30-3a08cfd889c7 (sec_test_bob_1791308964941@hospital.test) to access group 2435c0f4-7056-4eb8-a833-9f00bc65c8f0.",
+      "performed_by": "08caf3c5-f198-4b4e-8b30-3a08cfd889c7",
+      "performed_by_email": "sec_test_bob_1791308964941@hospital.test",
+      "created_at": "2026-10-06T17:49:25.187Z"
+    },
+    {
+      "id": "dc654c56-265f-4d78-9501-5478398ca16d",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "f91b65d8-d2f2-4f54-a90b-87b850956144",
+      "details": "Unauthorized attempt by user 32ab394e-5552-41f8-873b-6d54004b6ce8 (sec_test_bob_1791308937899@hospital.test) to access group f91b65d8-d2f2-4f54-a90b-87b850956144.",
+      "performed_by": "32ab394e-5552-41f8-873b-6d54004b6ce8",
+      "performed_by_email": "sec_test_bob_1791308937899@hospital.test",
+      "created_at": "2026-10-06T17:48:58.370Z"
+    },
+    {
+      "id": "7867f791-dd84-4e1f-840d-eecd3b290e39",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "f91b65d8-d2f2-4f54-a90b-87b850956144",
+      "details": "Unauthorized attempt by user 32ab394e-5552-41f8-873b-6d54004b6ce8 (sec_test_bob_1791308937899@hospital.test) to access group f91b65d8-d2f2-4f54-a90b-87b850956144.",
+      "performed_by": "32ab394e-5552-41f8-873b-6d54004b6ce8",
+      "performed_by_email": "sec_test_bob_1791308937899@hospital.test",
+      "created_at": "2026-10-06T17:48:58.161Z"
+    },
+    {
+      "id": "939f400b-a56e-44f1-a864-9116a877250d",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "f91b65d8-d2f2-4f54-a90b-87b850956144",
+      "details": "Unauthorized attempt by user 32ab394e-5552-41f8-873b-6d54004b6ce8 (sec_test_bob_1791308937899@hospital.test) to access group f91b65d8-d2f2-4f54-a90b-87b850956144.",
+      "performed_by": "32ab394e-5552-41f8-873b-6d54004b6ce8",
+      "performed_by_email": "sec_test_bob_1791308937899@hospital.test",
+      "created_at": "2026-10-06T17:48:58.156Z"
+    },
+    {
+      "id": "7e66aeba-40ab-4773-b09f-a2422577c683",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "f91b65d8-d2f2-4f54-a90b-87b850956144",
+      "details": "Unauthorized attempt by user 32ab394e-5552-41f8-873b-6d54004b6ce8 (sec_test_bob_1791308937899@hospital.test) to access group f91b65d8-d2f2-4f54-a90b-87b850956144.",
+      "performed_by": "32ab394e-5552-41f8-873b-6d54004b6ce8",
+      "performed_by_email": "sec_test_bob_1791308937899@hospital.test",
+      "created_at": "2026-10-06T17:48:58.133Z"
+    },
+    {
+      "id": "d13129eb-c965-4ae2-85fc-ccc4d4dfac2c",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "f91b65d8-d2f2-4f54-a90b-87b850956144",
+      "details": "Unauthorized attempt by user 32ab394e-5552-41f8-873b-6d54004b6ce8 (sec_test_bob_1791308937899@hospital.test) to access group f91b65d8-d2f2-4f54-a90b-87b850956144.",
+      "performed_by": "32ab394e-5552-41f8-873b-6d54004b6ce8",
+      "performed_by_email": "sec_test_bob_1791308937899@hospital.test",
+      "created_at": "2026-10-06T17:48:58.126Z"
+    },
+    {
+      "id": "3787a8e5-ef4d-486a-b316-3ec69b475b2e",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "63da1180-f75f-4acf-a2bf-e8a798ce664b",
+      "details": "Unauthorized attempt by user 20abbbb3-4c94-4917-8065-db2c3d42c2f1 (sec_test_bob_1791308920491@hospital.test) to access group 63da1180-f75f-4acf-a2bf-e8a798ce664b.",
+      "performed_by": "20abbbb3-4c94-4917-8065-db2c3d42c2f1",
+      "performed_by_email": "sec_test_bob_1791308920491@hospital.test",
+      "created_at": "2026-10-06T17:48:40.949Z"
+    },
+    {
+      "id": "b97f7aac-0541-4c9f-88ca-54e560e51e0f",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "63da1180-f75f-4acf-a2bf-e8a798ce664b",
+      "details": "Unauthorized attempt by user 20abbbb3-4c94-4917-8065-db2c3d42c2f1 (sec_test_bob_1791308920491@hospital.test) to access group 63da1180-f75f-4acf-a2bf-e8a798ce664b.",
+      "performed_by": "20abbbb3-4c94-4917-8065-db2c3d42c2f1",
+      "performed_by_email": "sec_test_bob_1791308920491@hospital.test",
+      "created_at": "2026-10-06T17:48:40.741Z"
+    },
+    {
+      "id": "d67125fe-f347-41b6-8db2-f320ec52f519",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "63da1180-f75f-4acf-a2bf-e8a798ce664b",
+      "details": "Unauthorized attempt by user 20abbbb3-4c94-4917-8065-db2c3d42c2f1 (sec_test_bob_1791308920491@hospital.test) to access group 63da1180-f75f-4acf-a2bf-e8a798ce664b.",
+      "performed_by": "20abbbb3-4c94-4917-8065-db2c3d42c2f1",
+      "performed_by_email": "sec_test_bob_1791308920491@hospital.test",
+      "created_at": "2026-10-06T17:48:40.738Z"
+    },
+    {
+      "id": "0ad8b521-a610-49de-84a0-03ab38f8c7d1",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "63da1180-f75f-4acf-a2bf-e8a798ce664b",
+      "details": "Unauthorized attempt by user 20abbbb3-4c94-4917-8065-db2c3d42c2f1 (sec_test_bob_1791308920491@hospital.test) to access group 63da1180-f75f-4acf-a2bf-e8a798ce664b.",
+      "performed_by": "20abbbb3-4c94-4917-8065-db2c3d42c2f1",
+      "performed_by_email": "sec_test_bob_1791308920491@hospital.test",
+      "created_at": "2026-10-06T17:48:40.718Z"
+    },
+    {
+      "id": "dfc34ec5-d98d-41b7-a94b-4754b1f4350d",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "63da1180-f75f-4acf-a2bf-e8a798ce664b",
+      "details": "Unauthorized attempt by user 20abbbb3-4c94-4917-8065-db2c3d42c2f1 (sec_test_bob_1791308920491@hospital.test) to access group 63da1180-f75f-4acf-a2bf-e8a798ce664b.",
+      "performed_by": "20abbbb3-4c94-4917-8065-db2c3d42c2f1",
+      "performed_by_email": "sec_test_bob_1791308920491@hospital.test",
+      "created_at": "2026-10-06T17:48:40.712Z"
+    },
+    {
+      "id": "a04e30d0-5805-4120-bbf5-d327db92519f",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "e64d0f7f-b8b4-4c7e-8e7b-caa70e7ae9ae",
+      "details": "Unauthorized attempt by user 27328fa5-2828-4b7a-860c-307e8ef09f2e (sec_test_bob_1791308883327@hospital.test) to access group e64d0f7f-b8b4-4c7e-8e7b-caa70e7ae9ae.",
+      "performed_by": "27328fa5-2828-4b7a-860c-307e8ef09f2e",
+      "performed_by_email": "sec_test_bob_1791308883327@hospital.test",
+      "created_at": "2026-10-06T17:48:03.840Z"
+    },
+    {
+      "id": "2822bc74-72aa-4387-bac2-d17cc6f2e453",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "e64d0f7f-b8b4-4c7e-8e7b-caa70e7ae9ae",
+      "details": "Unauthorized attempt by user 27328fa5-2828-4b7a-860c-307e8ef09f2e (sec_test_bob_1791308883327@hospital.test) to access group e64d0f7f-b8b4-4c7e-8e7b-caa70e7ae9ae.",
+      "performed_by": "27328fa5-2828-4b7a-860c-307e8ef09f2e",
+      "performed_by_email": "sec_test_bob_1791308883327@hospital.test",
+      "created_at": "2026-10-06T17:48:03.632Z"
+    },
+    {
+      "id": "45ec92c6-9eec-44c5-8e57-28e002400036",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "e64d0f7f-b8b4-4c7e-8e7b-caa70e7ae9ae",
+      "details": "Unauthorized attempt by user 27328fa5-2828-4b7a-860c-307e8ef09f2e (sec_test_bob_1791308883327@hospital.test) to access group e64d0f7f-b8b4-4c7e-8e7b-caa70e7ae9ae.",
+      "performed_by": "27328fa5-2828-4b7a-860c-307e8ef09f2e",
+      "performed_by_email": "sec_test_bob_1791308883327@hospital.test",
+      "created_at": "2026-10-06T17:48:03.628Z"
+    },
+    {
+      "id": "4e3b774f-f3c5-4829-ae24-0ef06a2aa505",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "e64d0f7f-b8b4-4c7e-8e7b-caa70e7ae9ae",
+      "details": "Unauthorized attempt by user 27328fa5-2828-4b7a-860c-307e8ef09f2e (sec_test_bob_1791308883327@hospital.test) to access group e64d0f7f-b8b4-4c7e-8e7b-caa70e7ae9ae.",
+      "performed_by": "27328fa5-2828-4b7a-860c-307e8ef09f2e",
+      "performed_by_email": "sec_test_bob_1791308883327@hospital.test",
+      "created_at": "2026-10-06T17:48:03.604Z"
+    },
+    {
+      "id": "dbf2ba7b-75c7-4751-ac98-396db050de93",
+      "action": "UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "e64d0f7f-b8b4-4c7e-8e7b-caa70e7ae9ae",
+      "details": "Unauthorized attempt by user 27328fa5-2828-4b7a-860c-307e8ef09f2e (sec_test_bob_1791308883327@hospital.test) to access group e64d0f7f-b8b4-4c7e-8e7b-caa70e7ae9ae.",
+      "performed_by": "27328fa5-2828-4b7a-860c-307e8ef09f2e",
+      "performed_by_email": "sec_test_bob_1791308883327@hospital.test",
+      "created_at": "2026-10-06T17:48:03.593Z"
+    }
+  ],
+  "app_settings": {
+    "authorized_app_owners": [
+      "avishah.as119@gmail.com"
+    ],
+    "maintenance_mode": false,
+    "allow_registration": true,
+    "updated_at": "2026-10-06T17:46:25.539Z"
+  },
+  "legal_docs": [
+    {
+      "id": "privacy-policy",
+      "title": "Privacy & Data Protection Policy",
+      "category": "privacy",
+      "last_updated": "2026-10-06T00:00:00.000Z",
+      "content": "Thesis Case Tracker (\"Platform\") is committed to safeguarding the privacy and confidentiality of clinical research data, healthcare investigators, and study participants. This Privacy Policy governs all data processing and protection practices within the application.\n\n1. Information We Collect\nWe collect institutional investigator profile information (name, professional email address) and study administrative parameters (study titles, target enrollment sizes, research group membership). Patient records entered for enrollment coordination and duplicate prevention are restricted to study-specific case identifiers, anonymized clinical notes, and treatment regimen metadata.\n\n2. Study-Level Data Isolation & Strict Access Boundary\nAll patient records, duplicate detection indices, and case progress updates are strictly partitioned within each research group workspace. Data entered by researchers in one study group is strictly inaccessible to other study teams. System administrators do not access, browse, or disclose confidential patient study records.\n\n3. Data Minimization & Privacy Protection\nResearchers are instructed to enter only the minimum data necessary for duplicate patient prevention and study coordination. Direct patient contact details (such as home addresses, phone numbers, or national identification numbers) must never be entered into the platform.\n\n4. Infrastructure Security & Confidentiality\nAll network transmissions are protected using TLS encryption. Data is stored in secure encrypted environments with role-based access controls and audit logging. Data is never shared with third-party advertisers, commercial data brokers, or unapproved external services."
+    },
+    {
+      "id": "terms-of-use",
+      "title": "Terms of Academic & Clinical Use",
+      "category": "terms",
+      "last_updated": "2026-10-06T00:00:00.000Z",
+      "content": "By accessing or using Thesis Case Tracker, you agree to comply with these Terms of Academic & Clinical Use.\n\n1. Authorized Clinical & Academic Use\nThis platform is intended exclusively for authorized hospital researchers, postgraduate medical students, academic investigators, and thesis research teams. Access is granted for lawful, ethics-approved clinical data collection and study coordination.\n\n2. Ethics Approval & Institutional Oversight\nInvestigators and their affiliated academic institutions remain solely responsible for securing and maintaining all mandatory approvals from their Institutional Review Board (IRB) or Independent Ethics Committee (IEC) prior to entering research study cases.\n\n3. Credential Security & Account Integrity\nUsers are responsible for safeguarding their login credentials and session tokens. Sharing accounts or attempting unauthorized access to research groups to which you have not been invited is strictly prohibited.\n\n4. Research Integrity & Record Accuracy\nInvestigators must ensure the integrity and accuracy of entered study records, including verification of assigned patient codes and diagnosis details."
+    },
+    {
+      "id": "research-responsibility",
+      "title": "Research Data Integrity & De-Identification Guidelines",
+      "category": "responsibility",
+      "last_updated": "2026-10-06T00:00:00.000Z",
+      "content": "Notice Regarding Research Data Integrity and Institutional Responsibility:\n\n1. De-Identification Recommendations\nIn accordance with international healthcare research standards, researchers are strongly advised to utilize pseudo-anonymized study codes, hospital research accession numbers, or masked identifiers rather than direct patient names or sensitive personal details.\n\n2. Duplicate Prevention Protocol\nThe primary function of the platform is to alert research collaborators when a patient has already been enrolled in the study. In the event of a duplicate alert, researchers must verify with their study team before proceeding to prevent skewed sample sizes or double-counting.\n\n3. Principal Investigator & Institutional Governance\nThe platform serves as an operational coordination tool for case assignment and duplicate prevention. Ultimate legal, clinical, and ethical responsibility for trial conduct, patient safety, and regulatory compliance resides with the Principal Investigator and the sponsoring healthcare institution."
+    },
+    {
+      "id": "storage-drive-notice",
+      "title": "Data Storage, Security & Retention Policy",
+      "category": "storage",
+      "last_updated": "2026-10-06T00:00:00.000Z",
+      "content": "Data Storage, Security and Retention Disclosures:\n\n1. Secure Storage\nAll research study data, case assignment records, and audit logs are stored in secure, encrypted cloud repositories with automated integrity verification and backup redundancy.\n\n2. Data Export & Institutional Archiving\nAuthorized study team members may export their research group's full case ledger in standard comma-separated format (CSV) at any time. Exported records include enrollment timestamps, assigned researchers, and case status for local institutional statistical analysis and archival compliance.\n\n3. Study Lifecycle & Retention\nStudy records remain active and queryable for the duration of the research group's data collection phase. Completed or published studies may be formally archived by the group owner."
+    },
+    {
+      "id": "account-deletion-info",
+      "title": "Data Deletion, Erasure & Group Closure Policy",
+      "category": "deletion",
+      "last_updated": "2026-10-06T00:00:00.000Z",
+      "content": "Procedures for Record Correction, Study Group Closure, and Account Erasure:\n\n1. Case Record Removal & Correction\nResearchers can immediately delete an incorrectly entered patient record from their study workspace. Deletion instantly updates enrollment counts, removes the patient ID from duplicate prevention indices, and records an administrative audit entry.\n\n2. Study Group Deletion & Closure\nA research group owner or authorized administrator may formally delete or archive a study group upon thesis defense or project conclusion. Deleting a study permanently purges all active case records, pending invitations, and membership associations for that group.\n\n3. Account Deactivation & Profile Erasure\nUsers may request complete account erasure and revocation of credentials. Upon deactivation, login access is immediately revoked, and profile associations are anonymized in accordance with institutional study retention guidelines."
+    },
+    {
+      "id": "disclaimer",
+      "title": "Clinical & Regulatory Disclaimer",
+      "category": "disclaimer",
+      "last_updated": "2026-10-06T00:00:00.000Z",
+      "content": "Clinical, Diagnostic & Legal Disclaimer:\n\n1. Academic & Workflow Coordination Purpose\nThesis Case Tracker is an academic research workflow coordination and duplicate prevention tool designed to assist hospital thesis teams in collaborative case management. It is NOT a medical device, diagnostic tool, clinical decision support system, or hospital Electronic Health Record (EHR) replacement.\n\n2. No Medical Advice or Diagnostic Reliance\nThe platform does not provide medical diagnoses, treatment recommendations, or prescription validation. Healthcare decisions regarding patient care must always be made by qualified medical practitioners based on direct clinical evaluation and primary hospital health records.\n\n3. Regulatory Compliance\nNo representation of universal regulatory certification (such as HIPAA, GDPR, or DPDP) is made without specific institutional deployment agreements. Investigators and healthcare institutions must verify that their use of this software complies with all applicable local, regional, and national laws governing human subject research and health data protection."
     }
   ]
 }

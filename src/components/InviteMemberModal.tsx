@@ -128,7 +128,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
               <p className="text-xs text-blue-700 font-bold uppercase tracking-wider">
                 Invitation Code Generated
               </p>
-              <div className="text-2xl font-black font-mono tracking-widest text-slate-900 bg-white py-3 px-4 rounded-xl border border-blue-200 select-all">
+              <div className="text-xs sm:text-sm font-bold font-mono tracking-normal text-slate-900 bg-white py-3 px-4 rounded-xl border border-blue-200 select-all break-all">
                 {invitation.code}
               </div>
 

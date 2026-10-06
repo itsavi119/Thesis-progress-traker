@@ -104,12 +104,12 @@ export const JoinGroupModal: React.FC<JoinGroupModalProps> = ({ isOpen, onClose,
                 type="text"
                 value={code}
                 onChange={(e) => {
-                  setCode(e.target.value.toUpperCase());
+                  setCode(e.target.value.trim());
                   setError(null);
                 }}
-                placeholder="e.g., IVOS-X7K2"
+                placeholder="Paste invitation code"
                 required
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold font-mono text-slate-900 tracking-wider placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 transition-colors uppercase text-center"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold font-mono text-slate-900 tracking-normal placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 transition-colors text-center break-all"
               />
               <p className="text-[11px] text-slate-400 mt-1.5 text-center">
                 Ask your research group owner for an invitation code.

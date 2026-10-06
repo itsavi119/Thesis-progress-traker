@@ -10,6 +10,7 @@ import {
   UnauthorizedGroupActionError,
   GroupNotFoundError,
   AccountSuspendedError,
+  StoredGroup,
 } from './src/server/db.js';
 import type { UserProfile } from './src/types/index.js';
 
@@ -27,10 +28,18 @@ export interface AuthenticatedRequest extends Request {
   user?: UserProfile;
 }
 
-// Authentication Middleware
+export interface GroupAuthorizedRequest extends AuthenticatedRequest {
+  targetGroupId?: string;
+  group?: StoredGroup;
+}
+
+// Authentication Middleware - verifies JWT from header or query token parameter
 const authenticateToken = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  let token = authHeader && authHeader.split(' ')[1];
+  if (!token && typeof req.query.token === 'string' && req.query.token.trim()) {
+    token = req.query.token.trim();
+  }
 
   if (!token) {
     res.status(401).json({ error: 'UNAUTHORIZED', message: 'Authentication required. Please log in.' });
@@ -58,6 +67,187 @@ const authenticateToken = async (req: AuthenticatedRequest, res: Response, next:
   }
 };
 
+// Strict Group Membership Authorization Middleware
+// Enforces mandatory server-side security boundary before any group resource or event stream is accessed
+const requireGroupMembership = async (
+  req: GroupAuthorizedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  const user = req.user;
+  if (!user) {
+    res.status(401).json({ error: 'UNAUTHORIZED', message: 'Authentication required.' });
+    return;
+  }
+
+  const rawHeader = req.headers['x-group-id'];
+  const rawQuery = req.query.groupId;
+  const rawBody = req.body?.groupId;
+
+  // Defend against HTTP parameter pollution
+  if (Array.isArray(rawHeader) || Array.isArray(rawQuery)) {
+    res.status(400).json({ error: 'INVALID_GROUP', message: 'Multiple group identifiers are not allowed.' });
+    return;
+  }
+
+  const headerGroup = typeof rawHeader === 'string' && rawHeader.trim() ? rawHeader.trim() : null;
+  const queryGroup = typeof rawQuery === 'string' && rawQuery.trim() ? rawQuery.trim() : null;
+  const bodyGroup = typeof rawBody === 'string' && rawBody.trim() ? rawBody.trim() : null;
+
+  // Conflict detection: prevent attacker attempting to bypass authorization with conflicting IDs
+  if (headerGroup && queryGroup && headerGroup !== queryGroup) {
+    res.status(400).json({ error: 'CONFLICTING_GROUP_INPUT', message: 'Conflicting group identifiers.' });
+    return;
+  }
+  if (headerGroup && bodyGroup && headerGroup !== bodyGroup) {
+    res.status(400).json({ error: 'CONFLICTING_GROUP_INPUT', message: 'Conflicting group identifiers.' });
+    return;
+  }
+  if (queryGroup && bodyGroup && queryGroup !== bodyGroup) {
+    res.status(400).json({ error: 'CONFLICTING_GROUP_INPUT', message: 'Conflicting group identifiers.' });
+    return;
+  }
+
+  const targetGroupId = headerGroup || queryGroup || bodyGroup;
+
+  if (!targetGroupId) {
+    res.status(400).json({ error: 'MISSING_GROUP', message: 'Research group ID is required.' });
+    return;
+  }
+
+  // Group ID format validation
+  if (!/^[a-zA-Z0-9_-]{1,128}$/.test(targetGroupId)) {
+    res.status(400).json({ error: 'INVALID_GROUP', message: 'Invalid research group ID format.' });
+    return;
+  }
+
+  try {
+    const group = db.verifyUserGroupMembership(targetGroupId, user.id);
+    req.targetGroupId = targetGroupId;
+    req.group = group;
+    next();
+  } catch (err: any) {
+    if (err instanceof GroupNotFoundError) {
+      res.status(404).json({ error: 'NOT_FOUND', message: 'Research study/group not found.' });
+      return;
+    }
+    if (err instanceof UnauthorizedGroupActionError) {
+      // Record security audit log (strictly non-PHI metadata)
+      await db
+        .recordAuditLog({
+          action: 'UNAUTHORIZED_CROSS_STUDY_ACCESS_ATTEMPT',
+          entityType: 'security',
+          entityId: targetGroupId,
+          details: `Unauthorized attempt by user ${user.id} (${user.email}) to access group ${targetGroupId}.`,
+          performedBy: user.id,
+          performedByEmail: user.email,
+        })
+        .catch((logErr) => console.error('Failed to write security audit log:', logErr));
+
+      console.warn(
+        `[SECURITY ALERT] Unauthorized cross-study access attempt: user "${user.id}" (${user.email}) requested group "${targetGroupId}". Access denied.`
+      );
+      res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied: You are not a member of this research study.' });
+      return;
+    }
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred.' });
+  }
+};
+
+// Invitation Rate Limiter - layered IP & User throttling to eliminate high-speed enumeration
+interface RateLimitBucket {
+  count: number;
+  resetAt: number;
+}
+
+export class InvitationRateLimiter {
+  private ipBuckets = new Map<string, RateLimitBucket>();
+  private userBuckets = new Map<string, RateLimitBucket>();
+  private windowMs: number;
+  private maxPerIp: number;
+  private maxPerUser: number;
+
+  constructor(options: { windowMs?: number; maxPerIp?: number; maxPerUser?: number } = {}) {
+    this.windowMs = options.windowMs || 60 * 1000; // 1 minute window
+    this.maxPerIp = options.maxPerIp || 15;        // 15 attempts per minute per IP
+    this.maxPerUser = options.maxPerUser || 15;    // 15 attempts per minute per user
+  }
+
+  public check(ip: string, userId?: string): { allowed: boolean; retryAfterSeconds: number } {
+    const now = Date.now();
+
+    // Check IP bucket
+    let ipBucket = this.ipBuckets.get(ip);
+    if (!ipBucket || now > ipBucket.resetAt) {
+      ipBucket = { count: 0, resetAt: now + this.windowMs };
+      this.ipBuckets.set(ip, ipBucket);
+    }
+    if (ipBucket.count >= this.maxPerIp) {
+      return { allowed: false, retryAfterSeconds: Math.max(1, Math.ceil((ipBucket.resetAt - now) / 1000)) };
+    }
+
+    // Check User bucket if authenticated
+    if (userId) {
+      let userBucket = this.userBuckets.get(userId);
+      if (!userBucket || now > userBucket.resetAt) {
+        userBucket = { count: 0, resetAt: now + this.windowMs };
+        this.userBuckets.set(userId, userBucket);
+      }
+      if (userBucket.count >= this.maxPerUser) {
+        return { allowed: false, retryAfterSeconds: Math.max(1, Math.ceil((userBucket.resetAt - now) / 1000)) };
+      }
+    }
+
+    // Increment counters
+    ipBucket.count++;
+    if (userId) {
+      const userBucket = this.userBuckets.get(userId);
+      if (userBucket) userBucket.count++;
+    }
+
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+
+  public reset(): void {
+    this.ipBuckets.clear();
+    this.userBuckets.clear();
+  }
+}
+
+export const invitationRateLimiter = new InvitationRateLimiter();
+
+const rateLimitInvitations = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  const forwarded = req.headers['x-forwarded-for'];
+  const ip = (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : null) || req.socket.remoteAddress || '127.0.0.1';
+  const userId = req.user?.id;
+
+  const result = invitationRateLimiter.check(ip, userId);
+  if (!result.allowed) {
+    db.recordAuditLog({
+      action: 'INVITATION_RATE_LIMIT_EXCEEDED',
+      entityType: 'security',
+      details: `Rate limit exceeded for invitation operations from IP ${ip}${userId ? ` (user ${userId})` : ''}.`,
+      performedBy: userId || 'anonymous',
+      performedByEmail: req.user?.email || 'anonymous',
+    }).catch(() => {});
+
+    res.setHeader('Retry-After', result.retryAfterSeconds.toString());
+    res.status(429).json({
+      error: 'TOO_MANY_REQUESTS',
+      message: 'Too many invitation attempts. Please wait before trying again.',
+    });
+    return;
+  }
+  next();
+};
+
+if (!isProd) {
+  app.post('/api/dev/reset-invitation-rate-limit', (_req, res) => {
+    invitationRateLimiter.reset();
+    res.json({ reset: true });
+  });
+}
+
 // Strict App Owner Authorization Middleware
 const authenticateAppOwner = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   await authenticateToken(req, res, () => {
@@ -72,13 +262,15 @@ const authenticateAppOwner = async (req: AuthenticatedRequest, res: Response, ne
 
 // Helper to extract and validate required groupId from request
 function getGroupId(req: AuthenticatedRequest): string | null {
-  const headerId = req.headers['x-group-id'];
-  if (typeof headerId === 'string' && headerId.trim()) return headerId.trim();
-  const queryId = req.query.groupId;
-  if (typeof queryId === 'string' && queryId.trim()) return queryId.trim();
-  const bodyId = req.body?.groupId;
-  if (typeof bodyId === 'string' && bodyId.trim()) return bodyId.trim();
-  return null;
+  const headerId = typeof req.headers['x-group-id'] === 'string' && req.headers['x-group-id'].trim() ? req.headers['x-group-id'].trim() : null;
+  const queryId = typeof req.query.groupId === 'string' && req.query.groupId.trim() ? req.query.groupId.trim() : null;
+  const bodyId = typeof req.body?.groupId === 'string' && req.body.groupId.trim() ? req.body.groupId.trim() : null;
+
+  if (headerId && queryId && headerId !== queryId) return null;
+  if (headerId && bodyId && headerId !== bodyId) return null;
+  if (queryId && bodyId && queryId !== bodyId) return null;
+
+  return headerId || queryId || bodyId;
 }
 
 // --- PUBLIC & AUTHENTICATED LEGAL POLICIES ---
@@ -331,25 +523,50 @@ app.post('/api/groups/:groupId/invitations', authenticateToken, async (req: Auth
   }
 });
 
-// Inspect invitation code details before joining
-app.get('/api/invitations/:code', async (req, res) => {
+// Inspect invitation code details before joining (rate-limited, minimal public preview, uniform error)
+app.get('/api/invitations/:code', rateLimitInvitations, async (req, res) => {
   try {
     const details = await db.getInvitationDetails(req.params.code);
     res.json(details);
-  } catch (err: any) {
-    res.status(404).json({ error: 'INVALID_INVITE', message: err.message });
+  } catch {
+    const forwarded = req.headers['x-forwarded-for'];
+    const ip = (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : null) || req.socket.remoteAddress || '127.0.0.1';
+    db.recordAuditLog({
+      action: 'INVALID_INVITATION_LOOKUP_ATTEMPT',
+      entityType: 'security',
+      details: `Invalid or expired invitation lookup attempt from IP ${ip}.`,
+      performedBy: 'anonymous',
+      performedByEmail: 'anonymous',
+    }).catch(() => {});
+
+    // Uniform generic error response prevents token/study enumeration
+    res.status(404).json({ error: 'INVALID_INVITATION', message: 'Invalid or expired invitation code.' });
   }
 });
 
-// Accept invitation code
-app.post('/api/invitations/:code/accept', authenticateToken, async (req: AuthenticatedRequest, res) => {
-  try {
-    const group = await db.acceptInvitation(req.params.code, req.user!);
-    res.json({ success: true, group });
-  } catch (err: any) {
-    res.status(400).json({ error: 'ACCEPT_FAILED', message: err.message });
+// Accept invitation code (authenticated, rate-limited, single-use, atomic)
+app.post(
+  '/api/invitations/:code/accept',
+  authenticateToken,
+  rateLimitInvitations,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const group = await db.acceptInvitation(req.params.code, req.user!);
+      res.json({ success: true, group });
+    } catch {
+      db.recordAuditLog({
+        action: 'INVALID_INVITATION_ACCEPT_ATTEMPT',
+        entityType: 'security',
+        details: `Invalid or expired invitation acceptance attempt by user ${req.user!.id} (${req.user!.email}).`,
+        performedBy: req.user!.id,
+        performedByEmail: req.user!.email,
+      }).catch(() => {});
+
+      // Uniform generic error response
+      res.status(400).json({ error: 'INVALID_INVITATION', message: 'Invalid or expired invitation code.' });
+    }
   }
-});
+);
 
 // Remove a member from a group (Owner only)
 app.delete('/api/groups/:groupId/members/:targetUserId', authenticateToken, async (req: AuthenticatedRequest, res) => {
@@ -880,62 +1097,44 @@ app.patch('/api/app-owner/legal-policies/:id', authenticateAppOwner, async (req:
   }
 });
 
-// --- REAL-TIME SSE STREAM (Group-Scoped) ---
+// --- REAL-TIME SSE STREAM (Group-Scoped with strict BOLA authorization boundary) ---
 
-app.get('/api/cases/events', async (req, res) => {
-  const token = (req.query.token as string) || (req.headers['authorization']?.split(' ')[1] as string);
-  const targetGroupId = req.query.groupId as string;
+app.get(
+  '/api/cases/events',
+  authenticateToken,
+  requireGroupMembership,
+  (req: GroupAuthorizedRequest, res: Response) => {
+    const targetGroupId = req.targetGroupId!;
 
-  if (!token) {
-    res.status(401).send('Authentication token required.');
-    return;
+    // Set SSE headers ONLY after authentication and study membership authorization have completed successfully
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+
+    // Send initial connected confirmation event scoped strictly to authorized group
+    res.write(`data: ${JSON.stringify({ type: 'connected', groupId: targetGroupId })}\n\n`);
+
+    // Subscribe to events strictly scoped to this authorized research study
+    const unsubscribe = db.subscribe((event, eventGroupId, payload) => {
+      if (eventGroupId === targetGroupId) {
+        res.write(`data: ${JSON.stringify({ type: event, groupId: eventGroupId, payload })}\n\n`);
+      }
+    });
+
+    const heartbeat = setInterval(() => {
+      if (!res.writableEnded) {
+        res.write(': heartbeat\n\n');
+      }
+    }, 20000);
+
+    req.on('close', () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+    });
   }
-
-  let verifiedUser: UserProfile | null = null;
-  try {
-    const payload = jwt.verify(token, JWT_SECRET) as { userId: string };
-    verifiedUser = await db.findProfileById(payload.userId);
-  } catch {
-    res.status(403).send('Invalid token.');
-    return;
-  }
-
-  if (!verifiedUser || verifiedUser.status === 'suspended') {
-    res.status(401).send('User not found or suspended.');
-    return;
-  }
-
-  if (targetGroupId) {
-    try {
-      await db.getGroupById(targetGroupId, verifiedUser.id);
-    } catch {
-      res.status(403).send('Unauthorized for requested group events.');
-      return;
-    }
-  }
-
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders?.();
-
-  res.write(`data: ${JSON.stringify({ type: 'connected', groupId: targetGroupId })}\n\n`);
-
-  const unsubscribe = db.subscribe((event, eventGroupId, payload) => {
-    if (!targetGroupId || targetGroupId === eventGroupId) {
-      res.write(`data: ${JSON.stringify({ type: event, groupId: eventGroupId, payload })}\n\n`);
-    }
-  });
-
-  const heartbeat = setInterval(() => {
-    res.write(': heartbeat\n\n');
-  }, 20000);
-
-  req.on('close', () => {
-    clearInterval(heartbeat);
-    unsubscribe();
-  });
-});
+);
 
 // Frontend Serving
 async function startServer() {

@@ -59,7 +59,7 @@ interface StoredGroupMember {
   joined_at: string;
 }
 
-interface StoredGroup {
+export interface StoredGroup {
   id: string;
   organization_id?: string;
   name: string;
@@ -90,16 +90,23 @@ interface StoredFile {
   created_at: string;
 }
 
-interface StoredInvitation {
+export function hashInvitationToken(token: string): string {
+  return crypto.createHash('sha256').update(token.trim()).digest('hex');
+}
+
+export interface StoredInvitation {
   id: string;
   group_id: string;
   group_name: string;
-  code: string;
+  token_hash: string;
+  code?: string;
   created_by: string;
   created_at: string;
   expires_at: string;
   status: 'pending' | 'accepted' | 'expired' | 'revoked';
   intended_email?: string;
+  accepted_by?: string;
+  accepted_at?: string;
 }
 
 interface StoredCase {
@@ -373,6 +380,13 @@ export class RelationalDatabase {
           this.data.app_settings!.authorized_app_owners.unshift(PRIMARY_APP_OWNER);
         }
 
+        // Migrate legacy invitations: compute deterministic token_hash if missing
+        for (const inv of this.data.invitations) {
+          if (!inv.token_hash && inv.code) {
+            inv.token_hash = hashInvitationToken(inv.code.trim().toUpperCase());
+          }
+        }
+
         // Automatic migration if initial data exists
         if (this.data.groups.length === 0 && (this.data.profiles.length > 0 || this.data.cases.length > 0)) {
           const ownerProfile = this.data.profiles[0];
@@ -438,6 +452,10 @@ export class RelationalDatabase {
     return () => {
       this.changeListeners = this.changeListeners.filter((l) => l !== listener);
     };
+  }
+
+  public getSubscriberCount(): number {
+    return this.changeListeners.length;
   }
 
   private broadcast(event: string, groupId: string, payload: any) {
@@ -1074,7 +1092,7 @@ export class RelationalDatabase {
     });
   }
 
-  // --- GROUP INVITATIONS (NO ARBITRARY MEMBER LIMITS) ---
+  // --- GROUP INVITATIONS (CRYPTOGRAPHICALLY RANDOM BEARER TOKENS & SINGLE-USE) ---
 
   public async createInvitation(
     groupId: string,
@@ -1090,9 +1108,9 @@ export class RelationalDatabase {
         throw new UnauthorizedGroupActionError('Only the study owner can invite new researchers.');
       }
 
-      const prefix = group.name.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'GRP';
-      const randomSuffix = crypto.randomBytes(2).toString('hex').toUpperCase();
-      const code = `${prefix}-${randomSuffix}`;
+      // Cryptographically secure random token (24 bytes = 192 bits of cryptographic entropy, URL-safe)
+      const rawToken = crypto.randomBytes(24).toString('base64url');
+      const tokenHash = hashInvitationToken(rawToken);
 
       const now = new Date();
       const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -1101,7 +1119,7 @@ export class RelationalDatabase {
         id: crypto.randomUUID(),
         group_id: groupId,
         group_name: group.name,
-        code,
+        token_hash: tokenHash,
         created_by: userId,
         created_at: now.toISOString(),
         expires_at: expiresAt,
@@ -1112,11 +1130,12 @@ export class RelationalDatabase {
       this.data.invitations.push(invite);
       await this.persist();
 
+      // Return the raw token strictly once to the creator in the API response; never stored in plaintext
       return {
         id: invite.id,
         groupId: invite.group_id,
         groupName: invite.group_name,
-        code: invite.code,
+        code: rawToken,
         createdBy: invite.created_by,
         createdAt: invite.created_at,
         expiresAt: invite.expires_at,
@@ -1126,10 +1145,8 @@ export class RelationalDatabase {
     });
   }
 
-  public async getInvitationDetails(code: string): Promise<{
-    invitation: GroupInvitation;
+  public async getInvitationDetails(rawToken: string): Promise<{
     group: {
-      id: string;
       name: string;
       studyTitle: string;
       targetSampleSize: number;
@@ -1137,36 +1154,44 @@ export class RelationalDatabase {
       isFull: boolean;
     };
   }> {
-    const normalizedCode = code.trim().toUpperCase();
-    const invite = this.data.invitations.find((i) => i.code.toUpperCase() === normalizedCode);
-    if (!invite) {
-      throw new Error('Invalid invitation code.');
+    if (!rawToken || typeof rawToken !== 'string') {
+      throw new Error('Invalid or expired invitation code.');
     }
 
+    const trimmed = rawToken.trim();
+    const tokenHash = hashInvitationToken(trimmed);
+    const legacyHash = hashInvitationToken(trimmed.toUpperCase());
+
+    const invite = this.data.invitations.find(
+      (i) =>
+        i.token_hash === tokenHash ||
+        i.token_hash === legacyHash ||
+        (i.code && i.code.toUpperCase() === trimmed.toUpperCase())
+    );
+    if (!invite) {
+      throw new Error('Invalid or expired invitation code.');
+    }
+
+    // Expiration validation
     if (invite.status === 'pending' && new Date(invite.expires_at) < new Date()) {
       invite.status = 'expired';
       await this.persist();
+      throw new Error('Invalid or expired invitation code.');
+    }
+
+    // Single-use / status validation
+    if (invite.status !== 'pending') {
+      throw new Error('Invalid or expired invitation code.');
     }
 
     const group = this.data.groups.find((g) => g.id === invite.group_id);
-    if (!group) {
-      throw new GroupNotFoundError('The research study associated with this invite no longer exists.');
+    if (!group || group.status === 'suspended') {
+      throw new Error('Invalid or expired invitation code.');
     }
 
+    // Return strictly non-sensitive public preview fields - NO internal groupId, creator IDs, or invitation secrets
     return {
-      invitation: {
-        id: invite.id,
-        groupId: invite.group_id,
-        groupName: invite.group_name,
-        code: invite.code,
-        createdBy: invite.created_by,
-        createdAt: invite.created_at,
-        expiresAt: invite.expires_at,
-        status: invite.status,
-        intendedEmail: invite.intended_email,
-      },
       group: {
-        id: group.id,
         name: group.name,
         studyTitle: group.study_title,
         targetSampleSize: group.target_sample_size,
@@ -1176,27 +1201,42 @@ export class RelationalDatabase {
     };
   }
 
-  public async acceptInvitation(code: string, user: UserProfile): Promise<ResearchGroup> {
+  public async acceptInvitation(rawToken: string, user: UserProfile): Promise<ResearchGroup> {
     return this.mutex.runExclusive(async () => {
-      const normalizedCode = code.trim().toUpperCase();
-      const invite = this.data.invitations.find((i) => i.code.toUpperCase() === normalizedCode);
+      if (!rawToken || typeof rawToken !== 'string') {
+        throw new Error('Invalid or expired invitation code.');
+      }
+
+      const trimmed = rawToken.trim();
+      const tokenHash = hashInvitationToken(trimmed);
+      const legacyHash = hashInvitationToken(trimmed.toUpperCase());
+
+      const invite = this.data.invitations.find(
+        (i) =>
+          i.token_hash === tokenHash ||
+          i.token_hash === legacyHash ||
+          (i.code && i.code.toUpperCase() === trimmed.toUpperCase())
+      );
       if (!invite) {
-        throw new Error('Invalid invitation code.');
+        throw new Error('Invalid or expired invitation code.');
       }
 
+      // Single-use validation
       if (invite.status !== 'pending') {
-        throw new Error(`This invitation is no longer active (status: ${invite.status}).`);
+        throw new Error('Invalid or expired invitation code.');
       }
 
+      // Expiration validation
       if (new Date(invite.expires_at) < new Date()) {
         invite.status = 'expired';
         await this.persist();
-        throw new Error('This invitation has expired.');
+        throw new Error('Invalid or expired invitation code.');
       }
 
+      // Target study derived strictly from the server-side invitation record
       const group = this.data.groups.find((g) => g.id === invite.group_id);
-      if (!group) {
-        throw new GroupNotFoundError();
+      if (!group || group.status === 'suspended') {
+        throw new Error('Invalid or expired invitation code.');
       }
 
       const existingMember = group.members.find((m) => m.user_id === user.id);
@@ -1215,7 +1255,11 @@ export class RelationalDatabase {
 
       group.members.push(newMember);
       group.updated_at = now;
+
+      // Mark single-use invitation as consumed atomically
       invite.status = 'accepted';
+      invite.accepted_by = user.id;
+      invite.accepted_at = now;
 
       await this.persist();
 
@@ -1267,9 +1311,12 @@ export class RelationalDatabase {
 
   // --- GROUP-SCOPED RESEARCH RECORDS OPERATIONS ---
 
-  private verifyUserGroupMembership(groupId: string, userId: string): StoredGroup {
+  public verifyUserGroupMembership(groupId: string, userId: string): StoredGroup {
     const group = this.data.groups.find((g) => g.id === groupId);
     if (!group) throw new GroupNotFoundError();
+    if (group.status === 'suspended') {
+      throw new UnauthorizedGroupActionError('Access denied: This research study has been suspended.');
+    }
     const isMember = group.members.some((m) => m.user_id === userId);
     if (!isMember) {
       throw new UnauthorizedGroupActionError('Access denied: You are not a member of this research study.');
