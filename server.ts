@@ -128,7 +128,8 @@ app.post('/api/auth/login', async (req, res) => {
       res.status(403).json({ error: 'ACCOUNT_SUSPENDED', message: err.message });
       return;
     }
-    res.status(500).json({ error: 'SERVER_ERROR', message: err.message });
+    console.error('[Auth Error]:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
   }
 });
 
@@ -153,7 +154,8 @@ app.post('/api/auth/google-sync', async (req, res) => {
       res.status(403).json({ error: 'ACCOUNT_SUSPENDED', message: err.message });
       return;
     }
-    res.status(500).json({ error: 'SERVER_ERROR', message: err.message });
+    console.error('[Google Sync Error]:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
   }
 });
 
@@ -169,7 +171,8 @@ app.get('/api/groups', authenticateToken, async (req: AuthenticatedRequest, res)
     const groups = await db.getUserGroups(req.user!.id);
     res.json({ groups });
   } catch (err: any) {
-    res.status(500).json({ error: 'SERVER_ERROR', message: err.message });
+    console.error('[Get Groups Error]:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
   }
 });
 
@@ -204,7 +207,8 @@ app.get('/api/groups/:groupId', authenticateToken, async (req: AuthenticatedRequ
       res.status(403).json({ error: 'FORBIDDEN', message: err.message });
       return;
     }
-    res.status(500).json({ error: 'SERVER_ERROR', message: err.message });
+    console.error('[Get Group Error]:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
   }
 });
 
@@ -360,7 +364,8 @@ app.get('/api/cases', authenticateToken, async (req: AuthenticatedRequest, res) 
       res.status(403).json({ error: 'FORBIDDEN', message: err.message });
       return;
     }
-    res.status(500).json({ error: 'SERVER_ERROR', message: err.message });
+    console.error('[Get Cases Error]:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
   }
 });
 
@@ -432,7 +437,8 @@ app.get('/api/cases/export/csv', authenticateToken, async (req: AuthenticatedReq
       res.status(403).json({ error: 'FORBIDDEN', message: err.message });
       return;
     }
-    res.status(500).json({ error: 'SERVER_ERROR', message: err.message });
+    console.error('[Export CSV Error]:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
   }
 });
 
@@ -453,7 +459,8 @@ app.get('/api/cases/my', authenticateToken, async (req: AuthenticatedRequest, re
       res.status(403).json({ error: 'FORBIDDEN', message: err.message });
       return;
     }
-    res.status(500).json({ error: 'SERVER_ERROR', message: err.message });
+    console.error('[My Cases Error]:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
   }
 });
 
@@ -559,7 +566,8 @@ app.get('/api/cases/stats', authenticateToken, async (req: AuthenticatedRequest,
       res.status(403).json({ error: 'FORBIDDEN', message: err.message });
       return;
     }
-    res.status(500).json({ error: 'SERVER_ERROR', message: err.message });
+    console.error('[Dashboard Stats Error]:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
   }
 });
 
@@ -579,7 +587,8 @@ app.get('/api/cases/team-summary', authenticateToken, async (req: AuthenticatedR
       res.status(403).json({ error: 'FORBIDDEN', message: err.message });
       return;
     }
-    res.status(500).json({ error: 'SERVER_ERROR', message: err.message });
+    console.error('[Team Summary Error]:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
   }
 });
 
@@ -594,7 +603,8 @@ app.get('/api/app-owner/overview', authenticateAppOwner, async (req: Authenticat
     const stats = await db.getAppOwnerOverview();
     res.json({ stats });
   } catch (err: any) {
-    res.status(500).json({ error: 'SERVER_ERROR', message: err.message });
+    console.error('[App Owner Overview Error]:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
   }
 });
 
@@ -605,7 +615,8 @@ app.get('/api/app-owner/users', authenticateAppOwner, async (req: AuthenticatedR
     const users = await db.getAppOwnerUsers({ search, status });
     res.json({ users });
   } catch (err: any) {
-    res.status(500).json({ error: 'SERVER_ERROR', message: err.message });
+    console.error('[App Owner Users Error]:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
   }
 });
 
@@ -632,7 +643,8 @@ app.get('/api/app-owner/groups', authenticateAppOwner, async (req: Authenticated
     const groups = await db.getAppOwnerGroups({ search, status });
     res.json({ groups });
   } catch (err: any) {
-    res.status(500).json({ error: 'SERVER_ERROR', message: err.message });
+    console.error('[App Owner Groups Error]:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
   }
 });
 
@@ -673,7 +685,8 @@ app.get('/api/app-owner/audit-logs', authenticateAppOwner, async (req: Authentic
     });
     res.json({ logs });
   } catch (err: any) {
-    res.status(500).json({ error: 'SERVER_ERROR', message: err.message });
+    console.error('[Audit Logs Error]:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
   }
 });
 
@@ -683,7 +696,8 @@ app.get('/api/app-owner/settings', authenticateAppOwner, (req: AuthenticatedRequ
     const settings = db.getAppSettings();
     res.json({ settings });
   } catch (err: any) {
-    res.status(500).json({ error: 'SERVER_ERROR', message: err.message });
+    console.error('[App Settings Error]:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
   }
 });
 

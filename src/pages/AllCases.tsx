@@ -64,7 +64,7 @@ export const AllCases: React.FC = () => {
       }));
       setMembers(profileList);
     } catch (err: any) {
-      setError(err.message || 'Failed to load case records from database.');
+      setError(err.message || 'Failed to load case records.');
     } finally {
       setIsLoading(false);
     }
@@ -97,11 +97,11 @@ export const AllCases: React.FC = () => {
     try {
       await api.deleteCase(caseToDelete.id, currentGroup.id);
       setCases((prev) => prev.filter((c) => c.id !== caseToDelete.id));
-      setSuccessToast(`Incorrect Patient ID "${caseToDelete.patient_id}" removed from database.`);
+      setSuccessToast(`Incorrect Patient ID "${caseToDelete.patient_id}" removed successfully.`);
       setCaseToDelete(null);
       setTimeout(() => setSuccessToast(null), 4000);
     } catch (err: any) {
-      setError(err.message || 'Failed to remove case from database.');
+      setError(err.message || 'Failed to remove case record.');
     } finally {
       setIsDeleting(false);
     }
@@ -130,11 +130,11 @@ export const AllCases: React.FC = () => {
               {currentGroup.name}
             </span>
             <span className="text-xs text-slate-400">•</span>
-            <span className="text-xs text-slate-500 font-medium">Group Database</span>
+            <span className="text-xs text-slate-500 font-medium">Study Register</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">All Cases</h2>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Complete database of all patient cases registered across the researchers in this study.
+            Complete register of all patient cases enrolled across the researchers in this study.
           </p>
         </div>
 
@@ -283,7 +283,7 @@ export const AllCases: React.FC = () => {
               ? 'Try searching by full or partial Patient ID, or patient name.'
               : selectedMember !== 'ALL' || selectedStatus !== 'ALL'
               ? 'Try adjusting your search terms or filters.'
-              : 'The authoritative case database is currently empty.'}
+              : 'No patient cases have been enrolled in this study group yet.'}
           </p>
           {(search || selectedMember !== 'ALL' || selectedStatus !== 'ALL') && (
             <button
@@ -533,7 +533,7 @@ export const AllCases: React.FC = () => {
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              This will remove this case from the shared cloud database so the correct Patient ID can be registered without duplicate collision.
+              This will remove this case record so the correct Patient ID can be registered without collision.
             </p>
 
             <div className="flex gap-3 pt-2">

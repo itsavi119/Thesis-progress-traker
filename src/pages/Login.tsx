@@ -110,7 +110,7 @@ export const Login: React.FC = () => {
               <span>{isGoogleSubmitting ? 'Authenticating with Google...' : 'Continue with Google'}</span>
             </button>
             <p className="text-[11px] text-center text-slate-400 mt-2">
-              Verified Firebase Authentication for Hospital Researchers
+              Secure Single Sign-On for Hospital Researchers
             </p>
           </div>
 

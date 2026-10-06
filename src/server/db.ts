@@ -171,88 +171,105 @@ class AsyncMutex {
 const DEFAULT_LEGAL_DOCS: StoredLegalDoc[] = [
   {
     id: 'privacy-policy',
-    title: 'Privacy Policy',
+    title: 'Privacy & Data Protection Policy',
     category: 'privacy',
-    last_updated: '2026-10-05T00:00:00.000Z',
-    content: `Thesis Case Tracker ("Platform") is committed to protecting the privacy of healthcare researchers and medical data. This Privacy Policy outlines our data handling and collection practices.
+    last_updated: '2026-10-06T00:00:00.000Z',
+    content: `Thesis Case Tracker ("Platform") is committed to safeguarding the privacy and confidentiality of clinical research data, healthcare investigators, and study participants. This Privacy Policy governs all data processing and protection practices within the application.
 
 1. Information We Collect
-We collect institutional contact information (name, Google account email) and study metadata (study titles, target sample sizes, group affiliations). Patient identifiers entered for duplicate-checking are processed within isolated research group scopes.
+We collect institutional investigator profile information (name, professional email address) and study administrative parameters (study titles, target enrollment sizes, research group membership). Patient records entered for enrollment coordination and duplicate prevention are restricted to study-specific case identifiers, anonymized clinical notes, and treatment regimen metadata.
 
-2. Group-Scoped Data Isolation
-Patient records and case details entered by researchers are accessible strictly to authorized members of that specific research group. The application-level App Owner manages user accounts and group administration without browsing confidential clinical records.
+2. Study-Level Data Isolation & Strict Access Boundary
+All patient records, duplicate detection indices, and case progress updates are strictly partitioned within each research group workspace. Data entered by researchers in one study group is strictly inaccessible to other study teams. System administrators do not access, browse, or disclose confidential patient study records.
 
-3. External Services & Cloud Security
-Data is processed using secure cloud infrastructure. Patient-identifiable information is never shared with third-party advertising networks or unapproved external artificial intelligence providers.`,
+3. Data Minimization & Privacy Protection
+Researchers are instructed to enter only the minimum data necessary for duplicate patient prevention and study coordination. Direct patient contact details (such as home addresses, phone numbers, or national identification numbers) must never be entered into the platform.
+
+4. Infrastructure Security & Confidentiality
+All network transmissions are protected using TLS encryption. Data is stored in secure encrypted environments with role-based access controls and audit logging. Data is never shared with third-party advertisers, commercial data brokers, or unapproved external services.`,
   },
   {
     id: 'terms-of-use',
-    title: 'Terms of Use',
+    title: 'Terms of Academic & Clinical Use',
     category: 'terms',
-    last_updated: '2026-10-05T00:00:00.000Z',
-    content: `By accessing or using Thesis Case Tracker, you agree to comply with these Terms of Use.
+    last_updated: '2026-10-06T00:00:00.000Z',
+    content: `By accessing or using Thesis Case Tracker, you agree to comply with these Terms of Academic & Clinical Use.
 
-1. Authorized Institutional Use
-This platform is intended exclusively for authorized academic, clinical, and hospital thesis researchers. You must maintain the confidentiality of your authentication credentials.
+1. Authorized Clinical & Academic Use
+This platform is intended exclusively for authorized hospital researchers, postgraduate medical students, academic investigators, and thesis research teams. Access is granted for lawful, ethics-approved clinical data collection and study coordination.
 
-2. Research Compliance & Ethical Approvals
-Researchers and their respective healthcare institutions remain solely responsible for obtaining all mandatory Institutional Review Board (IRB) or Independent Ethics Committee (IEC) approvals prior to entering patient data.
+2. Ethics Approval & Institutional Oversight
+Investigators and their affiliated academic institutions remain solely responsible for securing and maintaining all mandatory approvals from their Institutional Review Board (IRB) or Independent Ethics Committee (IEC) prior to entering research study cases.
 
-3. Acceptable Use
-Users shall not attempt unauthorized access to other research groups, interfere with system availability, or manipulate identity parameters.`,
+3. Credential Security & Account Integrity
+Users are responsible for safeguarding their login credentials and session tokens. Sharing accounts or attempting unauthorized access to research groups to which you have not been invited is strictly prohibited.
+
+4. Research Integrity & Record Accuracy
+Investigators must ensure the integrity and accuracy of entered study records, including verification of assigned patient codes and diagnosis details.`,
   },
   {
     id: 'research-responsibility',
-    title: 'Research Data Responsibility Notice',
+    title: 'Research Data Integrity & De-Identification Guidelines',
     category: 'responsibility',
-    last_updated: '2026-10-05T00:00:00.000Z',
+    last_updated: '2026-10-06T00:00:00.000Z',
     content: `Notice Regarding Research Data Integrity and Institutional Responsibility:
 
 1. De-Identification Recommendations
-Researchers are strongly advised to utilize pseudo-anonymized hospital study numbers or masked Medical Record Numbers rather than direct patient identifiers wherever feasible.
+In accordance with international healthcare research standards, researchers are strongly advised to utilize pseudo-anonymized study codes, hospital research accession numbers, or masked identifiers rather than direct patient names or sensitive personal details.
 
-2. Institutional Governance
-The Platform provides coordination tools for case assignment and duplicate prevention. Ultimate responsibility for clinical research accuracy, regulatory adherence, and protocol execution resides with the Principal Investigator and Study Team.`,
+2. Duplicate Prevention Protocol
+The primary function of the platform is to alert research collaborators when a patient has already been enrolled in the study. In the event of a duplicate alert, researchers must verify with their study team before proceeding to prevent skewed sample sizes or double-counting.
+
+3. Principal Investigator & Institutional Governance
+The platform serves as an operational coordination tool for case assignment and duplicate prevention. Ultimate legal, clinical, and ethical responsibility for trial conduct, patient safety, and regulatory compliance resides with the Principal Investigator and the sponsoring healthcare institution.`,
   },
   {
     id: 'storage-drive-notice',
-    title: 'Google Drive Data & Permissions Notice',
+    title: 'Data Storage, Security & Retention Policy',
     category: 'storage',
-    last_updated: '2026-10-05T00:00:00.000Z',
-    content: `Google Drive Integration & Storage Permissions:
+    last_updated: '2026-10-06T00:00:00.000Z',
+    content: `Data Storage, Security and Retention Disclosures:
 
-1. Application-Specific Folders
-If Google Drive synchronization is enabled, the platform utilizes an application-specific folder structure (e.g., Thesis Case Tracker / Study Name / Exports) under your direct control.
+1. Secure Storage
+All research study data, case assignment records, and audit logs are stored in secure, encrypted cloud repositories with automated integrity verification and backup redundancy.
 
-2. Minimal Scopes
-The platform does not request or access unrelated files or personal documents stored in your Google Drive account. You may disconnect cloud storage integration at any time through account settings.`,
+2. Data Export & Institutional Archiving
+Authorized study team members may export their research group's full case ledger in standard comma-separated format (CSV) at any time. Exported records include enrollment timestamps, assigned researchers, and case status for local institutional statistical analysis and archival compliance.
+
+3. Study Lifecycle & Retention
+Study records remain active and queryable for the duration of the research group's data collection phase. Completed or published studies may be formally archived by the group owner.`,
   },
   {
     id: 'account-deletion-info',
-    title: 'Account & Data Deletion Information',
+    title: 'Data Deletion, Erasure & Group Closure Policy',
     category: 'deletion',
-    last_updated: '2026-10-05T00:00:00.000Z',
-    content: `Account and Data Removal Procedures:
+    last_updated: '2026-10-06T00:00:00.000Z',
+    content: `Procedures for Record Correction, Study Group Closure, and Account Erasure:
 
-1. Case Removal
-Researchers and Group Owners may delete incorrectly entered patient IDs directly within their research group. Deletion permanently removes the record from active tracking and duplicate prevention indexes.
+1. Case Record Removal & Correction
+Researchers can immediately delete an incorrectly entered patient record from their study workspace. Deletion instantly updates enrollment counts, removes the patient ID from duplicate prevention indices, and records an administrative audit entry.
 
-2. Group Deletion
-Group Owners or the App Owner may delete a research group with formal confirmation, purging associated cases and invitations.
+2. Study Group Deletion & Closure
+A research group owner or authorized administrator may formally delete or archive a study group upon thesis defense or project conclusion. Deleting a study permanently purges all active case records, pending invitations, and membership associations for that group.
 
-3. Account Deactivation
-To request complete profile erasure, contact your institutional research administrator or the application operator.`,
+3. Account Deactivation & Profile Erasure
+Users may request complete account erasure and revocation of credentials. Upon deactivation, login access is immediately revoked, and profile associations are anonymized in accordance with institutional study retention guidelines.`,
   },
   {
     id: 'disclaimer',
-    title: 'Clinical & Legal Disclaimer',
+    title: 'Clinical & Regulatory Disclaimer',
     category: 'disclaimer',
-    last_updated: '2026-10-05T00:00:00.000Z',
-    content: `Legal and Clinical Disclaimer:
+    last_updated: '2026-10-06T00:00:00.000Z',
+    content: `Clinical, Diagnostic & Legal Disclaimer:
 
-Thesis Case Tracker is an academic research workflow coordination platform. It is not a diagnostic device, electronic health record (EHR) replacement, or medical decision support tool.
+1. Academic & Workflow Coordination Purpose
+Thesis Case Tracker is an academic research workflow coordination and duplicate prevention tool designed to assist hospital thesis teams in collaborative case management. It is NOT a medical device, diagnostic tool, clinical decision support system, or hospital Electronic Health Record (EHR) replacement.
 
-No claims of universal regulatory certifications (such as HIPAA, GDPR, or DPDP) are made absent specific formal institutional compliance agreements. Researchers must comply with local institutional and national laws governing human subject research.`,
+2. No Medical Advice or Diagnostic Reliance
+The platform does not provide medical diagnoses, treatment recommendations, or prescription validation. Healthcare decisions regarding patient care must always be made by qualified medical practitioners based on direct clinical evaluation and primary hospital health records.
+
+3. Regulatory Compliance
+No representation of universal regulatory certification (such as HIPAA, GDPR, or DPDP) is made without specific institutional deployment agreements. Investigators and healthcare institutions must verify that their use of this software complies with all applicable local, regional, and national laws governing human subject research and health data protection.`,
   },
 ];
 

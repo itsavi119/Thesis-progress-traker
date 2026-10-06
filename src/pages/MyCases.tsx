@@ -109,11 +109,11 @@ export const MyCases: React.FC<MyCasesProps> = ({ onNavigateToAddPatient }) => {
     try {
       await api.deleteCase(caseToDelete.id, currentGroup.id);
       setCases((prev) => prev.filter((c) => c.id !== caseToDelete.id));
-      setSuccessToast(`Incorrect Patient ID "${caseToDelete.patient_id}" removed from database.`);
+      setSuccessToast(`Incorrect Patient ID "${caseToDelete.patient_id}" removed successfully.`);
       setCaseToDelete(null);
       setTimeout(() => setSuccessToast(null), 4000);
     } catch (err: any) {
-      setError(err.message || 'Failed to remove case from database.');
+      setError(err.message || 'Failed to remove case record.');
     } finally {
       setIsDeleting(false);
     }
@@ -526,7 +526,7 @@ export const MyCases: React.FC<MyCasesProps> = ({ onNavigateToAddPatient }) => {
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              This will remove this case from the shared cloud database so the correct Patient ID can be registered without duplicate collision.
+              This will remove this case record so the correct Patient ID can be registered without collision.
             </p>
 
             <div className="flex gap-3 pt-2">

@@ -105,7 +105,7 @@ export const AppOwnerDashboard: React.FC<AppOwnerDashboardProps> = ({ onReturnTo
       setSettings(settingsRes.settings);
       setLegalPolicies(legalRes.policies);
     } catch (err: any) {
-      setError(err.message || 'Access denied or server connection error.');
+      setError(err.message || 'Access denied or connection unavailable.');
     } finally {
       setIsLoading(false);
     }
@@ -797,7 +797,7 @@ export const AppOwnerDashboard: React.FC<AppOwnerDashboardProps> = ({ onReturnTo
 
             <div className="space-y-2">
               {settings.authorizedAppOwners.map((email, idx) => {
-                const isPrimary = idx === 0 || email.toLowerCase() === 'avishah.as119@gmail.com';
+                const isPrimary = idx === 0;
                 return (
                   <div
                     key={email}
@@ -879,7 +879,7 @@ export const AppOwnerDashboard: React.FC<AppOwnerDashboardProps> = ({ onReturnTo
                 <div>
                   <p className="text-xs font-bold text-slate-900">Maintenance Mode</p>
                   <p className="text-[11px] text-slate-500">
-                    Temporarily limits user access for database upgrades or audits.
+                    Temporarily limits user access for scheduled maintenance or audits.
                   </p>
                 </div>
                 <button

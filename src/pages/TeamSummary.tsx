@@ -40,7 +40,7 @@ export const TeamSummary: React.FC = () => {
       const res = await api.getTeamSummary(currentGroup.id);
       setSummary(res.summary);
     } catch (err: any) {
-      setError(err.message || 'Failed to load team summary from database.');
+      setError(err.message || 'Failed to load team summary.');
     } finally {
       setIsLoading(false);
     }

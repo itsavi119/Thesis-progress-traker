@@ -227,7 +227,7 @@ export const AddPatient: React.FC<AddPatientProps> = ({ onNavigateToMyCases }) =
                 ✓ Patient ID Available
               </h3>
               <p className="text-xs sm:text-sm text-slate-600">
-                This case has not been registered yet in the shared database.
+                This Patient ID has not been registered yet in this study.
               </p>
             </div>
           </div>

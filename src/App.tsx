@@ -34,7 +34,7 @@ function getInitialTab(): ActiveTab {
 }
 
 const MainApp: React.FC = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const { currentGroup, userGroups, isLoadingGroups } = useGroup();
   const [activeTab, setActiveTabState] = useState<ActiveTab>(getInitialTab);
 
@@ -79,6 +79,13 @@ const MainApp: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [isAuthenticated]);
 
+  // Restrict admin workspace from non-admin accounts
+  useEffect(() => {
+    if (activeTab === 'app-owner' && !user?.is_app_owner) {
+      navigateTo('my-groups', true);
+    }
+  }, [activeTab, user?.is_app_owner, navigateTo]);
+
   if (isLoading || (isAuthenticated && isLoadingGroups)) {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col items-center justify-center p-4">
@@ -86,7 +93,7 @@ const MainApp: React.FC = () => {
           <Logo size="lg" className="animate-pulse" />
           <div className="flex items-center gap-2 text-slate-500 text-sm font-medium">
             <span className="w-4 h-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
-            <span>Connecting to research database...</span>
+            <span>Loading research workspace...</span>
           </div>
         </div>
       </div>
@@ -116,6 +123,9 @@ const MainApp: React.FC = () => {
           <MyCases onNavigateToAddPatient={() => navigateTo('add-patient')} />
         )}
         {activeTab === 'team-summary' && <TeamSummary />}
+        {activeTab === 'app-owner' && user?.is_app_owner && (
+          <AppOwnerDashboard onReturnToApp={() => navigateTo('my-groups')} />
+        )}
       </div>
     </Layout>
   );
