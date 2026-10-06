@@ -19,7 +19,7 @@ export const JoinGroupModal: React.FC<JoinGroupModalProps> = ({ isOpen, onClose,
     studyTitle: string;
     targetSampleSize: number;
     memberCount: number;
-    maxMembers: number;
+    maxMembers?: number;
     isFull: boolean;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -151,7 +151,7 @@ export const JoinGroupModal: React.FC<JoinGroupModalProps> = ({ isOpen, onClose,
                       : 'bg-emerald-100 text-emerald-800'
                   }`}
                 >
-                  {preview.memberCount} / {preview.maxMembers} Researchers
+                  {preview.memberCount} {preview.maxMembers ? `/ ${preview.maxMembers}` : ''} Researchers
                 </span>
               </div>
             </div>

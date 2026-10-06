@@ -161,6 +161,7 @@ class ApiService {
 
   public async getTeamCapacity(): Promise<{
     registeredMembers: number;
+    maxMembers?: number;
     availableSeats: number;
     isFull: boolean;
   }> {
@@ -224,6 +225,7 @@ class ApiService {
       studyTitle: string;
       targetSampleSize: number;
       memberCount: number;
+      maxMembers?: number;
       isFull: boolean;
     };
   }> {

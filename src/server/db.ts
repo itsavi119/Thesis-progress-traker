@@ -1680,7 +1680,14 @@ export class RelationalDatabase {
   }
 
   public getLegalPolicies(): LegalPolicyDoc[] {
-    return this.data.legal_docs || DEFAULT_LEGAL_DOCS;
+    const docs = this.data.legal_docs || DEFAULT_LEGAL_DOCS;
+    return docs.map((doc) => ({
+      id: doc.id,
+      title: doc.title,
+      category: doc.category,
+      content: doc.content,
+      lastUpdated: doc.last_updated,
+    }));
   }
 
   public async updateLegalPolicy(

@@ -7,7 +7,7 @@ import type { UserProfile } from '../types/index.js';
 
 interface TeamCapacity {
   registeredMembers: number;
-  maxMembers: number;
+  maxMembers?: number;
   availableSeats: number;
   isFull: boolean;
 }
