@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext.js';
 import { GroupProvider, useGroup } from './context/GroupContext.js';
 import { Layout, type ActiveTab } from './components/Layout.js';
@@ -9,9 +9,9 @@ import { Dashboard } from './pages/Dashboard.js';
 import { AddPatient } from './pages/AddPatient.js';
 import { AllCases } from './pages/AllCases.js';
 import { MyCases } from './pages/MyCases.js';
+import { StudyFiles } from './pages/StudyFiles.js';
 import { TeamSummary } from './pages/TeamSummary.js';
 import { AppOwnerDashboard } from './pages/AppOwnerDashboard.js';
-import { AlertTriangle } from 'lucide-react';
 
 const VALID_TABS: ActiveTab[] = [
   'my-groups',
@@ -19,6 +19,7 @@ const VALID_TABS: ActiveTab[] = [
   'add-patient',
   'all-cases',
   'my-cases',
+  'study-files',
   'team-summary',
   'app-owner',
 ];
@@ -37,6 +38,17 @@ const MainApp: React.FC = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { currentGroup, userGroups, isLoadingGroups } = useGroup();
   const [activeTab, setActiveTabState] = useState<ActiveTab>(getInitialTab);
+  const preservedRedirectRef = useRef<ActiveTab | null>(null);
+
+  // Preserve intended tab when an unauthenticated user directly opens a protected URL (TEST 25)
+  useEffect(() => {
+    if (!isAuthenticated && typeof window !== 'undefined') {
+      const hash = window.location.hash.replace(/^#\/?/, '') as ActiveTab;
+      if (VALID_TABS.includes(hash) && hash !== 'my-groups') {
+        preservedRedirectRef.current = hash;
+      }
+    }
+  }, [isAuthenticated]);
 
   // Sync state with browser History for native Android Back / Forward button support
   const navigateTo = useCallback((tab: ActiveTab, replace = false) => {
@@ -53,6 +65,25 @@ const MainApp: React.FC = () => {
       return tab;
     });
   }, []);
+
+  // When user becomes authenticated, restore originally requested route if authorized (TEST 25)
+  useEffect(() => {
+    if (isAuthenticated) {
+      if (preservedRedirectRef.current) {
+        const target = preservedRedirectRef.current;
+        preservedRedirectRef.current = null;
+        if (target === 'app-owner') {
+          if (user?.is_app_owner) {
+            navigateTo('app-owner', true);
+          } else {
+            navigateTo('my-groups', true);
+          }
+        } else {
+          navigateTo(target, true);
+        }
+      }
+    }
+  }, [isAuthenticated, user?.is_app_owner, navigateTo]);
 
   // Listen for browser & Android Back / Forward navigation
   useEffect(() => {
@@ -101,7 +132,15 @@ const MainApp: React.FC = () => {
   }
 
   if (!isAuthenticated) {
-    return <Login />;
+    return (
+      <Login
+        onSuccessfulLogin={(isOrgAdmin) => {
+          if (isOrgAdmin) {
+            navigateTo('app-owner', true);
+          }
+        }}
+      />
+    );
   }
 
   return (
@@ -122,6 +161,7 @@ const MainApp: React.FC = () => {
         {activeTab === 'my-cases' && (
           <MyCases onNavigateToAddPatient={() => navigateTo('add-patient')} />
         )}
+        {activeTab === 'study-files' && <StudyFiles />}
         {activeTab === 'team-summary' && <TeamSummary />}
         {activeTab === 'app-owner' && user?.is_app_owner && (
           <AppOwnerDashboard onReturnToApp={() => navigateTo('my-groups')} />

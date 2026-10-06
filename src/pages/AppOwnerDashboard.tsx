@@ -45,10 +45,12 @@ export const AppOwnerDashboard: React.FC<AppOwnerDashboardProps> = ({ onReturnTo
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [stats, setStats] = useState<AppOwnerStats>({
     totalUsers: 0,
+    totalOrganizations: 0,
     totalGroups: 0,
     activeGroups: 0,
     totalMemberships: 0,
     totalCases: 0,
+    totalFiles: 0,
   });
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);

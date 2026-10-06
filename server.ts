@@ -20,7 +20,7 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 const isProd = process.env.NODE_ENV === 'production';
 const JWT_SECRET = process.env.JWT_SECRET || 'thesis-tracker-secure-secret-token-key-2026';
 
-app.use(express.json());
+app.use(express.json({ limit: '25mb' }));
 
 // Extend Express Request type for authenticated user
 export interface AuthenticatedRequest extends Request {
@@ -92,9 +92,9 @@ app.get('/api/legal/policies', (req, res) => {
 app.get('/api/auth/team-capacity', async (req, res) => {
   res.json({
     registeredMembers: 0,
-    availableSeats: 999,
+    availableSeats: 9999,
     isFull: false,
-    note: 'Flexible multi-member research groups supported.',
+    note: 'Flexible multi-member research teams supported with no arbitrary capacity limits.',
   });
 });
 
@@ -159,11 +159,83 @@ app.post('/api/auth/google-sync', async (req, res) => {
   }
 });
 
+// Organization Login entrypoint: Validates credentials and verifies App Owner / Org Admin authorization
+app.post('/api/auth/organization-login', async (req, res) => {
+  try {
+    const { email, password, uid, displayName } = req.body;
+    let user: UserProfile | null = null;
+
+    if (email && password) {
+      user = await db.verifyUserCredentials({ email, password });
+    } else if (uid && email) {
+      user = await db.syncGoogleProfile({
+        uid,
+        email,
+        displayName: displayName || email.split('@')[0],
+      });
+    }
+
+    if (!user) {
+      res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid credentials.' });
+      return;
+    }
+
+    // Server-side App Owner check
+    if (!db.isAppOwner(user.email)) {
+      res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied.' });
+      return;
+    }
+
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, user });
+  } catch (err: any) {
+    if (err instanceof AccountSuspendedError) {
+      res.status(403).json({ error: 'ACCOUNT_SUSPENDED', message: err.message });
+      return;
+    }
+    res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied.' });
+  }
+});
+
 app.get('/api/auth/me', authenticateToken, async (req: AuthenticatedRequest, res) => {
   res.json({ user: req.user });
 });
 
-// --- RESEARCH GROUPS MANAGEMENT ---
+// --- ORGANIZATIONS MANAGEMENT ---
+
+app.get('/api/organizations', authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    const organizations = await db.getUserOrganizations(req.user!.id);
+    res.json({ organizations });
+  } catch (err: any) {
+    console.error('[Get Orgs Error]:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+  }
+});
+
+app.post('/api/organizations', authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    const organization = await db.createOrganization(req.user!.id, req.body);
+    res.status(201).json({ organization });
+  } catch (err: any) {
+    res.status(400).json({ error: 'CREATE_ORG_FAILED', message: err.message });
+  }
+});
+
+app.get('/api/organizations/:id', authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    const organization = await db.getOrganizationById(req.params.id);
+    if (!organization) {
+      res.status(404).json({ error: 'NOT_FOUND', message: 'Organization not found.' });
+      return;
+    }
+    res.json({ organization });
+  } catch (err: any) {
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+  }
+});
+
+// --- RESEARCH GROUPS / STUDIES MANAGEMENT ---
 
 // List all groups that the authenticated user belongs to
 app.get('/api/groups', authenticateToken, async (req: AuthenticatedRequest, res) => {
@@ -176,16 +248,31 @@ app.get('/api/groups', authenticateToken, async (req: AuthenticatedRequest, res)
   }
 });
 
-// Create a new research group (creator becomes Owner)
+// Create a new research study/group (creator becomes Owner)
 app.post('/api/groups', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
-    const { name, studyTitle, targetSampleSize, description, institution } = req.body;
-    const group = await db.createGroup(req.user!.id, {
+    const {
       name,
       studyTitle,
+      studyType,
+      subjectTerminology,
       targetSampleSize,
       description,
       institution,
+      organizationId,
+      customFields,
+    } = req.body;
+
+    const group = await db.createGroup(req.user!.id, {
+      name,
+      studyTitle,
+      studyType,
+      subjectTerminology,
+      targetSampleSize,
+      description,
+      institution,
+      organizationId,
+      customFields,
     });
     res.status(201).json({ group });
   } catch (err: any) {
@@ -278,9 +365,63 @@ app.delete('/api/groups/:groupId/members/:targetUserId', authenticateToken, asyn
   }
 });
 
-// --- GROUP-SCOPED PATIENT CASE OPERATIONS ---
+// --- RESEARCH FILES MANAGEMENT ---
 
-// Check Patient ID within group
+app.get('/api/groups/:groupId/files', authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    const files = await db.getGroupFiles(req.params.groupId, req.user!.id);
+    res.json({ files });
+  } catch (err: any) {
+    if (err instanceof UnauthorizedGroupActionError) {
+      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
+      return;
+    }
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+  }
+});
+
+app.post('/api/groups/:groupId/files', authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { name, size, mimeType, category, fileData } = req.body;
+    if (!name) {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'File name is required.' });
+      return;
+    }
+    const file = await db.uploadGroupFile({
+      groupId: req.params.groupId,
+      userId: req.user!.id,
+      name,
+      size: size || 0,
+      mimeType: mimeType || 'application/octet-stream',
+      category,
+      fileData,
+    });
+    res.status(201).json({ file });
+  } catch (err: any) {
+    if (err instanceof UnauthorizedGroupActionError) {
+      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
+      return;
+    }
+    res.status(400).json({ error: 'UPLOAD_FAILED', message: err.message });
+  }
+});
+
+app.delete('/api/groups/:groupId/files/:fileId', authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    const result = await db.deleteGroupFile(req.params.groupId, req.params.fileId, req.user!.id);
+    res.json(result);
+  } catch (err: any) {
+    if (err instanceof UnauthorizedGroupActionError) {
+      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
+      return;
+    }
+    res.status(400).json({ error: 'DELETE_FILE_FAILED', message: err.message });
+  }
+});
+
+// --- GROUP-SCOPED RESEARCH RECORDS OPERATIONS ---
+
+// Check Record ID within group
 app.get('/api/cases/check/:patientId', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     const groupId = getGroupId(req);
@@ -300,7 +441,7 @@ app.get('/api/cases/check/:patientId', authenticateToken, async (req: Authentica
   }
 });
 
-// Register Case (Atomic with strict group-scoped duplicate guard)
+// Register Case/Record (Atomic with strict group-scoped duplicate guard)
 app.post('/api/cases/register', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     const groupId = getGroupId(req);
@@ -309,9 +450,9 @@ app.post('/api/cases/register', authenticateToken, async (req: AuthenticatedRequ
       return;
     }
 
-    const { patientId, patientName, diagnosis, drugNames } = req.body;
+    const { patientId, patientName, diagnosis, drugNames, customValues } = req.body;
     if (!patientId) {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'Patient ID is required.' });
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Participant / Patient ID is required.' });
       return;
     }
 
@@ -322,6 +463,7 @@ app.post('/api/cases/register', authenticateToken, async (req: AuthenticatedRequ
       patientName,
       diagnosis,
       drugNames,
+      customValues,
     });
 
     res.status(201).json({ success: true, case: newCase });
@@ -329,7 +471,7 @@ app.post('/api/cases/register', authenticateToken, async (req: AuthenticatedRequ
     if (err instanceof DuplicateCaseError) {
       res.status(409).json({
         error: 'DUPLICATE_CASE',
-        message: 'Patient Already Registered',
+        message: 'Record Already Registered',
         case: err.existingCase,
       });
       return;
@@ -382,16 +524,16 @@ app.get('/api/cases/export/csv', authenticateToken, async (req: AuthenticatedReq
     const cases = await db.getAllCases(groupId, req.user!.id);
 
     const headers = [
-      'Research Group',
-      'Study Title',
-      'Patient ID',
+      'Research Study',
+      'Thesis Title',
+      'Record ID',
       'Status',
       'Assigned Researcher',
       'Researcher Email',
-      'Patient Name',
-      'Diagnosis',
-      'Drug Names / Regimen',
-      'Registration Date (Local)',
+      'Subject / Participant Name',
+      'Condition / Diagnosis',
+      'Intervention / Details',
+      'Enrollment Date (Local)',
       'Registration Timestamp (ISO)',
       'Last Updated (ISO)',
     ];
@@ -429,7 +571,7 @@ app.get('/api/cases/export/csv', authenticateToken, async (req: AuthenticatedReq
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="${safeGroupName}_cases_export_${dateStr}.csv"`
+      `attachment; filename="${safeGroupName}_records_export_${dateStr}.csv"`
     );
     res.send(csvContent);
   } catch (err: any) {
@@ -496,7 +638,7 @@ app.patch('/api/cases/:id/status', authenticateToken, async (req: AuthenticatedR
   }
 });
 
-// Update Case Clinical Details
+// Update Case Details
 app.patch('/api/cases/:id/details', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     const groupId = getGroupId(req);
@@ -505,7 +647,7 @@ app.patch('/api/cases/:id/details', authenticateToken, async (req: Authenticated
       return;
     }
 
-    const { patientName, diagnosis, drugNames } = req.body;
+    const { patientName, diagnosis, drugNames, customValues } = req.body;
     const updated = await db.updateCaseDetails({
       groupId,
       caseId: req.params.id,
@@ -513,6 +655,7 @@ app.patch('/api/cases/:id/details', authenticateToken, async (req: Authenticated
       patientName,
       diagnosis,
       drugNames,
+      customValues,
     });
 
     res.json({ success: true, case: updated });
@@ -540,7 +683,7 @@ app.delete('/api/cases/:id', authenticateToken, async (req: AuthenticatedRequest
       userId: req.user!.id,
     });
 
-    res.json({ success: true, message: `Patient ID ${result.patientId} removed successfully.`, result });
+    res.json({ success: true, message: `Record ID ${result.patientId} removed successfully.`, result });
   } catch (err: any) {
     if (err instanceof UnauthorizedCaseActionError || err instanceof UnauthorizedGroupActionError) {
       res.status(403).json({ error: 'FORBIDDEN', message: err.message });
@@ -608,7 +751,18 @@ app.get('/api/app-owner/overview', authenticateAppOwner, async (req: Authenticat
   }
 });
 
-// 2. User list
+// 2. Organizations list
+app.get('/api/app-owner/organizations', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
+  try {
+    const organizations = await db.getAppOwnerOrganizations();
+    res.json({ organizations });
+  } catch (err: any) {
+    console.error('[App Owner Orgs Error]:', err);
+    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+  }
+});
+
+// 3. User list
 app.get('/api/app-owner/users', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
   try {
     const { search, status } = req.query as { search?: string; status?: string };
@@ -620,7 +774,7 @@ app.get('/api/app-owner/users', authenticateAppOwner, async (req: AuthenticatedR
   }
 });
 
-// 3. User status management (suspend / reactivate)
+// 4. User status management (suspend / reactivate)
 app.patch('/api/app-owner/users/:id/status', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
   try {
     const { status } = req.body;
@@ -636,7 +790,7 @@ app.patch('/api/app-owner/users/:id/status', authenticateAppOwner, async (req: A
   }
 });
 
-// 4. Groups list
+// 5. Groups / Studies list
 app.get('/api/app-owner/groups', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
   try {
     const { search, status } = req.query as { search?: string; status?: string };
@@ -648,7 +802,7 @@ app.get('/api/app-owner/groups', authenticateAppOwner, async (req: Authenticated
   }
 });
 
-// 5. Group status management
+// 6. Group status management
 app.patch('/api/app-owner/groups/:id/status', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
   try {
     const { status } = req.body;
@@ -664,7 +818,7 @@ app.patch('/api/app-owner/groups/:id/status', authenticateAppOwner, async (req: 
   }
 });
 
-// 6. Delete group (App Owner)
+// 7. Delete group (App Owner)
 app.delete('/api/app-owner/groups/:id', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
   try {
     const result = await db.deleteAppOwnerGroup(req.params.id, req.user!.email);
@@ -674,7 +828,7 @@ app.delete('/api/app-owner/groups/:id', authenticateAppOwner, async (req: Authen
   }
 });
 
-// 7. Audit log list
+// 8. Audit log list
 app.get('/api/app-owner/audit-logs', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
   try {
     const { limit, action, entityType } = req.query as { limit?: string; action?: string; entityType?: string };
@@ -690,7 +844,7 @@ app.get('/api/app-owner/audit-logs', authenticateAppOwner, async (req: Authentic
   }
 });
 
-// 8. Application settings
+// 9. Application settings
 app.get('/api/app-owner/settings', authenticateAppOwner, (req: AuthenticatedRequest, res) => {
   try {
     const settings = db.getAppSettings();
@@ -710,7 +864,7 @@ app.patch('/api/app-owner/settings', authenticateAppOwner, async (req: Authentic
   }
 });
 
-// 9. Legal Policy update (App Owner)
+// 10. Legal Policy update (App Owner)
 app.patch('/api/app-owner/legal-policies/:id', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
   try {
     const { content } = req.body;

@@ -11,12 +11,17 @@ import type {
   AuditLogEntry,
   CaseRecord,
   CaseStatus,
+  CustomFieldDefinition,
   DashboardStats,
   GroupInvitation,
   GroupMember,
   GroupMemberRole,
   LegalPolicyDoc,
+  Organization,
+  ResearchFile,
   ResearchGroup,
+  StudyType,
+  SubjectTerminology,
   TeamMemberSummary,
   TeamSummaryResponse,
   UserProfile,
@@ -35,6 +40,17 @@ interface StoredProfile {
   updated_at: string;
 }
 
+interface StoredOrganization {
+  id: string;
+  name: string;
+  description?: string;
+  institution?: string;
+  contact_email?: string;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
 interface StoredGroupMember {
   user_id: string;
   email: string;
@@ -45,16 +61,33 @@ interface StoredGroupMember {
 
 interface StoredGroup {
   id: string;
+  organization_id?: string;
   name: string;
   study_title: string;
+  study_type?: StudyType;
+  subject_terminology?: SubjectTerminology;
   target_sample_size: number;
   description?: string;
   institution?: string;
   owner_id: string;
   status?: 'active' | 'archived' | 'suspended';
+  custom_fields?: CustomFieldDefinition[];
   members: StoredGroupMember[];
   created_at: string;
   updated_at: string;
+}
+
+interface StoredFile {
+  id: string;
+  group_id: string;
+  name: string;
+  size: number;
+  mime_type: string;
+  category: 'protocol' | 'approval' | 'questionnaire' | 'data' | 'other';
+  uploaded_by: string;
+  uploaded_by_name: string;
+  file_data?: string;
+  created_at: string;
 }
 
 interface StoredInvitation {
@@ -79,6 +112,7 @@ interface StoredCase {
   patient_name?: string;
   diagnosis?: string;
   drug_names?: string;
+  custom_values?: Record<string, any>;
   registered_at: string;
   updated_at: string;
 }
@@ -86,7 +120,7 @@ interface StoredCase {
 interface StoredAuditLog {
   id: string;
   action: string;
-  entity_type: 'user' | 'group' | 'settings' | 'security' | 'legal';
+  entity_type: 'user' | 'group' | 'organization' | 'settings' | 'security' | 'legal' | 'file';
   entity_id?: string;
   entity_name?: string;
   details: string;
@@ -113,9 +147,11 @@ interface StoredLegalDoc {
 interface DatabaseSchema {
   version: number;
   profiles: StoredProfile[];
+  organizations?: StoredOrganization[];
   groups: StoredGroup[];
   invitations: StoredInvitation[];
   cases: StoredCase[];
+  files?: StoredFile[];
   audit_logs?: StoredAuditLog[];
   app_settings?: StoredAppSettings;
   legal_docs?: StoredLegalDoc[];
@@ -138,14 +174,14 @@ export class UnauthorizedCaseActionError extends Error {
 }
 
 export class UnauthorizedGroupActionError extends Error {
-  constructor(message = 'Unauthorized: You do not have permission for this research group.') {
+  constructor(message = 'Unauthorized: You do not have permission for this research study/group.') {
     super(message);
     this.name = 'UnauthorizedGroupActionError';
   }
 }
 
 export class GroupNotFoundError extends Error {
-  constructor(message = 'Research group not found.') {
+  constructor(message = 'Research study/group not found.') {
     super(message);
     this.name = 'GroupNotFoundError';
   }
@@ -287,11 +323,13 @@ export class RelationalDatabase {
     this.filePath = path.join(dir, 'thesis_tracker_db.json');
 
     this.data = {
-      version: 2,
+      version: 3,
       profiles: [],
+      organizations: [],
       groups: [],
       invitations: [],
       cases: [],
+      files: [],
       audit_logs: [],
       app_settings: {
         authorized_app_owners: [PRIMARY_APP_OWNER],
@@ -311,11 +349,13 @@ export class RelationalDatabase {
         const raw = fs.readFileSync(this.filePath, 'utf-8');
         const parsed = JSON.parse(raw);
         this.data = {
-          version: parsed.version || 2,
+          version: parsed.version || 3,
           profiles: Array.isArray(parsed.profiles) ? parsed.profiles : [],
+          organizations: Array.isArray(parsed.organizations) ? parsed.organizations : [],
           groups: Array.isArray(parsed.groups) ? parsed.groups : [],
           invitations: Array.isArray(parsed.invitations) ? parsed.invitations : [],
           cases: Array.isArray(parsed.cases) ? parsed.cases : [],
+          files: Array.isArray(parsed.files) ? parsed.files : [],
           audit_logs: Array.isArray(parsed.audit_logs) ? parsed.audit_logs : [],
           app_settings: parsed.app_settings || {
             authorized_app_owners: [PRIMARY_APP_OWNER],
@@ -336,7 +376,7 @@ export class RelationalDatabase {
         // Automatic migration if initial data exists
         if (this.data.groups.length === 0 && (this.data.profiles.length > 0 || this.data.cases.length > 0)) {
           const ownerProfile = this.data.profiles[0];
-          const initialGroupId = 'ivos-research-group';
+          const initialGroupId = 'general-thesis-group';
           const now = new Date().toISOString();
 
           const initialMembers: StoredGroupMember[] = this.data.profiles.map((p, idx) => ({
@@ -349,11 +389,13 @@ export class RelationalDatabase {
 
           const migratedGroup: StoredGroup = {
             id: initialGroupId,
-            name: 'IVOS Research Team',
-            study_title: 'Assessing the Feasibility and Pharmacoeconomic Impact of Early Intravenous-to-Oral Switch Therapy',
-            target_sample_size: 220,
-            description: 'Prospective hospital thesis study evaluating criteria and outcomes of early IVOS therapy.',
-            institution: 'Hospital Department of Clinical Pharmacy',
+            name: 'Clinical Research Study Team',
+            study_title: 'Clinical Research & Patient Case Coordination Study',
+            study_type: 'Clinical Pharmacy',
+            subject_terminology: 'Patient',
+            target_sample_size: 150,
+            description: 'Collaborative academic clinical thesis study and patient case tracker.',
+            institution: 'Hospital Department of Clinical Research',
             owner_id: ownerProfile ? ownerProfile.id : 'default-owner',
             status: 'active',
             members: initialMembers,
@@ -439,6 +481,7 @@ export class RelationalDatabase {
       patient_name: c.patient_name,
       diagnosis: c.diagnosis,
       drug_names: c.drug_names,
+      custom_values: c.custom_values,
       registered_at: c.registered_at,
       updated_at: c.updated_at,
       assigned_name: profile ? profile.display_name : 'Unknown Researcher',
@@ -447,15 +490,26 @@ export class RelationalDatabase {
   }
 
   private mapGroupToPublic(g: StoredGroup): ResearchGroup {
+    let orgName: string | undefined;
+    if (g.organization_id && this.data.organizations) {
+      const org = this.data.organizations.find((o) => o.id === g.organization_id);
+      if (org) orgName = org.name;
+    }
+
     return {
       id: g.id,
+      organizationId: g.organization_id,
+      organizationName: orgName,
       name: g.name,
       studyTitle: g.study_title,
+      studyType: g.study_type || 'Clinical Pharmacy',
+      subjectTerminology: g.subject_terminology || 'Patient',
       targetSampleSize: g.target_sample_size,
       description: g.description,
       institution: g.institution,
       ownerId: g.owner_id,
       status: g.status || 'active',
+      customFields: g.custom_fields || [],
       members: g.members.map((m) => ({
         userId: m.user_id,
         email: m.email,
@@ -472,7 +526,7 @@ export class RelationalDatabase {
 
   public async recordAuditLog(entry: {
     action: string;
-    entityType: 'user' | 'group' | 'settings' | 'security' | 'legal';
+    entityType: 'user' | 'group' | 'organization' | 'settings' | 'security' | 'legal' | 'file';
     entityId?: string;
     entityName?: string;
     details: string;
@@ -494,7 +548,6 @@ export class RelationalDatabase {
     if (!this.data.audit_logs) this.data.audit_logs = [];
     this.data.audit_logs.unshift(newLog);
 
-    // Keep up to 2000 log entries
     if (this.data.audit_logs.length > 2000) {
       this.data.audit_logs = this.data.audit_logs.slice(0, 2000);
     }
@@ -667,7 +720,106 @@ export class RelationalDatabase {
     return this.resolveUserProfile(profile);
   }
 
-  // --- RESEARCH GROUPS MANAGEMENT ---
+  // --- ORGANIZATIONS MANAGEMENT ---
+
+  public async getUserOrganizations(userId: string): Promise<Organization[]> {
+    if (!this.data.organizations) this.data.organizations = [];
+    const list = this.data.organizations.filter((o) => {
+      // User owns the organization OR is a member of studies inside this organization
+      const ownsOrg = o.owner_id === userId;
+      const inOrgStudy = this.data.groups.some(
+        (g) => g.organization_id === o.id && g.members.some((m) => m.user_id === userId)
+      );
+      return ownsOrg || inOrgStudy;
+    });
+
+    return list.map((o) => {
+      const studies = this.data.groups.filter((g) => g.organization_id === o.id);
+      const uniqueMembers = new Set<string>();
+      studies.forEach((s) => s.members.forEach((m) => uniqueMembers.add(m.user_id)));
+      return {
+        id: o.id,
+        name: o.name,
+        description: o.description,
+        institution: o.institution,
+        contactEmail: o.contact_email,
+        ownerId: o.owner_id,
+        studiesCount: studies.length,
+        membersCount: uniqueMembers.size,
+        createdAt: o.created_at,
+        updatedAt: o.updated_at,
+      };
+    });
+  }
+
+  public async createOrganization(
+    userId: string,
+    params: {
+      name: string;
+      description?: string;
+      institution?: string;
+      contactEmail?: string;
+    }
+  ): Promise<Organization> {
+    return this.mutex.runExclusive(async () => {
+      const name = params.name.trim();
+      if (!name) throw new Error('Organization name is required.');
+
+      if (!this.data.organizations) this.data.organizations = [];
+      const now = new Date().toISOString();
+      const newOrg: StoredOrganization = {
+        id: crypto.randomUUID(),
+        name,
+        description: params.description?.trim() || undefined,
+        institution: params.institution?.trim() || undefined,
+        contact_email: params.contactEmail?.trim() || undefined,
+        owner_id: userId,
+        created_at: now,
+        updated_at: now,
+      };
+
+      this.data.organizations.push(newOrg);
+      await this.persist();
+
+      return {
+        id: newOrg.id,
+        name: newOrg.name,
+        description: newOrg.description,
+        institution: newOrg.institution,
+        contactEmail: newOrg.contact_email,
+        ownerId: newOrg.owner_id,
+        studiesCount: 0,
+        membersCount: 1,
+        createdAt: newOrg.created_at,
+        updatedAt: newOrg.updated_at,
+      };
+    });
+  }
+
+  public async getOrganizationById(orgId: string): Promise<Organization | null> {
+    if (!this.data.organizations) return null;
+    const org = this.data.organizations.find((o) => o.id === orgId);
+    if (!org) return null;
+
+    const studies = this.data.groups.filter((g) => g.organization_id === org.id);
+    const uniqueMembers = new Set<string>();
+    studies.forEach((s) => s.members.forEach((m) => uniqueMembers.add(m.user_id)));
+
+    return {
+      id: org.id,
+      name: org.name,
+      description: org.description,
+      institution: org.institution,
+      contactEmail: org.contact_email,
+      ownerId: org.owner_id,
+      studiesCount: studies.length,
+      membersCount: uniqueMembers.size,
+      createdAt: org.created_at,
+      updatedAt: org.updated_at,
+    };
+  }
+
+  // --- RESEARCH GROUPS / STUDIES MANAGEMENT ---
 
   public async getUserGroups(userId: string): Promise<ResearchGroup[]> {
     const userGroups = this.data.groups.filter((g) =>
@@ -684,7 +836,7 @@ export class RelationalDatabase {
     }
     const isMember = group.members.some((m) => m.user_id === userId);
     if (!isMember) {
-      throw new UnauthorizedGroupActionError('Access denied: You are not a member of this research group.');
+      throw new UnauthorizedGroupActionError('Access denied: You are not a member of this research study.');
     }
     return this.mapGroupToPublic(group);
   }
@@ -694,9 +846,13 @@ export class RelationalDatabase {
     params: {
       name: string;
       studyTitle: string;
+      studyType?: StudyType;
+      subjectTerminology?: SubjectTerminology;
       targetSampleSize: number;
       description?: string;
       institution?: string;
+      organizationId?: string;
+      customFields?: CustomFieldDefinition[];
     }
   ): Promise<ResearchGroup> {
     return this.mutex.runExclusive(async () => {
@@ -712,10 +868,10 @@ export class RelationalDatabase {
       const studyTitle = params.studyTitle.trim();
       const targetSampleSize = Number(params.targetSampleSize);
 
-      if (!name) throw new Error('Group name is required.');
+      if (!name) throw new Error('Research study / group name is required.');
       if (!studyTitle) throw new Error('Study / Thesis title is required.');
       if (isNaN(targetSampleSize) || targetSampleSize <= 0) {
-        throw new Error('Target sample size must be a positive number.');
+        throw new Error('Please enter a valid target sample size (positive number).');
       }
 
       const now = new Date().toISOString();
@@ -731,11 +887,15 @@ export class RelationalDatabase {
 
       const newGroup: StoredGroup = {
         id: newGroupId,
+        organization_id: params.organizationId?.trim() || undefined,
         name,
         study_title: studyTitle,
+        study_type: params.studyType || 'Clinical Pharmacy',
+        subject_terminology: params.subjectTerminology || 'Patient',
         target_sample_size: targetSampleSize,
         description: params.description?.trim() || undefined,
         institution: params.institution?.trim() || undefined,
+        custom_fields: params.customFields || [],
         owner_id: user.id,
         status: 'active',
         members: [ownerMember],
@@ -756,9 +916,13 @@ export class RelationalDatabase {
     updates: {
       name?: string;
       studyTitle?: string;
+      studyType?: StudyType;
+      subjectTerminology?: SubjectTerminology;
       targetSampleSize?: number;
       description?: string;
       institution?: string;
+      organizationId?: string;
+      customFields?: CustomFieldDefinition[];
     }
   ): Promise<ResearchGroup> {
     return this.mutex.runExclusive(async () => {
@@ -767,12 +931,12 @@ export class RelationalDatabase {
 
       const member = group.members.find((m) => m.user_id === userId);
       if (!member || member.role !== 'owner') {
-        throw new UnauthorizedGroupActionError('Only the research group owner can edit group settings.');
+        throw new UnauthorizedGroupActionError('Only the study owner can edit study settings.');
       }
 
       if (updates.name !== undefined) {
         const trimmed = updates.name.trim();
-        if (!trimmed) throw new Error('Group name cannot be empty.');
+        if (!trimmed) throw new Error('Study name cannot be empty.');
         group.name = trimmed;
       }
       if (updates.studyTitle !== undefined) {
@@ -780,9 +944,15 @@ export class RelationalDatabase {
         if (!trimmed) throw new Error('Study title cannot be empty.');
         group.study_title = trimmed;
       }
+      if (updates.studyType !== undefined) {
+        group.study_type = updates.studyType;
+      }
+      if (updates.subjectTerminology !== undefined) {
+        group.subject_terminology = updates.subjectTerminology;
+      }
       if (updates.targetSampleSize !== undefined) {
         const size = Number(updates.targetSampleSize);
-        if (isNaN(size) || size <= 0) throw new Error('Target sample size must be positive.');
+        if (isNaN(size) || size <= 0) throw new Error('Target sample size must be a positive number.');
         group.target_sample_size = size;
       }
       if (updates.description !== undefined) {
@@ -791,6 +961,12 @@ export class RelationalDatabase {
       if (updates.institution !== undefined) {
         group.institution = updates.institution.trim() || undefined;
       }
+      if (updates.organizationId !== undefined) {
+        group.organization_id = updates.organizationId.trim() || undefined;
+      }
+      if (updates.customFields !== undefined) {
+        group.custom_fields = updates.customFields;
+      }
 
       group.updated_at = new Date().toISOString();
       await this.persist();
@@ -798,6 +974,103 @@ export class RelationalDatabase {
       const resolved = this.mapGroupToPublic(group);
       this.broadcast('group_updated', groupId, resolved);
       return resolved;
+    });
+  }
+
+  // --- RESEARCH FILES MANAGEMENT ---
+
+  public async getGroupFiles(groupId: string, userId: string): Promise<ResearchFile[]> {
+    this.verifyUserGroupMembership(groupId, userId);
+    if (!this.data.files) this.data.files = [];
+    return this.data.files
+      .filter((f) => f.group_id === groupId)
+      .map((f) => ({
+        id: f.id,
+        groupId: f.group_id,
+        name: f.name,
+        size: f.size,
+        mimeType: f.mime_type,
+        category: f.category,
+        uploadedBy: f.uploaded_by,
+        uploadedByName: f.uploaded_by_name,
+        uploadedAt: f.created_at,
+        fileData: f.file_data,
+      }));
+  }
+
+  public async uploadGroupFile(params: {
+    groupId: string;
+    userId: string;
+    name: string;
+    size: number;
+    mimeType: string;
+    category?: 'protocol' | 'approval' | 'questionnaire' | 'data' | 'other';
+    fileData?: string;
+  }): Promise<ResearchFile> {
+    return this.mutex.runExclusive(async () => {
+      this.verifyUserGroupMembership(params.groupId, params.userId);
+      const user = this.data.profiles.find((p) => p.id === params.userId);
+
+      if (!this.data.files) this.data.files = [];
+      const newFile: StoredFile = {
+        id: crypto.randomUUID(),
+        group_id: params.groupId,
+        name: params.name.trim(),
+        size: params.size,
+        mime_type: params.mimeType,
+        category: params.category || 'other',
+        uploaded_by: params.userId,
+        uploaded_by_name: user ? user.display_name : 'Researcher',
+        file_data: params.fileData,
+        created_at: new Date().toISOString(),
+      };
+
+      this.data.files.push(newFile);
+      await this.persist();
+
+      return {
+        id: newFile.id,
+        groupId: newFile.group_id,
+        name: newFile.name,
+        size: newFile.size,
+        mimeType: newFile.mime_type,
+        category: newFile.category,
+        uploadedBy: newFile.uploaded_by,
+        uploadedByName: newFile.uploaded_by_name,
+        uploadedAt: newFile.created_at,
+        fileData: newFile.file_data,
+      };
+    });
+  }
+
+  public async deleteGroupFile(
+    groupId: string,
+    fileId: string,
+    userId: string
+  ): Promise<{ success: boolean; fileName: string }> {
+    return this.mutex.runExclusive(async () => {
+      const group = this.verifyUserGroupMembership(groupId, userId);
+      if (!this.data.files) this.data.files = [];
+
+      const idx = this.data.files.findIndex((f) => f.id === fileId && f.group_id === groupId);
+      if (idx === -1) {
+        throw new Error('File not found in this research group.');
+      }
+
+      const target = this.data.files[idx];
+      const member = group.members.find((m) => m.user_id === userId);
+      const isOwner = member?.role === 'owner';
+      const isUploader = target.uploaded_by === userId;
+
+      if (!isOwner && !isUploader) {
+        throw new UnauthorizedGroupActionError('Only the study owner or file uploader can delete files.');
+      }
+
+      const [removed] = this.data.files.splice(idx, 1);
+      await this.persist();
+
+      // TEST 18: File deletion must NOT delete the associated research cases
+      return { success: true, fileName: removed.name };
     });
   }
 
@@ -814,7 +1087,7 @@ export class RelationalDatabase {
 
       const member = group.members.find((m) => m.user_id === userId);
       if (!member || member.role !== 'owner') {
-        throw new UnauthorizedGroupActionError('Only the group owner can invite new researchers.');
+        throw new UnauthorizedGroupActionError('Only the study owner can invite new researchers.');
       }
 
       const prefix = group.name.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'GRP';
@@ -877,7 +1150,7 @@ export class RelationalDatabase {
 
     const group = this.data.groups.find((g) => g.id === invite.group_id);
     if (!group) {
-      throw new GroupNotFoundError('The research group associated with this invite no longer exists.');
+      throw new GroupNotFoundError('The research study associated with this invite no longer exists.');
     }
 
     return {
@@ -966,16 +1239,16 @@ export class RelationalDatabase {
 
       const requester = group.members.find((m) => m.user_id === requesterUserId);
       if (!requester || requester.role !== 'owner') {
-        throw new UnauthorizedGroupActionError('Only the research group owner can remove members.');
+        throw new UnauthorizedGroupActionError('Only the study owner can remove members.');
       }
 
       if (requesterUserId === targetUserId) {
-        throw new Error('The group owner cannot remove themselves from the group.');
+        throw new Error('The study owner cannot remove themselves from the study.');
       }
 
       const memberIndex = group.members.findIndex((m) => m.user_id === targetUserId);
       if (memberIndex === -1) {
-        throw new Error('Member not found in this group.');
+        throw new Error('Member not found in this study.');
       }
 
       group.members.splice(memberIndex, 1);
@@ -992,14 +1265,14 @@ export class RelationalDatabase {
     });
   }
 
-  // --- GROUP-SCOPED PATIENT CASE OPERATIONS ---
+  // --- GROUP-SCOPED RESEARCH RECORDS OPERATIONS ---
 
   private verifyUserGroupMembership(groupId: string, userId: string): StoredGroup {
     const group = this.data.groups.find((g) => g.id === groupId);
     if (!group) throw new GroupNotFoundError();
     const isMember = group.members.some((m) => m.user_id === userId);
     if (!isMember) {
-      throw new UnauthorizedGroupActionError('Access denied: You are not a member of this research group.');
+      throw new UnauthorizedGroupActionError('Access denied: You are not a member of this research study.');
     }
     return group;
   }
@@ -1046,6 +1319,7 @@ export class RelationalDatabase {
     patientName?: string;
     diagnosis?: string;
     drugNames?: string;
+    customValues?: Record<string, any>;
   }): Promise<CaseRecord> {
     return this.mutex.runExclusive(async () => {
       const group = this.verifyUserGroupMembership(params.groupId, params.assignedToUserId);
@@ -1063,7 +1337,7 @@ export class RelationalDatabase {
       );
       if (existing) {
         throw new DuplicateCaseError(
-          `Patient ID "${originalPatientId}" is already registered in ${group.name}.`,
+          `Record ID "${originalPatientId}" is already registered in ${group.name}.`,
           this.resolveCaseRecord(existing)
         );
       }
@@ -1079,6 +1353,7 @@ export class RelationalDatabase {
         patient_name: params.patientName?.trim() || undefined,
         diagnosis: params.diagnosis?.trim() || undefined,
         drug_names: params.drugNames?.trim() || undefined,
+        custom_values: params.customValues,
         registered_at: now,
         updated_at: now,
       };
@@ -1181,7 +1456,7 @@ export class RelationalDatabase {
         (c) => c.id === params.caseId && c.group_id === params.groupId
       );
       if (!target) {
-        throw new Error('Case not found in this research group.');
+        throw new Error('Record not found in this research study.');
       }
 
       const userMember = group.members.find((m) => m.user_id === params.userId);
@@ -1190,7 +1465,7 @@ export class RelationalDatabase {
 
       if (!isAssigned && !isOwner) {
         throw new UnauthorizedCaseActionError(
-          'Permission denied. You can only update the status of cases assigned to you.'
+          'Permission denied. You can only update the status of records assigned to you.'
         );
       }
 
@@ -1215,6 +1490,7 @@ export class RelationalDatabase {
     patientName?: string;
     diagnosis?: string;
     drugNames?: string;
+    customValues?: Record<string, any>;
   }): Promise<CaseRecord> {
     return this.mutex.runExclusive(async () => {
       const group = this.verifyUserGroupMembership(params.groupId, params.userId);
@@ -1223,7 +1499,7 @@ export class RelationalDatabase {
         (c) => c.id === params.caseId && c.group_id === params.groupId
       );
       if (!target) {
-        throw new Error('Case not found in this research group.');
+        throw new Error('Record not found in this research study.');
       }
 
       const userMember = group.members.find((m) => m.user_id === params.userId);
@@ -1232,7 +1508,7 @@ export class RelationalDatabase {
 
       if (!isAssigned && !isOwner) {
         throw new UnauthorizedCaseActionError(
-          'Permission denied. You can only modify clinical details for cases assigned to you.'
+          'Permission denied. You can only modify details for records assigned to you.'
         );
       }
 
@@ -1244,6 +1520,9 @@ export class RelationalDatabase {
       }
       if (params.drugNames !== undefined) {
         target.drug_names = params.drugNames.trim() || undefined;
+      }
+      if (params.customValues !== undefined) {
+        target.custom_values = { ...(target.custom_values || {}), ...params.customValues };
       }
       target.updated_at = new Date().toISOString();
 
@@ -1270,7 +1549,7 @@ export class RelationalDatabase {
         (c) => c.id === params.caseId && c.group_id === params.groupId
       );
       if (index === -1) {
-        throw new Error('Case not found in this research group.');
+        throw new Error('Record not found in this research study.');
       }
 
       const target = this.data.cases[index];
@@ -1280,7 +1559,7 @@ export class RelationalDatabase {
 
       if (!isAssigned && !isOwner) {
         throw new UnauthorizedCaseActionError(
-          'Permission denied. You can only remove cases registered by you.'
+          'Permission denied. You can only remove records registered by you.'
         );
       }
 
@@ -1310,7 +1589,7 @@ export class RelationalDatabase {
     const completed = groupCases.filter((c) => c.status === 'Completed').length;
     const excluded = groupCases.filter((c) => c.status === 'Excluded').length;
 
-    const targetSampleSize = group.target_sample_size || 220;
+    const targetSampleSize = group.target_sample_size || 100;
     const remaining = Math.max(0, targetSampleSize - totalCases);
     const progressPercentage =
       targetSampleSize > 0 ? Number(((totalCases / targetSampleSize) * 100).toFixed(1)) : 0;
@@ -1368,18 +1647,43 @@ export class RelationalDatabase {
 
   public async getAppOwnerOverview(): Promise<AppOwnerStats> {
     const totalUsers = this.data.profiles.length;
+    const totalOrganizations = this.data.organizations?.length || 0;
     const totalGroups = this.data.groups.length;
     const activeGroups = this.data.groups.filter((g) => (g.status || 'active') === 'active').length;
     const totalMemberships = this.data.groups.reduce((acc, g) => acc + g.members.length, 0);
     const totalCases = this.data.cases.length;
+    const totalFiles = this.data.files?.length || 0;
 
     return {
       totalUsers,
+      totalOrganizations,
       totalGroups,
       activeGroups,
       totalMemberships,
       totalCases,
+      totalFiles,
     };
+  }
+
+  public async getAppOwnerOrganizations(): Promise<Organization[]> {
+    if (!this.data.organizations) this.data.organizations = [];
+    return this.data.organizations.map((o) => {
+      const studies = this.data.groups.filter((g) => g.organization_id === o.id);
+      const uniqueMembers = new Set<string>();
+      studies.forEach((s) => s.members.forEach((m) => uniqueMembers.add(m.user_id)));
+      return {
+        id: o.id,
+        name: o.name,
+        description: o.description,
+        institution: o.institution,
+        contactEmail: o.contact_email,
+        ownerId: o.owner_id,
+        studiesCount: studies.length,
+        membersCount: uniqueMembers.size,
+        createdAt: o.created_at,
+        updatedAt: o.updated_at,
+      };
+    });
   }
 
   public async getAppOwnerUsers(options?: {
@@ -1402,7 +1706,6 @@ export class RelationalDatabase {
     }
 
     return list.map((p) => {
-      // Find all groups this user belongs to
       const userGroups = this.data.groups
         .filter((g) => g.members.some((m) => m.user_id === p.id))
         .map((g) => {
@@ -1502,11 +1805,19 @@ export class RelationalDatabase {
       const owner = this.data.profiles.find((p) => p.id === g.owner_id);
       const caseCount = this.data.cases.filter((c) => c.group_id === g.id).length;
       const invitationsCount = this.data.invitations.filter((i) => i.group_id === g.id).length;
+      let orgName: string | undefined;
+      if (g.organization_id && this.data.organizations) {
+        const org = this.data.organizations.find((o) => o.id === g.organization_id);
+        if (org) orgName = org.name;
+      }
 
       return {
         id: g.id,
+        organizationId: g.organization_id,
+        organizationName: orgName,
         name: g.name,
         studyTitle: g.study_title,
+        studyType: g.study_type,
         ownerId: g.owner_id,
         ownerName: owner ? owner.display_name : 'Unknown Owner',
         ownerEmail: owner ? owner.email : '',
@@ -1548,7 +1859,7 @@ export class RelationalDatabase {
         entityType: 'group',
         entityId: group.id,
         entityName: group.name,
-        details: `Research group "${group.name}" status changed to ${newStatus}.`,
+        details: `Research study "${group.name}" status changed to ${newStatus}.`,
         performedBy: adminEmail,
         performedByEmail: adminEmail,
       });
@@ -1561,6 +1872,7 @@ export class RelationalDatabase {
         id: group.id,
         name: group.name,
         studyTitle: group.study_title,
+        studyType: group.study_type,
         ownerId: group.owner_id,
         ownerName: owner ? owner.display_name : 'Unknown Owner',
         ownerEmail: owner ? owner.email : '',
@@ -1594,12 +1906,15 @@ export class RelationalDatabase {
 
       const [removed] = this.data.groups.splice(idx, 1);
 
-      // Purge group cases and invitations
+      // Purge group cases, invitations, and files
       const caseCountBefore = this.data.cases.length;
       this.data.cases = this.data.cases.filter((c) => c.group_id !== groupId);
       const casesPurged = caseCountBefore - this.data.cases.length;
 
       this.data.invitations = this.data.invitations.filter((i) => i.group_id !== groupId);
+      if (this.data.files) {
+        this.data.files = this.data.files.filter((f) => f.group_id !== groupId);
+      }
 
       await this.persist();
 
@@ -1608,7 +1923,7 @@ export class RelationalDatabase {
         entityType: 'group',
         entityId: removed.id,
         entityName: removed.name,
-        details: `Research group "${removed.name}" deleted (${casesPurged} case records purged).`,
+        details: `Research study "${removed.name}" deleted (${casesPurged} case records purged).`,
         performedBy: adminEmail,
         performedByEmail: adminEmail,
       });
@@ -1652,7 +1967,6 @@ export class RelationalDatabase {
       }
 
       if (updates.authorizedAppOwners !== undefined) {
-        // Normalize emails and ensure PRIMARY_APP_OWNER is ALWAYS present and protected
         const unique = Array.from(
           new Set(
             updates.authorizedAppOwners

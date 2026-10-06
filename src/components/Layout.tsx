@@ -15,6 +15,7 @@ import {
   FolderOpen,
   Check,
   ShieldCheck,
+  FileText,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.js';
 import { useGroup } from '../context/GroupContext.js';
@@ -30,6 +31,7 @@ export type ActiveTab =
   | 'add-patient'
   | 'all-cases'
   | 'my-cases'
+  | 'study-files'
   | 'team-summary'
   | 'app-owner';
 
@@ -72,11 +74,13 @@ export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, childre
     return () => unsubscribe();
   }, [currentGroup?.id]);
 
+  const terminology = currentGroup?.subjectTerminology || 'Patient';
   const navItems = [
     { id: 'dashboard' as ActiveTab, label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'add-patient' as ActiveTab, label: 'Add Patient', icon: UserPlus, highlight: true },
-    { id: 'all-cases' as ActiveTab, label: 'All Cases', icon: Files },
-    { id: 'my-cases' as ActiveTab, label: 'My Cases', icon: UserCheck },
+    { id: 'add-patient' as ActiveTab, label: `Add ${terminology}`, icon: UserPlus, highlight: true },
+    { id: 'all-cases' as ActiveTab, label: 'All Records', icon: Files },
+    { id: 'my-cases' as ActiveTab, label: 'My Records', icon: UserCheck },
+    { id: 'study-files' as ActiveTab, label: 'Files', icon: FileText },
     { id: 'team-summary' as ActiveTab, label: 'Team', icon: Users },
   ];
 

@@ -1,11 +1,17 @@
 import React, { useState } from 'react';
-import { Lock, Mail, User, ShieldCheck, AlertCircle, Users } from 'lucide-react';
+import { Lock, Mail, User, ShieldCheck, AlertCircle, Building2, ArrowLeft, Shield } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.js';
 import { PrivacyNotice } from '../components/PrivacyNotice.js';
 import { Logo } from '../components/Logo.js';
+import { api } from '../services/api.js';
 
-export const Login: React.FC = () => {
+interface LoginProps {
+  onSuccessfulLogin?: (isAppOwner: boolean) => void;
+}
+
+export const Login: React.FC<LoginProps> = ({ onSuccessfulLogin }) => {
   const { login, register, signInWithGoogle } = useAuth();
+  const [isOrgLoginMode, setIsOrgLoginMode] = useState<boolean>(false);
   const [isRegistering, setIsRegistering] = useState<boolean>(false);
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -18,10 +24,43 @@ export const Login: React.FC = () => {
     setError(null);
     setIsGoogleSubmitting(true);
     try {
-      await signInWithGoogle();
+      if (isOrgLoginMode) {
+        // Sign in via Firebase Google then verify with server-side organization-login endpoint
+        const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
+        const { auth } = await import('../firebase/config.js');
+        const provider = new GoogleAuthProvider();
+        const userCred = await signInWithPopup(auth, provider);
+        const gUser = userCred.user;
+
+        const authRes = await api.organizationLogin({
+          uid: gUser.uid,
+          email: gUser.email || '',
+          displayName: gUser.displayName || undefined,
+        });
+
+        if (!authRes.user.is_app_owner) {
+          api.logout();
+          throw new Error('Access denied.');
+        }
+
+        if (onSuccessfulLogin) {
+          onSuccessfulLogin(true);
+        } else {
+          window.location.hash = '#app-owner';
+          window.location.reload();
+        }
+      } else {
+        await signInWithGoogle();
+        onSuccessfulLogin?.(false);
+      }
     } catch (err: any) {
-      console.error('Google Sign-In error:', err);
-      setError(err.message || 'Google Sign-In failed. Please try again or use email credentials.');
+      console.error('Sign-In error:', err);
+      // Strictly generic message for organization login rejections
+      if (isOrgLoginMode) {
+        setError('Access denied.');
+      } else {
+        setError(err.message || 'Google Sign-In failed. Please try again or use email credentials.');
+      }
     } finally {
       setIsGoogleSubmitting(false);
     }
@@ -33,16 +72,40 @@ export const Login: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      if (isRegistering) {
+      if (isOrgLoginMode) {
+        // Organization administration login
+        const authRes = await api.organizationLogin({
+          email: email.trim(),
+          password,
+        });
+
+        if (!authRes.user.is_app_owner) {
+          api.logout();
+          throw new Error('Access denied.');
+        }
+
+        if (onSuccessfulLogin) {
+          onSuccessfulLogin(true);
+        } else {
+          window.location.hash = '#app-owner';
+          window.location.reload();
+        }
+      } else if (isRegistering) {
         if (!displayName.trim()) {
           throw new Error('Please enter your full name or research team display name.');
         }
         await register(email, password, displayName);
+        onSuccessfulLogin?.(false);
       } else {
         await login(email, password);
+        onSuccessfulLogin?.(false);
       }
     } catch (err: any) {
-      setError(err.message || 'Authentication failed. Please verify credentials.');
+      if (isOrgLoginMode) {
+        setError('Access denied.');
+      } else {
+        setError(err.message || 'Authentication failed. Please verify credentials.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -56,27 +119,59 @@ export const Login: React.FC = () => {
           size="lg"
           variant="vertical"
           showText={true}
-          subtitle="Multi-Group Hospital Research Platform & Duplicate Patient Prevention"
+          subtitle="General-Purpose Thesis & Clinical Research Coordination Platform"
         />
 
-        {/* 3-Member Per-Group Policy Note */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center justify-between text-xs shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <Users className="w-4 h-4 text-blue-600 shrink-0" />
-            <div>
-              <span className="text-slate-800 font-bold block">Open Researcher Access</span>
-              <span className="text-slate-500 text-[11px]">
-                Create studies or join existing teams (up to 3 researchers per group).
-              </span>
+        {/* General Research Platform Announcement */}
+        {!isOrgLoginMode ? (
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center justify-between text-xs shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <Building2 className="w-4 h-4 text-blue-600 shrink-0" />
+              <div>
+                <span className="text-slate-800 font-bold block">Academic & Clinical Research Studies</span>
+                <span className="text-slate-500 text-[11px]">
+                  Configurable for Pharm.D, hospital trials, surveys, and multi-investigator projects.
+                </span>
+              </div>
             </div>
+            <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 shrink-0">
+              Open Access
+            </span>
           </div>
-          <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 shrink-0">
-            Multi-Group
-          </span>
-        </div>
+        ) : (
+          <div className="bg-slate-900 text-white rounded-2xl p-4 flex items-center justify-between text-xs shadow-md">
+            <div className="flex items-center gap-2.5">
+              <Shield className="w-4 h-4 text-amber-400 shrink-0" />
+              <div>
+                <span className="font-bold block">Organization Administration Portal</span>
+                <span className="text-slate-400 text-[11px]">
+                  Restricted authentication area for authorized platform administrators.
+                </span>
+              </div>
+            </div>
+            <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-bold border border-amber-400/30 shrink-0">
+              Restricted
+            </span>
+          </div>
+        )}
 
         {/* Auth Card */}
         <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/50 space-y-5">
+          {/* Organization Login Back Button or Header */}
+          {isOrgLoginMode && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsOrgLoginMode(false);
+                setError(null);
+              }}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to Researcher Workspace</span>
+            </button>
+          )}
+
           {/* Primary Action: Google Sign-In */}
           <div>
             <button
@@ -107,62 +202,72 @@ export const Login: React.FC = () => {
                   />
                 </svg>
               )}
-              <span>{isGoogleSubmitting ? 'Authenticating with Google...' : 'Continue with Google'}</span>
+              <span>
+                {isGoogleSubmitting
+                  ? 'Authenticating...'
+                  : isOrgLoginMode
+                  ? 'Organization Sign-In with Google'
+                  : 'Continue with Google'}
+              </span>
             </button>
             <p className="text-[11px] text-center text-slate-400 mt-2">
-              Secure Single Sign-On for Hospital Researchers
+              {isOrgLoginMode
+                ? 'Only verified organization administrators are authorized.'
+                : 'Secure Single Sign-On for Investigators and Study Teams'}
             </p>
           </div>
 
           <div className="relative flex items-center justify-center">
             <div className="border-t border-slate-200 w-full" />
             <span className="bg-white px-3 text-xs text-slate-400 font-medium shrink-0">
-              or use researcher credentials
+              {isOrgLoginMode ? 'or administrator credentials' : 'or institutional credentials'}
             </span>
             <div className="border-t border-slate-200 w-full" />
           </div>
 
-          {/* Tabs */}
-          <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
-            <button
-              type="button"
-              onClick={() => {
-                setIsRegistering(false);
-                setError(null);
-              }}
-              className={`py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                !isRegistering
-                  ? 'bg-white text-blue-700 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setIsRegistering(true);
-                setError(null);
-              }}
-              className={`py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                isRegistering
-                  ? 'bg-white text-blue-700 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Create Account
-            </button>
-          </div>
+          {/* Normal Mode: Sign In vs Create Account Tabs */}
+          {!isOrgLoginMode && (
+            <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRegistering(false);
+                  setError(null);
+                }}
+                className={`py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                  !isRegistering
+                    ? 'bg-white text-blue-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRegistering(true);
+                  setError(null);
+                }}
+                className={`py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                  isRegistering
+                    ? 'bg-white text-blue-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Create Account
+              </button>
+            </div>
+          )}
 
           {error && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800">
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800 animate-in fade-in">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <p className="font-medium leading-relaxed">{error}</p>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {isRegistering && (
+            {!isOrgLoginMode && isRegistering && (
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Researcher Full Name
@@ -174,7 +279,7 @@ export const Login: React.FC = () => {
                     required
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="e.g. Dr. Sarah Jenkins"
+                    placeholder="e.g., Dr. Sarah Jenkins"
                     className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium"
                   />
                 </div>
@@ -183,7 +288,7 @@ export const Login: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Institutional Email
+                {isOrgLoginMode ? 'Administrator Email' : 'Institutional Email'}
               </label>
               <div className="relative">
                 <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -192,7 +297,7 @@ export const Login: React.FC = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="researcher@hospital.org"
+                  placeholder="investigator@hospital.org"
                   className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium"
                 />
               </div>
@@ -216,17 +321,43 @@ export const Login: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting || isGoogleSubmitting}
-              className="w-full min-h-[46px] flex items-center justify-center gap-2 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-md shadow-blue-500/25 active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
+              className={`w-full min-h-[46px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-sm shadow-md transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer ${
+                isOrgLoginMode
+                  ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-slate-900/20'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25'
+              }`}
             >
               {isSubmitting ? (
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : isOrgLoginMode ? (
+                'Sign In to Organization Admin'
               ) : isRegistering ? (
                 'Create Researcher Account'
               ) : (
-                'Sign In to Workspace'
+                'Sign In to Research Workspace'
               )}
             </button>
           </form>
+
+          {/* Section 16 Requirement: Visible Organization Login Access Point */}
+          {!isOrgLoginMode && (
+            <div className="pt-3 border-t border-slate-100 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOrgLoginMode(true);
+                  setError(null);
+                }}
+                className="w-full py-2.5 px-3 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                <span>Organization Login</span>
+              </button>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Restricted access for authorized institutional & application administrators
+              </p>
+            </div>
+          )}
         </div>
 
         <PrivacyNotice />

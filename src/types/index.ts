@@ -4,6 +4,28 @@ export type UserRole = 'member' | 'admin';
 
 export type GroupMemberRole = 'owner' | 'researcher';
 
+export type StudyType =
+  | 'Observational'
+  | 'Prospective'
+  | 'Retrospective'
+  | 'Interventional'
+  | 'Survey'
+  | 'Clinical Pharmacy'
+  | 'Pharmacoeconomic'
+  | 'Epidemiological'
+  | 'Custom';
+
+export type SubjectTerminology = 'Patient' | 'Participant' | 'Subject' | 'Case' | 'Record';
+
+export interface CustomFieldDefinition {
+  id: string;
+  name: string;
+  type: 'text' | 'number' | 'date' | 'select' | 'textarea' | 'boolean';
+  required?: boolean;
+  options?: string[];
+  placeholder?: string;
+}
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -13,6 +35,19 @@ export interface UserProfile {
   status?: 'active' | 'suspended';
   created_at: string;
   updated_at: string;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  description?: string;
+  institution?: string;
+  contactEmail?: string;
+  ownerId: string;
+  studiesCount?: number;
+  membersCount?: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface GroupMember {
@@ -25,16 +60,34 @@ export interface GroupMember {
 
 export interface ResearchGroup {
   id: string;
+  organizationId?: string;
+  organizationName?: string;
   name: string;
   studyTitle: string;
+  studyType?: StudyType;
+  subjectTerminology?: SubjectTerminology;
   targetSampleSize: number;
   description?: string;
   institution?: string;
   ownerId: string;
   status?: 'active' | 'archived' | 'suspended';
+  customFields?: CustomFieldDefinition[];
   members: GroupMember[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ResearchFile {
+  id: string;
+  groupId: string;
+  name: string;
+  size: number;
+  mimeType: string;
+  category: 'protocol' | 'approval' | 'questionnaire' | 'data' | 'other';
+  uploadedBy: string;
+  uploadedByName: string;
+  uploadedAt: string;
+  fileData?: string;
 }
 
 export interface GroupInvitation {
@@ -58,9 +111,10 @@ export interface CaseRecord {
   assigned_name?: string; // resolved display name
   assigned_email?: string;
   status: CaseStatus;
-  patient_name?: string; // Optional
-  diagnosis?: string; // Optional
-  drug_names?: string; // Optional
+  patient_name?: string; // Optional name / participant alias
+  diagnosis?: string; // Optional clinical condition / indication / topic
+  drug_names?: string; // Optional intervention / regimen / response
+  custom_values?: Record<string, any>; // Flexible study-specific custom field values
   registered_at: string;
   updated_at: string;
 }
@@ -114,10 +168,12 @@ export interface AuthResponse {
 
 export interface AppOwnerStats {
   totalUsers: number;
+  totalOrganizations: number;
   totalGroups: number;
   activeGroups: number;
   totalMemberships: number;
   totalCases: number;
+  totalFiles: number;
 }
 
 export interface AppOwnerUser {
@@ -137,8 +193,11 @@ export interface AppOwnerUser {
 
 export interface AppOwnerGroup {
   id: string;
+  organizationId?: string;
+  organizationName?: string;
   name: string;
   studyTitle: string;
+  studyType?: StudyType;
   ownerId: string;
   ownerName: string;
   ownerEmail: string;
@@ -163,7 +222,7 @@ export interface AppOwnerGroup {
 export interface AuditLogEntry {
   id: string;
   action: string;
-  entityType: 'user' | 'group' | 'settings' | 'security' | 'legal';
+  entityType: 'user' | 'group' | 'organization' | 'settings' | 'security' | 'legal' | 'file';
   entityId?: string;
   entityName?: string;
   details: string;

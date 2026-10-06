@@ -25,14 +25,9 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
   if (!isOpen) return null;
 
   const currentMembersCount = group.members.length;
-  const isFull = currentMembersCount >= 3;
 
   const handleGenerateInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isFull) {
-      setError('This research group has reached its maximum capacity of 3 researchers.');
-      return;
-    }
 
     try {
       setIsGenerating(true);
@@ -63,7 +58,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
               <UserPlus className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">Invite Researcher</h3>
+              <h3 className="text-base font-bold text-slate-900">Invite Co-Investigator</h3>
               <p className="text-xs text-slate-500">{group.name}</p>
             </div>
           </div>
@@ -82,31 +77,15 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
           </div>
         )}
 
-        {isFull ? (
-          <div className="space-y-4 text-center py-4">
-            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
-              <p className="font-bold text-sm">Group at Full Capacity (3/3)</p>
-              <p>
-                This research group already has 3 active researchers. To invite a new researcher, the owner must first
-                remove an existing member.
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50 cursor-pointer"
-            >
-              Close
-            </button>
-          </div>
-        ) : !invitation ? (
+        {!invitation ? (
           <form onSubmit={handleGenerateInvite} className="space-y-4">
             <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-1">
               <div className="flex items-center justify-between font-bold text-slate-800">
-                <span>Group Capacity</span>
-                <span className="text-blue-600">{currentMembersCount} / 3 Members</span>
+                <span>Active Research Team</span>
+                <span className="text-blue-600">{currentMembersCount} Members</span>
               </div>
               <p className="text-[11px] text-slate-500">
-                You have {3 - currentMembersCount} available seat{3 - currentMembersCount === 1 ? '' : 's'}.
+                Generate a secure invitation code to onboard research collaborators.
               </p>
             </div>
 
@@ -173,7 +152,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                 <span>
-                  The researcher can sign in with their Google account and enter this code under <strong>Join a Group</strong>.
+                  The researcher can sign in and enter this code under <strong>Join a Study</strong>.
                 </span>
               </div>
             </div>

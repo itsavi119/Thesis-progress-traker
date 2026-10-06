@@ -7,11 +7,16 @@ import type {
   AuthResponse,
   CaseRecord,
   CaseStatus,
+  CustomFieldDefinition,
   DashboardStats,
   DuplicateCheckResult,
   GroupInvitation,
   LegalPolicyDoc,
+  Organization,
+  ResearchFile,
   ResearchGroup,
+  StudyType,
+  SubjectTerminology,
   TeamSummaryResponse,
   UserProfile,
 } from '../types/index.js';
@@ -142,6 +147,20 @@ class ApiService {
     return data;
   }
 
+  public async organizationLogin(params: {
+    email?: string;
+    password?: string;
+    uid?: string;
+    displayName?: string;
+  }): Promise<AuthResponse> {
+    const data = await this.request<AuthResponse>('/api/auth/organization-login', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    this.setToken(data.token);
+    return data;
+  }
+
   public async syncGoogleUser(params: {
     uid: string;
     email: string;
@@ -161,14 +180,35 @@ class ApiService {
 
   public async getTeamCapacity(): Promise<{
     registeredMembers: number;
-    maxMembers?: number;
     availableSeats: number;
     isFull: boolean;
   }> {
     return this.request('/api/auth/team-capacity');
   }
 
-  // --- RESEARCH GROUPS MANAGEMENT ---
+  // --- ORGANIZATIONS ---
+
+  public async getUserOrganizations(): Promise<{ organizations: Organization[] }> {
+    return this.request<{ organizations: Organization[] }>('/api/organizations');
+  }
+
+  public async createOrganization(params: {
+    name: string;
+    description?: string;
+    institution?: string;
+    contactEmail?: string;
+  }): Promise<{ organization: Organization }> {
+    return this.request<{ organization: Organization }>('/api/organizations', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  public async getOrganization(id: string): Promise<{ organization: Organization }> {
+    return this.request<{ organization: Organization }>(`/api/organizations/${id}`);
+  }
+
+  // --- RESEARCH GROUPS / STUDIES MANAGEMENT ---
 
   public async getUserGroups(): Promise<{ groups: ResearchGroup[] }> {
     return this.request<{ groups: ResearchGroup[] }>('/api/groups');
@@ -177,9 +217,13 @@ class ApiService {
   public async createGroup(params: {
     name: string;
     studyTitle: string;
+    studyType?: StudyType;
+    subjectTerminology?: SubjectTerminology;
     targetSampleSize: number;
     description?: string;
     institution?: string;
+    organizationId?: string;
+    customFields?: CustomFieldDefinition[];
   }): Promise<{ group: ResearchGroup }> {
     return this.request<{ group: ResearchGroup }>('/api/groups', {
       method: 'POST',
@@ -196,9 +240,13 @@ class ApiService {
     updates: {
       name?: string;
       studyTitle?: string;
+      studyType?: StudyType;
+      subjectTerminology?: SubjectTerminology;
       targetSampleSize?: number;
       description?: string;
       institution?: string;
+      organizationId?: string;
+      customFields?: CustomFieldDefinition[];
     }
   ): Promise<{ group: ResearchGroup }> {
     return this.request<{ group: ResearchGroup }>(`/api/groups/${groupId}/settings`, {
@@ -253,7 +301,40 @@ class ApiService {
     );
   }
 
-  // --- GROUP-SCOPED PATIENT CASES ---
+  // --- RESEARCH FILES MANAGEMENT ---
+
+  public async getGroupFiles(groupId?: string): Promise<{ files: ResearchFile[] }> {
+    const gid = groupId || this.getActiveGroupId();
+    if (!gid) throw new Error('Active research group required.');
+    return this.request<{ files: ResearchFile[] }>(`/api/groups/${gid}/files`);
+  }
+
+  public async uploadGroupFile(
+    groupId: string,
+    data: {
+      name: string;
+      size: number;
+      mimeType: string;
+      category?: string;
+      fileData?: string;
+    }
+  ): Promise<{ file: ResearchFile }> {
+    return this.request<{ file: ResearchFile }>(`/api/groups/${groupId}/files`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  public async deleteGroupFile(
+    groupId: string,
+    fileId: string
+  ): Promise<{ success: boolean; fileName: string }> {
+    return this.request<{ success: boolean; fileName: string }>(`/api/groups/${groupId}/files/${fileId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // --- GROUP-SCOPED RESEARCH RECORDS ---
 
   public async checkPatientId(patientId: string, groupId?: string): Promise<DuplicateCheckResult> {
     const gid = groupId || this.getActiveGroupId();
@@ -266,6 +347,7 @@ class ApiService {
     patientName?: string;
     diagnosis?: string;
     drugNames?: string;
+    customValues?: Record<string, any>;
     groupId?: string;
   }): Promise<{ success: boolean; case: CaseRecord }> {
     const gid = params.groupId || this.getActiveGroupId();
@@ -277,7 +359,12 @@ class ApiService {
 
   public async updateCaseDetails(
     caseId: string,
-    details: { patientName?: string; diagnosis?: string; drugNames?: string },
+    details: {
+      patientName?: string;
+      diagnosis?: string;
+      drugNames?: string;
+      customValues?: Record<string, any>;
+    },
     groupId?: string
   ): Promise<{ success: boolean; case: CaseRecord }> {
     const gid = groupId || this.getActiveGroupId();
@@ -427,6 +514,10 @@ class ApiService {
 
   public async getAppOwnerOverview(): Promise<{ stats: AppOwnerStats }> {
     return this.request<{ stats: AppOwnerStats }>('/api/app-owner/overview');
+  }
+
+  public async getAppOwnerOrganizations(): Promise<{ organizations: Organization[] }> {
+    return this.request<{ organizations: Organization[] }>('/api/app-owner/organizations');
   }
 
   public async getAppOwnerUsers(options?: {

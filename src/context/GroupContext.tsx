@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api.js';
 import { useAuth } from './AuthContext.js';
-import type { GroupMemberRole, ResearchGroup } from '../types/index.js';
+import type { GroupMemberRole, ResearchGroup, StudyType, SubjectTerminology, CustomFieldDefinition } from '../types/index.js';
 
 interface GroupContextType {
   currentGroup: ResearchGroup | null;
@@ -13,9 +13,13 @@ interface GroupContextType {
   createGroup: (params: {
     name: string;
     studyTitle: string;
+    studyType?: StudyType;
+    subjectTerminology?: SubjectTerminology;
     targetSampleSize: number;
     description?: string;
     institution?: string;
+    organizationId?: string;
+    customFields?: CustomFieldDefinition[];
   }) => Promise<ResearchGroup>;
   joinGroup: (code: string) => Promise<ResearchGroup>;
   refreshGroups: () => Promise<void>;
@@ -91,9 +95,13 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const createGroup = async (params: {
     name: string;
     studyTitle: string;
+    studyType?: StudyType;
+    subjectTerminology?: SubjectTerminology;
     targetSampleSize: number;
     description?: string;
     institution?: string;
+    organizationId?: string;
+    customFields?: CustomFieldDefinition[];
   }): Promise<ResearchGroup> => {
     const res = await api.createGroup(params);
     setUserGroups((prev) => [...prev, res.group]);
