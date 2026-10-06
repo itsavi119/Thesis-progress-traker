@@ -1,0 +1,70 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Registered researcher user profile authenticated with Firebase Google Sign-In or email credentials",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["researcher", "admin"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "email", "displayName", "role", "createdAt"]
+    },
+    "ResearchGroup": {
+      "title": "ResearchGroup",
+      "description": "Collaborative clinical thesis research group capped at 3 researchers with target sample size",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "studyTitle": { "type": "string" },
+        "targetSampleSize": { "type": "number" },
+        "description": { "type": "string" },
+        "institution": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "studyTitle", "targetSampleSize", "ownerId", "createdAt", "updatedAt"]
+    },
+    "CaseRecord": {
+      "title": "CaseRecord",
+      "description": "Hospital research case record tracking unique patient IDs within a specific research group to prevent duplicate enrollments",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "group_id": { "type": "string" },
+        "patient_id": { "type": "string" },
+        "normalized_patient_id": { "type": "string" },
+        "assigned_to": { "type": "string" },
+        "assigned_name": { "type": "string" },
+        "assigned_email": { "type": "string" },
+        "patient_name": { "type": "string" },
+        "diagnosis": { "type": "string" },
+        "drug_names": { "type": "string" },
+        "status": { "type": "string", "enum": ["In Progress", "Completed", "Excluded"] },
+        "registered_at": { "type": "string" },
+        "updated_at": { "type": "string" }
+      },
+      "required": ["id", "group_id", "patient_id", "normalized_patient_id", "assigned_to", "status", "registered_at", "updated_at"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "UserProfile" },
+      "description": "Stores user profiles for researchers on the platform"
+    },
+    "/groups/{groupId}": {
+      "schema": { "$ref": "ResearchGroup" },
+      "description": "Stores collaborative research groups with max 3 members per group"
+    },
+    "/cases/{caseId}": {
+      "schema": { "$ref": "CaseRecord" },
+      "description": "Stores patient cases scoped to a specific research group to prevent duplicates"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Thesis Case Tracker",
+  "description": "Multi-group research case coordination and duplicate patient prevention platform for hospital thesis studies with collaborative 3-researcher groups.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

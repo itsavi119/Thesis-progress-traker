@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGradMask" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB" />
+      <stop offset="50%" stop-color="#4F46E5" />
+      <stop offset="100%" stop-color="#0284C7" />
+    </linearGradient>
+    <filter id="shadowMask" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000000" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- Full bleed background for Android maskable safe-zone -->
+  <rect width="512" height="512" fill="url(#bgGradMask)" />
+
+  <!-- Emblem scaled within 75% safe area -->
+  <g transform="translate(64, 64) scale(0.75)" filter="url(#shadowMask)">
+    <!-- Academic Mortarboard / Thesis Cap -->
+    <path
+      d="M256 90 L76 186 L256 282 L436 186 Z"
+      fill="#FFFFFF"
+    />
+    <!-- Cap Base Underside -->
+    <path
+      d="M156 235 V305 C156 305 191 340 256 340 C321 340 356 305 356 305 V235 L256 288 Z"
+      fill="#F1F5F9"
+    />
+    <!-- Tassel Ribbons -->
+    <path
+      d="M396 215 V305 C391 310 381 320 381 330 C381 340 396 350 396 350 C396 350 411 340 411 330 C411 320 401 310 396 305 Z"
+      stroke="#FFFFFF"
+      stroke-width="14"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      fill="#38BDF8"
+    />
+
+    <!-- Clinical Medical Cross -->
+    <rect x="231" y="355" width="50" height="110" rx="16" fill="#38BDF8" />
+    <rect x="201" y="385" width="110" height="50" rx="16" fill="#38BDF8" />
+
+    <!-- Pulse / Center Research Node -->
+    <circle cx="256" cy="186" r="20" fill="#0284C7" />
+  </g>
+</svg>
