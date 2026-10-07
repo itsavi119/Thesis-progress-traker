@@ -241,7 +241,7 @@ export const StudyFiles: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-slate-500 max-w-xl leading-relaxed">
-              Maintain an isolated folder structure: <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px] font-mono text-slate-700">Thesis Case Tracker / {currentGroup.name} / Documents & Exports</code>. Narrow scopes protect your unrelated personal drive files.
+              Maintain an isolated folder structure: <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px] font-mono text-slate-700">Thesis Progress Tracker / {currentGroup.name} / Documents & Exports</code>. Narrow scopes protect your unrelated personal drive files.
             </p>
           </div>
         </div>

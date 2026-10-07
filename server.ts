@@ -3,6 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
 import {
   db,
   DuplicateCaseError,
@@ -21,7 +22,116 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 const isProd = process.env.NODE_ENV === 'production';
 const JWT_SECRET = process.env.JWT_SECRET || 'thesis-tracker-secure-secret-token-key-2026';
 
+// SEC-006 & SEC-009: Disable technology disclosure
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
+
+// Cookie & Session Configuration (SEC-005)
+export const AUTH_COOKIE_NAME = 'thesis_tracker_session';
+export const COOKIE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours (reduced token lifetime)
+
+export const getAuthCookieOptions = () => ({
+  httpOnly: true,
+  secure: isProd,
+  sameSite: 'lax' as const,
+  path: '/',
+  maxAge: COOKIE_MAX_AGE_MS,
+});
+
+// Security Headers Middleware (SEC-006)
+export const securityHeadersMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  // 1. Frame Protection (SEC-006 Section 5)
+  // Per SEC-006: "If the application genuinely requires an iframe, document the exact trusted
+  // parent origin and implement a restrictive policy instead of blindly using DENY."
+  // The app is previewed within Google AI Studio (https://aistudio.google.com).
+  // We restrict framing strictly to 'self' and authorized Google AI Studio / Google Cloud origins.
+  const isAiStudioFramed =
+    req.headers['sec-fetch-dest'] === 'iframe' ||
+    Boolean(req.headers['referer']?.includes('google.com')) ||
+    Boolean(req.headers['referer']?.includes('run.app'));
+
+  if (!isAiStudioFramed) {
+    res.setHeader('X-Frame-Options', 'DENY');
+  }
+
+  // 2. MIME-type sniffing prevention
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+
+  // 3. Referrer Policy
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  // 4. Permissions Policy (Restrict unneeded hardware/browser APIs)
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+
+  // 5. Cross-Origin-Opener-Policy
+  // Note: same-origin-allow-popups is required to support Firebase Auth Google Sign-In popup windows
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+
+  // 6. Strict-Transport-Security (Production HTTPS & Cloud Run reverse proxy)
+  const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https' || isProd;
+  if (isHttps) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+
+  // 7. Content-Security-Policy (Enforcing baseline customized to app dependencies)
+  const isDev = !isProd;
+  const cspDirectives = [
+    "default-src 'self'",
+    isDev
+      ? "script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com"
+      : "script-src 'self' https://apis.google.com https://www.gstatic.com",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https://*.googleusercontent.com",
+    "font-src 'self' data:",
+    isDev
+      ? "connect-src 'self' ws: wss: https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.googleapis.com https://*.firebaseio.com https://hypnic-concord-qlxdt.firebaseapp.com https://accounts.google.com"
+      : "connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.googleapis.com https://*.firebaseio.com https://hypnic-concord-qlxdt.firebaseapp.com https://accounts.google.com",
+    "frame-src 'self' https://hypnic-concord-qlxdt.firebaseapp.com https://accounts.google.com",
+    "frame-ancestors 'self' https://aistudio.google.com https://*.google.com https://*.run.app",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "worker-src 'self' blob:",
+    "manifest-src 'self'",
+  ];
+
+  res.setHeader('Content-Security-Policy', cspDirectives.join('; '));
+
+  next();
+};
+
+app.use(securityHeadersMiddleware);
+
 app.use(express.json({ limit: '25mb' }));
+app.use(cookieParser());
+
+// CSRF Defense-in-depth Middleware for cookie-authenticated state-changing operations
+const csrfProtection = (req: Request, res: Response, next: NextFunction) => {
+  const method = req.method.toUpperCase();
+  // Safe HTTP methods do not mutate state
+  if (['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+    return next();
+  }
+
+  const origin = req.headers['origin'];
+  const host = req.headers['host'];
+  if (origin && host) {
+    try {
+      const originHost = new URL(origin).host;
+      if (originHost !== host) {
+        res.status(403).json({ error: 'FORBIDDEN', message: 'Cross-origin request rejected.' });
+        return;
+      }
+    } catch {
+      res.status(403).json({ error: 'FORBIDDEN', message: 'Malformed origin header.' });
+      return;
+    }
+  }
+
+  next();
+};
+
+app.use(csrfProtection);
 
 // Extend Express Request type for authenticated user
 export interface AuthenticatedRequest extends Request {
@@ -33,16 +143,29 @@ export interface GroupAuthorizedRequest extends AuthenticatedRequest {
   group?: StoredGroup;
 }
 
-// Authentication Middleware - verifies JWT from header or query token parameter
+// Authentication Middleware - verifies session from HttpOnly cookie (primary), with tightly controlled legacy Bearer support
 const authenticateToken = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  const authHeader = req.headers['authorization'];
-  let token = authHeader && authHeader.split(' ')[1];
-  if (!token && typeof req.query.token === 'string' && req.query.token.trim()) {
-    token = req.query.token.trim();
+  // 1. Primary: Extract from secure HttpOnly cookie
+  let token = req.cookies?.[AUTH_COOKIE_NAME];
+
+  // 2. Controlled legacy fallback: Authorization header or SSE query parameter
+  if (!token) {
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (typeof req.query.token === 'string' && req.query.token.trim()) {
+      token = req.query.token.trim();
+    }
   }
 
   if (!token) {
     res.status(401).json({ error: 'UNAUTHORIZED', message: 'Authentication required. Please log in.' });
+    return;
+  }
+
+  // Check if token has been revoked on logout
+  if (db.isTokenRevoked(token)) {
+    res.status(401).json({ error: 'UNAUTHORIZED', message: 'Session has been revoked. Please log in again.' });
     return;
   }
 
@@ -62,7 +185,7 @@ const authenticateToken = async (req: AuthenticatedRequest, res: Response, next:
     req.user = user;
     next();
   } catch {
-    res.status(403).json({ error: 'FORBIDDEN', message: 'Invalid or expired session token.' });
+    res.status(401).json({ error: 'UNAUTHORIZED', message: 'Invalid or expired session token.' });
     return;
   }
 };
@@ -395,8 +518,15 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const { email, password, displayName } = req.body;
     const user = await db.registerUser({ email, password, displayName });
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
-    res.status(201).json({ token, user });
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '24h' });
+    res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
+
+    const isBrowserClient = req.headers['x-requested-with'] === 'XMLHttpRequest';
+    if (isBrowserClient) {
+      res.status(201).json({ user });
+    } else {
+      res.status(201).json({ token, user });
+    }
   } catch (err: any) {
     res.status(400).json({ error: 'REGISTRATION_FAILED', message: err.message });
   }
@@ -463,8 +593,15 @@ app.post('/api/auth/login', async (req, res) => {
     // Reset failed counter on successful authentication
     authRateLimiter.recordSuccessfulAttempt(normalizedEmail);
 
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user });
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '24h' });
+    res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
+
+    const isBrowserClient = req.headers['x-requested-with'] === 'XMLHttpRequest';
+    if (isBrowserClient) {
+      res.json({ user });
+    } else {
+      res.json({ token, user });
+    }
   } catch (err: any) {
     if (err instanceof AccountSuspendedError) {
       res.status(403).json({ error: 'ACCOUNT_SUSPENDED', message: err.message });
@@ -489,8 +626,15 @@ app.post('/api/auth/google-sync', async (req, res) => {
       displayName: displayName || email.split('@')[0],
     });
 
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user });
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '24h' });
+    res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
+
+    const isBrowserClient = req.headers['x-requested-with'] === 'XMLHttpRequest';
+    if (isBrowserClient) {
+      res.json({ user });
+    } else {
+      res.json({ token, user });
+    }
   } catch (err: any) {
     if (err instanceof AccountSuspendedError) {
       res.status(403).json({ error: 'ACCOUNT_SUSPENDED', message: err.message });
@@ -578,8 +722,15 @@ app.post('/api/auth/organization-login', async (req, res) => {
       return;
     }
 
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user });
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '24h' });
+    res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
+
+    const isBrowserClient = req.headers['x-requested-with'] === 'XMLHttpRequest';
+    if (isBrowserClient) {
+      res.json({ user });
+    } else {
+      res.json({ token, user });
+    }
   } catch (err: any) {
     if (err instanceof AccountSuspendedError) {
       res.status(403).json({ error: 'ACCOUNT_SUSPENDED', message: err.message });
@@ -587,6 +738,20 @@ app.post('/api/auth/organization-login', async (req, res) => {
     }
     res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied.' });
   }
+});
+
+app.post('/api/auth/logout', (req: AuthenticatedRequest, res: Response) => {
+  const token = req.cookies?.[AUTH_COOKIE_NAME] || req.headers['authorization']?.split(' ')[1];
+  if (token) {
+    db.revokeSessionToken(token);
+  }
+  res.clearCookie(AUTH_COOKIE_NAME, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'lax',
+    path: '/',
+  });
+  res.json({ success: true, message: 'Logged out successfully.' });
 });
 
 app.get('/api/auth/me', authenticateToken, async (req: AuthenticatedRequest, res) => {
@@ -1354,7 +1519,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[Thesis Case Tracker] Server running on http://0.0.0.0:${PORT}`);
+    console.log(`[Thesis Progress Tracker] Server running on http://0.0.0.0:${PORT}`);
   });
 }
 

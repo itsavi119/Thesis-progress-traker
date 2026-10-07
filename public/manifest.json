@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Thesis Case Tracker",
-  "short_name": "Thesis Track",
+  "name": "Thesis Progress Tracker",
+  "short_name": "Progress Track",
   "description": "Hospital research case coordination and duplicate patient prevention system for thesis studies.",
   "start_url": "/",
   "scope": "/",

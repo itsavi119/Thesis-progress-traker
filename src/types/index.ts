@@ -160,7 +160,7 @@ export interface DuplicateCheckResult {
 }
 
 export interface AuthResponse {
-  token: string;
+  token?: string;
   user: UserProfile;
 }
 

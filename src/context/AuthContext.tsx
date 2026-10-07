@@ -3,6 +3,7 @@ import { signInWithPopup, signOut as fbSignOut, onAuthStateChanged } from 'fireb
 import { auth, googleProvider } from '../firebase/config.js';
 import { firestoreService } from '../services/firestoreService.js';
 import { api } from '../services/api.js';
+import { offlineStorage } from '../services/offlineStorage.js';
 import type { UserProfile } from '../types/index.js';
 
 interface TeamCapacity {
@@ -42,19 +43,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const refreshUser = useCallback(async () => {
-    const token = api.getToken();
-    if (!token) {
-      setUser(null);
-      setIsLoading(false);
-      return;
-    }
-
     try {
       const { user: profile } = await api.getMe();
       setUser(profile);
-    } catch (err) {
-      console.warn('Session expired or invalid, logging out:', err);
-      api.logout();
+    } catch {
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -99,8 +91,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    const uid = user?.id;
     fbSignOut(auth).catch(() => {});
     api.logout();
+    if (uid) {
+      offlineStorage.clearSession(uid).catch(() => {});
+    }
     setUser(null);
   };
 

@@ -84,7 +84,7 @@ export const Logo: React.FC<LogoProps> = ({
         <button
           type="button"
           onClick={onClick}
-          aria-label="Thesis Case Tracker - Go to Home"
+          aria-label="Thesis Progress Tracker - Go to Home"
           className={`inline-flex items-center p-1 -m-1 ${interactiveClasses} ${className}`}
         >
           {iconSvg}
@@ -100,7 +100,7 @@ export const Logo: React.FC<LogoProps> = ({
         {iconSvg}
         <div>
           <h1 className={`font-extrabold text-slate-900 tracking-tight leading-none ${currentSize.text} select-none`}>
-            THESIS CASE TRACKER
+            THESIS PROGRESS TRACKER
           </h1>
           {subtitle && (
             <p className={`text-slate-500 font-medium mt-1 ${currentSize.subText} select-none`}>
@@ -116,7 +116,7 @@ export const Logo: React.FC<LogoProps> = ({
         <button
           type="button"
           onClick={onClick}
-          aria-label="Thesis Case Tracker - Go to Home"
+          aria-label="Thesis Progress Tracker - Go to Home"
           className={`flex flex-col items-center text-center gap-3 p-2 -m-2 text-left ${interactiveClasses} ${className}`}
         >
           {content}
@@ -137,7 +137,7 @@ export const Logo: React.FC<LogoProps> = ({
       {iconSvg}
       <div className="min-w-0 text-left">
         <h1 className={`font-bold text-slate-900 tracking-tight leading-tight truncate ${currentSize.text} select-none`}>
-          THESIS CASE TRACKER
+          THESIS PROGRESS TRACKER
         </h1>
         {subtitle && (
           <p className={`text-slate-500 font-medium truncate ${currentSize.subText} select-none`}>
@@ -153,7 +153,7 @@ export const Logo: React.FC<LogoProps> = ({
       <button
         type="button"
         onClick={onClick}
-        aria-label="Thesis Case Tracker - Go to Home"
+        aria-label="Thesis Progress Tracker - Go to Home"
         className={`flex items-center gap-3 p-1.5 -m-1.5 w-full text-left ${interactiveClasses} ${className}`}
       >
         {horizontalContent}

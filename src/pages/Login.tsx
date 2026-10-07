@@ -58,6 +58,11 @@ export const Login: React.FC<LoginProps> = ({ onSuccessfulLogin }) => {
       // Strictly generic message for organization login rejections
       if (isOrgLoginMode) {
         setError('Access denied.');
+      } else if (err?.code === 'auth/unauthorized-domain' || err?.message?.includes('unauthorized-domain')) {
+        const domain = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
+        setError(
+          `Google Sign-In is unavailable because "${domain}" is not in the Firebase Authorized Domains list. Please sign in or register with your email and password below, or add this domain in your Firebase Authentication Console.`
+        );
       } else {
         setError(err.message || 'Google Sign-In failed. Please try again or use email credentials.');
       }

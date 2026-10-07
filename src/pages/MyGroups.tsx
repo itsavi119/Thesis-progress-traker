@@ -92,7 +92,7 @@ export const MyGroups: React.FC<MyGroupsProps> = ({ onOpenGroup }) => {
             </div>
             <div className="max-w-md mx-auto space-y-1.5">
               <h4 className="text-lg font-bold text-slate-900">
-                Welcome to Thesis Case Tracker
+                Welcome to Thesis Progress Tracker
               </h4>
               <p className="text-xs text-slate-500">
                 You haven&apos;t joined a research study yet. Start a new thesis research study or join an existing study using an invitation code from your colleague.

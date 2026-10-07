@@ -20,34 +20,40 @@ import type {
   TeamSummaryResponse,
   UserProfile,
 } from '../types/index.js';
+import { offlineStorage } from './offlineStorage.js';
 
 class ApiService {
-  private token: string | null = null;
   private activeGroupId: string | null = null;
+  private currentUserId: string | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
-      this.token = localStorage.getItem('thesis_tracker_jwt_token');
+      // SEC-005 Migration: Purge any legacy JWT tokens stored in localStorage
+      localStorage.removeItem('thesis_tracker_jwt_token');
       this.activeGroupId = localStorage.getItem('thesis_tracker_active_group_id');
     }
   }
 
-  public setToken(token: string | null) {
-    this.token = token;
+  public setCurrentUserId(userId: string | null) {
+    this.currentUserId = userId;
+    if (userId) {
+      offlineStorage.initializeUserSession(userId).catch(() => {});
+    }
+  }
+
+  public getCurrentUserId(): string | null {
+    return this.currentUserId;
+  }
+
+  // Legacy compatibility stub (does not persist token to localStorage)
+  public setToken(_token?: string | null) {
     if (typeof window !== 'undefined') {
-      if (token) {
-        localStorage.setItem('thesis_tracker_jwt_token', token);
-      } else {
-        localStorage.removeItem('thesis_tracker_jwt_token');
-      }
+      localStorage.removeItem('thesis_tracker_jwt_token');
     }
   }
 
   public getToken(): string | null {
-    if (!this.token && typeof window !== 'undefined') {
-      this.token = localStorage.getItem('thesis_tracker_jwt_token');
-    }
-    return this.token;
+    return null;
   }
 
   public setActiveGroupId(groupId: string | null) {
@@ -68,21 +74,35 @@ class ApiService {
     return this.activeGroupId;
   }
 
-  public logout() {
-    this.setToken(null);
-    this.setActiveGroupId(null);
+  public async logout() {
+    const uid = this.currentUserId;
+    this.activeGroupId = null;
+    this.currentUserId = null;
+
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      });
+    } catch {}
+
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('thesis_tracker_jwt_token');
+      localStorage.removeItem('thesis_tracker_active_group_id');
+    }
+
+    if (uid) {
+      offlineStorage.clearSession(uid).catch(() => {});
+    }
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest', // CSRF defense header
       ...((options.headers as Record<string, string>) || {}),
     };
-
-    const token = this.getToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
 
     const groupId = this.getActiveGroupId();
     if (groupId && !headers['X-Group-Id']) {
@@ -92,6 +112,7 @@ class ApiService {
     const response = await fetch(endpoint, {
       ...options,
       headers,
+      credentials: 'same-origin', // Transmits secure HttpOnly cookie automatically
     });
 
     if (!response.ok) {
@@ -132,6 +153,7 @@ class ApiService {
       body: JSON.stringify(params),
     });
     this.setToken(data.token);
+    this.setCurrentUserId(data.user.id);
     return data;
   }
 
@@ -144,6 +166,7 @@ class ApiService {
       body: JSON.stringify(params),
     });
     this.setToken(data.token);
+    this.setCurrentUserId(data.user.id);
     return data;
   }
 
@@ -158,6 +181,7 @@ class ApiService {
       body: JSON.stringify(params),
     });
     this.setToken(data.token);
+    this.setCurrentUserId(data.user.id);
     return data;
   }
 
@@ -171,11 +195,16 @@ class ApiService {
       body: JSON.stringify(params),
     });
     this.setToken(data.token);
+    this.setCurrentUserId(data.user.id);
     return data;
   }
 
   public async getMe(): Promise<{ user: UserProfile }> {
-    return this.request<{ user: UserProfile }>('/api/auth/me');
+    const res = await this.request<{ user: UserProfile }>('/api/auth/me');
+    if (res.user?.id) {
+      this.setCurrentUserId(res.user.id);
+    }
+    return res;
   }
 
   public async getTeamCapacity(): Promise<{
@@ -351,10 +380,14 @@ class ApiService {
     groupId?: string;
   }): Promise<{ success: boolean; case: CaseRecord }> {
     const gid = params.groupId || this.getActiveGroupId();
-    return this.request('/api/cases/register', {
+    const res = await this.request<{ success: boolean; case: CaseRecord }>('/api/cases/register', {
       method: 'POST',
       body: JSON.stringify({ ...params, groupId: gid }),
     });
+    if (this.currentUserId && res.case) {
+      offlineStorage.saveCase(res.case, this.currentUserId).catch(() => {});
+    }
+    return res;
   }
 
   public async updateCaseDetails(
@@ -368,10 +401,14 @@ class ApiService {
     groupId?: string
   ): Promise<{ success: boolean; case: CaseRecord }> {
     const gid = groupId || this.getActiveGroupId();
-    return this.request(`/api/cases/${caseId}/details`, {
+    const res = await this.request<{ success: boolean; case: CaseRecord }>(`/api/cases/${caseId}/details`, {
       method: 'PATCH',
       body: JSON.stringify({ ...details, groupId: gid }),
     });
+    if (this.currentUserId && res.case) {
+      offlineStorage.saveCase(res.case, this.currentUserId).catch(() => {});
+    }
+    return res;
   }
 
   public async deleteCase(
@@ -380,9 +417,11 @@ class ApiService {
   ): Promise<{ success: boolean; message: string }> {
     const gid = groupId || this.getActiveGroupId();
     const query = gid ? `?groupId=${encodeURIComponent(gid)}` : '';
-    return this.request(`/api/cases/${caseId}${query}`, {
+    const res = await this.request<{ success: boolean; message: string }>(`/api/cases/${caseId}${query}`, {
       method: 'DELETE',
     });
+    offlineStorage.deleteCase(caseId).catch(() => {});
+    return res;
   }
 
   public async getAllCases(filters?: {
@@ -399,7 +438,46 @@ class ApiService {
     if (filters?.status) params.append('status', filters.status);
 
     const query = params.toString() ? `?${params.toString()}` : '';
-    return this.request(`/api/cases${query}`);
+    try {
+      const res = await this.request<{ cases: CaseRecord[] }>(`/api/cases${query}`);
+      // Asynchronously encrypt and persist authorized cases to IndexedDB
+      if (this.currentUserId && gid && res.cases) {
+        offlineStorage.saveCases(res.cases, this.currentUserId).catch((err) => {
+          console.warn('[SEC-004] Could not update offline cache:', err);
+        });
+      }
+      return res;
+    } catch (err: any) {
+      // Offline fallback: if network is down, serve authenticated decrypted cases from encrypted IndexedDB
+      if (
+        gid &&
+        this.currentUserId &&
+        (typeof navigator !== 'undefined' && !navigator.onLine ||
+          err?.name === 'TypeError' ||
+          err?.message?.includes('fetch') ||
+          err?.message?.includes('NetworkError'))
+      ) {
+        console.info('[SEC-004] Network unavailable; retrieving cases from encrypted offline store.');
+        let cached = await offlineStorage.getCases(gid, this.currentUserId);
+        if (filters?.memberId && filters.memberId !== 'ALL') {
+          cached = cached.filter((c) => c.assigned_to === filters.memberId);
+        }
+        if (filters?.status && filters.status !== 'ALL') {
+          cached = cached.filter((c) => c.status === filters.status);
+        }
+        if (filters?.search && filters.search.trim()) {
+          const q = filters.search.trim().toLowerCase();
+          cached = cached.filter((c) =>
+            c.patient_id.toLowerCase().includes(q) ||
+            (c.patient_name && c.patient_name.toLowerCase().includes(q)) ||
+            (c.diagnosis && c.diagnosis.toLowerCase().includes(q)) ||
+            (c.drug_names && c.drug_names.toLowerCase().includes(q))
+          );
+        }
+        return { cases: cached };
+      }
+      throw err;
+    }
   }
 
   public async getMyCases(params?: {
@@ -411,7 +489,38 @@ class ApiService {
     if (gid) searchParams.append('groupId', gid);
     if (params?.search) searchParams.append('search', params.search);
     const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
-    return this.request(`/api/cases/my${query}`);
+
+    try {
+      const res = await this.request<{ cases: CaseRecord[] }>(`/api/cases/my${query}`);
+      if (this.currentUserId && gid && res.cases) {
+        offlineStorage.saveCases(res.cases, this.currentUserId).catch(() => {});
+      }
+      return res;
+    } catch (err: any) {
+      if (
+        gid &&
+        this.currentUserId &&
+        (typeof navigator !== 'undefined' && !navigator.onLine ||
+          err?.name === 'TypeError' ||
+          err?.message?.includes('fetch') ||
+          err?.message?.includes('NetworkError'))
+      ) {
+        console.info('[SEC-004] Network unavailable; retrieving my cases from encrypted offline store.');
+        let cached = await offlineStorage.getCases(gid, this.currentUserId);
+        cached = cached.filter((c) => c.assigned_to === this.currentUserId);
+        if (params?.search && params.search.trim()) {
+          const q = params.search.trim().toLowerCase();
+          cached = cached.filter((c) =>
+            c.patient_id.toLowerCase().includes(q) ||
+            (c.patient_name && c.patient_name.toLowerCase().includes(q)) ||
+            (c.diagnosis && c.diagnosis.toLowerCase().includes(q)) ||
+            (c.drug_names && c.drug_names.toLowerCase().includes(q))
+          );
+        }
+        return { cases: cached };
+      }
+      throw err;
+    }
   }
 
   public async updateCaseStatus(
@@ -420,10 +529,14 @@ class ApiService {
     groupId?: string
   ): Promise<{ success: boolean; case: CaseRecord }> {
     const gid = groupId || this.getActiveGroupId();
-    return this.request(`/api/cases/${caseId}/status`, {
+    const res = await this.request<{ success: boolean; case: CaseRecord }>(`/api/cases/${caseId}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status, groupId: gid }),
     });
+    if (this.currentUserId && res.case) {
+      offlineStorage.saveCase(res.case, this.currentUserId).catch(() => {});
+    }
+    return res;
   }
 
   public async getStats(groupId?: string): Promise<{ stats: DashboardStats }> {
@@ -458,19 +571,13 @@ class ApiService {
     const connect = () => {
       if (isClosed) return;
 
-      const token = this.getToken();
-      if (!token) {
-        onStatusChange?.(false);
-        return;
-      }
-
-      const params = new URLSearchParams({ token });
+      const params = new URLSearchParams();
       if (groupId) {
         params.append('groupId', groupId);
       }
 
       const url = `/api/cases/events?${params.toString()}`;
-      es = new EventSource(url);
+      es = new EventSource(url, { withCredentials: true });
 
       es.onopen = () => {
         onStatusChange?.(true);
