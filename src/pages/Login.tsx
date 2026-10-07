@@ -4,6 +4,11 @@ import { useAuth } from '../context/AuthContext.js';
 import { PrivacyNotice } from '../components/PrivacyNotice.js';
 import { Logo } from '../components/Logo.js';
 import { api } from '../services/api.js';
+import {
+  MIN_PASSWORD_LENGTH,
+  validatePasswordBasic,
+  validatePasswordConfirmation,
+} from '../utils/passwordPolicy.js';
 
 interface LoginProps {
   onSuccessfulLogin?: (isAppOwner: boolean) => void;
@@ -15,6 +20,7 @@ export const Login: React.FC<LoginProps> = ({ onSuccessfulLogin }) => {
   const [isRegistering, setIsRegistering] = useState<boolean>(false);
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [displayName, setDisplayName] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -99,6 +105,17 @@ export const Login: React.FC<LoginProps> = ({ onSuccessfulLogin }) => {
         if (!displayName.trim()) {
           throw new Error('Please enter your full name or research team display name.');
         }
+
+        const basicVal = validatePasswordBasic(password);
+        if (!basicVal.isValid) {
+          throw new Error(basicVal.message || `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+        }
+
+        const matchVal = validatePasswordConfirmation(password, confirmPassword);
+        if (!matchVal.isValid) {
+          throw new Error(matchVal.message || 'Passwords do not match.');
+        }
+
         await register(email, password, displayName);
         onSuccessfulLogin?.(false);
       } else {
@@ -237,6 +254,7 @@ export const Login: React.FC<LoginProps> = ({ onSuccessfulLogin }) => {
                 type="button"
                 onClick={() => {
                   setIsRegistering(false);
+                  setConfirmPassword('');
                   setError(null);
                 }}
                 className={`py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
@@ -251,6 +269,7 @@ export const Login: React.FC<LoginProps> = ({ onSuccessfulLogin }) => {
                 type="button"
                 onClick={() => {
                   setIsRegistering(true);
+                  setConfirmPassword('');
                   setError(null);
                 }}
                 className={`py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
@@ -321,7 +340,29 @@ export const Login: React.FC<LoginProps> = ({ onSuccessfulLogin }) => {
                   className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
+              {isRegistering && (
+                <p className="text-[11px] text-slate-500 mt-1 leading-normal">
+                  Minimum {MIN_PASSWORD_LENGTH} characters. Strong passphrases recommended; common or breached passwords are prohibited.
+                </p>
+              )}
             </div>
+
+            {isRegistering && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Confirm Password</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+              </div>
+            )}
 
             <button
               type="submit"

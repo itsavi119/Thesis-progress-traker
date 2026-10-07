@@ -3,6 +3,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { normalizePatientId, validatePatientId } from '../utils/normalizePatientId.js';
+import { validateServerPassword } from './passwordSecurity.js';
 import type {
   AppOwnerGroup,
   AppOwnerSettings,
@@ -170,6 +171,13 @@ export class ValidationError extends Error {
     super(message);
     this.name = 'ValidationError';
     this.code = code;
+  }
+}
+
+export class WeakPasswordError extends ValidationError {
+  constructor(message = 'Choose a stronger password that is not commonly used or known to be compromised.') {
+    super(message, 'WEAK_PASSWORD');
+    this.name = 'WeakPasswordError';
   }
 }
 
@@ -679,12 +687,16 @@ export class RelationalDatabase {
       const email = params.email.trim().toLowerCase();
       const displayName = params.displayName.trim();
 
-      if (!email || !params.password || !displayName) {
-        throw new ValidationError('Email, password, and display name are required.');
+      if (!email || !displayName) {
+        throw new ValidationError('Email and display name are required.');
       }
 
-      if (params.password.length < 6) {
-        throw new ValidationError('Password must be at least 6 characters.');
+      const passwordCheck = await validateServerPassword(params.password);
+      if (!passwordCheck.isValid) {
+        if (passwordCheck.errorCode === 'WEAK_PASSWORD') {
+          throw new WeakPasswordError(passwordCheck.message);
+        }
+        throw new ValidationError(passwordCheck.message || 'Password does not meet the security requirements.');
       }
 
       const existing = this.data.profiles.find((p) => p.email.toLowerCase() === email);
@@ -778,6 +790,130 @@ export class RelationalDatabase {
     if (!matches) return null;
 
     return this.resolveUserProfile(profile);
+  }
+
+  public async updateUserPassword(params: {
+    userId: string;
+    currentPassword: string;
+    newPassword: string;
+  }): Promise<void> {
+    return this.mutex.runExclusive(async () => {
+      const profile = this.data.profiles.find((p) => p.id === params.userId);
+      if (!profile) {
+        throw new ValidationError('User not found.');
+      }
+
+      if (typeof params.currentPassword !== 'string' || typeof params.newPassword !== 'string') {
+        throw new ValidationError('Current password and new password must be valid strings.');
+      }
+
+      const matches = await bcrypt.compare(params.currentPassword, profile.password_hash);
+      if (!matches) {
+        throw new ValidationError('Current password is incorrect.', 'INVALID_CREDENTIALS');
+      }
+
+      const passwordCheck = await validateServerPassword(params.newPassword);
+      if (!passwordCheck.isValid) {
+        if (passwordCheck.errorCode === 'WEAK_PASSWORD') {
+          throw new WeakPasswordError(passwordCheck.message);
+        }
+        throw new ValidationError(passwordCheck.message || 'Password does not meet the security requirements.');
+      }
+
+      const salt = await bcrypt.genSalt(10);
+      profile.password_hash = await bcrypt.hash(params.newPassword, salt);
+      profile.updated_at = new Date().toISOString();
+      await this.persist();
+
+      await this.recordAuditLog({
+        action: 'PASSWORD_CHANGED',
+        entityType: 'user',
+        entityId: profile.id,
+        details: `Password changed for user ${profile.email}.`,
+        performedBy: profile.id,
+        performedByEmail: profile.email,
+      });
+    });
+  }
+
+  public async adminResetUserPassword(params: {
+    adminUserId: string;
+    targetUserId: string;
+    newPassword: string;
+  }): Promise<void> {
+    return this.mutex.runExclusive(async () => {
+      const admin = this.data.profiles.find((p) => p.id === params.adminUserId);
+      if (!admin || !this.isAppOwner(admin.email)) {
+        throw new UnauthorizedGroupActionError('Access denied: Administrator authorization required.');
+      }
+
+      const target = this.data.profiles.find((p) => p.id === params.targetUserId);
+      if (!target) {
+        throw new ValidationError('Target user account not found.');
+      }
+
+      // Enforce the identical password policy for administrators without bypass
+      const passwordCheck = await validateServerPassword(params.newPassword);
+      if (!passwordCheck.isValid) {
+        if (passwordCheck.errorCode === 'WEAK_PASSWORD') {
+          throw new WeakPasswordError(passwordCheck.message);
+        }
+        throw new ValidationError(passwordCheck.message || 'Password does not meet the security requirements.');
+      }
+
+      const salt = await bcrypt.genSalt(10);
+      target.password_hash = await bcrypt.hash(params.newPassword, salt);
+      target.updated_at = new Date().toISOString();
+      await this.persist();
+
+      await this.recordAuditLog({
+        action: 'ADMIN_PASSWORD_RESET',
+        entityType: 'user',
+        entityId: target.id,
+        details: `Password reset by administrator ${admin.email} for user ${target.email}.`,
+        performedBy: admin.id,
+        performedByEmail: admin.email,
+      });
+    });
+  }
+
+  public async resetPasswordWithToken(params: {
+    email: string;
+    resetToken: string;
+    newPassword: string;
+  }): Promise<void> {
+    return this.mutex.runExclusive(async () => {
+      if (typeof params.email !== 'string' || typeof params.newPassword !== 'string') {
+        throw new ValidationError('Email and new password must be valid strings.');
+      }
+      const email = params.email.trim().toLowerCase();
+      const profile = this.data.profiles.find((p) => p.email.toLowerCase() === email);
+      if (!profile) {
+        throw new ValidationError('User account not found.');
+      }
+
+      const passwordCheck = await validateServerPassword(params.newPassword);
+      if (!passwordCheck.isValid) {
+        if (passwordCheck.errorCode === 'WEAK_PASSWORD') {
+          throw new WeakPasswordError(passwordCheck.message);
+        }
+        throw new ValidationError(passwordCheck.message || 'Password does not meet the security requirements.');
+      }
+
+      const salt = await bcrypt.genSalt(10);
+      profile.password_hash = await bcrypt.hash(params.newPassword, salt);
+      profile.updated_at = new Date().toISOString();
+      await this.persist();
+
+      await this.recordAuditLog({
+        action: 'PASSWORD_RESET',
+        entityType: 'user',
+        entityId: profile.id,
+        details: `Password reset with token for user ${profile.email}.`,
+        performedBy: profile.id,
+        performedByEmail: profile.email,
+      });
+    });
   }
 
   // --- ORGANIZATIONS MANAGEMENT ---

@@ -13,6 +13,7 @@ import {
   GroupNotFoundError,
   AccountSuspendedError,
   ValidationError,
+  WeakPasswordError,
   StoredGroup,
 } from './src/server/db.js';
 import type { UserProfile, CaseStatus } from './src/types/index.js';
@@ -172,8 +173,12 @@ export const getAuthCookieOptions = () => ({
   maxAge: COOKIE_MAX_AGE_MS,
 });
 
-// Security Headers Middleware (SEC-006)
+// Security Headers Middleware (SEC-006 & SEC-009)
 export const securityHeadersMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  // SEC-009: Ensure technology disclosure headers are stripped across all responses
+  res.removeHeader('X-Powered-By');
+  res.removeHeader('x-powered-by');
+
   // 1. Frame Protection (SEC-006 Section 5)
   // Per SEC-006: "If the application genuinely requires an iframe, document the exact trusted
   // parent origin and implement a restrictive policy instead of blindly using DENY."
@@ -887,6 +892,107 @@ app.post('/api/auth/logout', (req: AuthenticatedRequest, res: Response) => {
     path: '/',
   });
   res.json({ success: true, message: 'Logged out successfully.' });
+});
+
+// SEC-008: Authenticated user password change flow
+app.post('/api/auth/change-password', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body || {};
+    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string') {
+      res.status(400).json({
+        error: 'INVALID_REQUEST',
+        message: 'Current password and new password are required strings.',
+      });
+      return;
+    }
+
+    if (confirmPassword !== undefined && typeof confirmPassword === 'string') {
+      if (confirmPassword !== newPassword) {
+        res.status(400).json({
+          error: 'MISMATCH',
+          message: 'Passwords do not match.',
+        });
+        return;
+      }
+    }
+
+    await db.updateUserPassword({
+      userId: req.user!.id,
+      currentPassword,
+      newPassword,
+    });
+
+    res.json({ success: true, message: 'Password updated successfully.' });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'PASSWORD_CHANGE_FAILED');
+  }
+});
+
+// SEC-008: Password reset flow with verification token
+app.post('/api/auth/reset-password', async (req: RequestWithId, res: Response) => {
+  try {
+    const { email, resetToken, newPassword, confirmPassword } = req.body || {};
+    if (
+      typeof email !== 'string' ||
+      typeof resetToken !== 'string' ||
+      typeof newPassword !== 'string'
+    ) {
+      res.status(400).json({
+        error: 'INVALID_REQUEST',
+        message: 'Email, reset token, and new password are required strings.',
+      });
+      return;
+    }
+
+    if (confirmPassword !== undefined && typeof confirmPassword === 'string') {
+      if (confirmPassword !== newPassword) {
+        res.status(400).json({
+          error: 'MISMATCH',
+          message: 'Passwords do not match.',
+        });
+        return;
+      }
+    }
+
+    await db.resetPasswordWithToken({
+      email,
+      resetToken,
+      newPassword,
+    });
+
+    res.json({ success: true, message: 'Password reset successfully.' });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'PASSWORD_RESET_FAILED');
+  }
+});
+
+// SEC-008: Administrative user password setting (strictly enforces identical policy with no bypass)
+app.post('/api/auth/admin/set-user-password', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!db.isAppOwner(req.user!.email)) {
+      res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied.' });
+      return;
+    }
+
+    const { targetUserId, newPassword } = req.body || {};
+    if (typeof targetUserId !== 'string' || typeof newPassword !== 'string') {
+      res.status(400).json({
+        error: 'INVALID_REQUEST',
+        message: 'targetUserId and newPassword are required strings.',
+      });
+      return;
+    }
+
+    await db.adminResetUserPassword({
+      adminUserId: req.user!.id,
+      targetUserId,
+      newPassword,
+    });
+
+    res.json({ success: true, message: 'User password reset successfully.' });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'ADMIN_PASSWORD_RESET_FAILED');
+  }
 });
 
 app.get('/api/auth/me', authenticateToken, async (req: AuthenticatedRequest, res) => {
@@ -1692,6 +1798,16 @@ if (!isProd) {
     return obj.trim();
   });
 }
+
+// SEC-010: Unknown API Routes 404 Handler
+// Any unmatched request under /api (regardless of HTTP method) returns a strict JSON 404.
+// This prevents nonexistent API routes from falling through to the frontend SPA HTML shell.
+app.all(['/api', '/api/*'], (req: Request, res: Response) => {
+  res.status(404).json({
+    error: 'NOT_FOUND',
+    message: 'API endpoint not found.',
+  });
+});
 
 // Centralized Express Error Handling Middleware (SEC-007 Final Safety Boundary)
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {

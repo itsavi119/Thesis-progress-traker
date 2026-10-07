@@ -16,6 +16,7 @@ import {
   Check,
   ShieldCheck,
   FileText,
+  KeyRound,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.js';
 import { useGroup } from '../context/GroupContext.js';
@@ -24,6 +25,7 @@ import { PrivacyNotice } from './PrivacyNotice.js';
 import { Logo } from './Logo.js';
 import { CreateGroupModal } from './CreateGroupModal.js';
 import { JoinGroupModal } from './JoinGroupModal.js';
+import { ChangePasswordModal } from './ChangePasswordModal.js';
 
 export type ActiveTab =
   | 'my-groups'
@@ -50,6 +52,7 @@ export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, childre
   const [groupDropdownOpen, setGroupDropdownOpen] = useState<boolean>(false);
   const [createGroupModalOpen, setCreateGroupModalOpen] = useState<boolean>(false);
   const [joinGroupModalOpen, setJoinGroupModalOpen] = useState<boolean>(false);
+  const [changePasswordModalOpen, setChangePasswordModalOpen] = useState<boolean>(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -272,13 +275,24 @@ export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, childre
             </div>
           </div>
 
-          <button
-            onClick={logout}
-            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200 hover:border-rose-200 text-xs font-semibold transition-colors cursor-pointer touch-manipulation"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Sign Out</span>
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setChangePasswordModalOpen(true)}
+              title="Change Password"
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold transition-colors cursor-pointer touch-manipulation"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-slate-500" />
+              <span>Password</span>
+            </button>
+            <button
+              onClick={logout}
+              title="Sign Out"
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200 hover:border-rose-200 text-xs font-semibold transition-colors cursor-pointer touch-manipulation"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sign Out</span>
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -589,6 +603,11 @@ export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, childre
           refreshGroups();
           setActiveTab('dashboard');
         }}
+      />
+
+      <ChangePasswordModal
+        isOpen={changePasswordModalOpen}
+        onClose={() => setChangePasswordModalOpen(false)}
       />
     </div>
   );

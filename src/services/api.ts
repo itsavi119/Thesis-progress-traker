@@ -215,6 +215,29 @@ class ApiService {
     return this.request('/api/auth/team-capacity');
   }
 
+  public async changePassword(params: {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword?: string;
+  }): Promise<{ success: boolean; message: string }> {
+    return this.request('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  public async resetPassword(params: {
+    email: string;
+    resetToken: string;
+    newPassword: string;
+    confirmPassword?: string;
+  }): Promise<{ success: boolean; message: string }> {
+    return this.request('/api/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
   // --- ORGANIZATIONS ---
 
   public async getUserOrganizations(): Promise<{ organizations: Organization[] }> {
