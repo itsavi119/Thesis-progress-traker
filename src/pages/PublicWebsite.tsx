@@ -162,7 +162,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                   onClick={() => onNavigateToAuth('register')}
                   className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-xs transition-all active:scale-[0.98] cursor-pointer"
                 >
-                  Get Started
+                  Sign Up
                 </button>
               </>
             )}
@@ -246,16 +246,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                     }}
                     className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-center text-white bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer"
                   >
-                    Get Started
-                  </button>
-                  <button
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      onNavigateToAuth('organization-login');
-                    }}
-                    className="w-full py-2 text-center text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
-                  >
-                    Organization Administration Login →
+                    Sign Up
                   </button>
                 </>
               )}
@@ -294,7 +285,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                 onClick={() => onNavigateToAuth('register')}
                 className="w-full sm:w-auto min-h-[46px] px-7 py-3 rounded-xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2"
               >
-                <span>Get Started</span>
+                <span>Sign Up</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
               <button
@@ -722,7 +713,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                     onClick={() => onNavigateToAuth('register')}
                     className="hover:text-white transition-colors cursor-pointer"
                   >
-                    Get Started
+                    Sign Up
                   </button>
                 </li>
                 <li>

@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, Mail, User, AlertCircle, Building2, ArrowLeft, Shield, UserPlus, LogIn } from 'lucide-react';
+import { Lock, Mail, User, AlertCircle, ArrowLeft, Shield, CheckCircle2, X } from 'lucide-react';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { SignUpButton } from '@designcodeio/threeui';
+import '@designcodeio/threeui/style.css';
+
+import { auth } from '../firebase/config.js';
 import { useAuth } from '../context/AuthContext.js';
 import { Logo } from '../components/Logo.js';
 import { api } from '../services/api.js';
@@ -28,9 +33,29 @@ export const Login: React.FC<LoginProps> = ({
   const [password, setPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [displayName, setDisplayName] = useState<string>('');
+  const [rememberMe, setRememberMe] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState<boolean>(false);
+
+  // Forgot Password modal state
+  const [showForgotPassword, setShowForgotPassword] = useState<boolean>(false);
+  const [forgotEmail, setForgotEmail] = useState<string>('');
+  const [forgotStatus, setForgotStatus] = useState<'idle' | 'submitting' | 'success'>('idle');
+  const [forgotError, setForgotError] = useState<string | null>(null);
+
+  // Restore remembered email on initial load
+  useEffect(() => {
+    try {
+      const savedEmail = localStorage.getItem('thesis_tracker_remembered_email');
+      if (savedEmail) {
+        setEmail(savedEmail);
+        setRememberMe(true);
+      }
+    } catch {
+      // Ignore localStorage access failures
+    }
+  }, []);
 
   useEffect(() => {
     setMode(initialMode);
@@ -51,57 +76,55 @@ export const Login: React.FC<LoginProps> = ({
     setIsGoogleSubmitting(true);
     try {
       if (isOrgMode) {
-        // Sign in via Firebase Google then verify with server-side organization-login endpoint
-        const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
-        const { auth } = await import('../firebase/config.js');
-        const provider = new GoogleAuthProvider();
-        const userCred = await signInWithPopup(auth, provider);
-        const gUser = userCred.user;
-
-        const authRes = await api.organizationLogin({
-          uid: gUser.uid,
-          email: gUser.email || '',
-          displayName: gUser.displayName || undefined,
-        });
-
-        if (!authRes.user.is_app_owner) {
-          api.logout();
-          throw new Error('Access denied: User is not an authorized organization administrator.');
-        }
-
-        if (onSuccessfulLogin) {
-          onSuccessfulLogin(true);
-        } else {
-          window.location.hash = '#app-owner';
-          window.location.reload();
+        // Sign in via Google then verify administrator authorization server-side
+        const success = await signInWithGoogle();
+        if (success) {
+          try {
+            const me = await api.getMe();
+            if (!me.user.is_app_owner) {
+              api.logout();
+              setError('Access denied: User is not an authorized organization administrator.');
+              return;
+            }
+            if (onSuccessfulLogin) {
+              onSuccessfulLogin(true);
+            } else {
+              window.location.hash = '#app-owner';
+              window.location.reload();
+            }
+          } catch {
+            setError('Access denied: User is not an authorized organization administrator.');
+          }
         }
       } else {
-        await signInWithGoogle();
-        onSuccessfulLogin?.(false);
+        const success = await signInWithGoogle();
+        if (success) {
+          onSuccessfulLogin?.(false);
+        }
       }
     } catch (err: any) {
-      // User closed or dismissed the Google popup window; cleanly abort without error banner
+      const errCode = err?.code || '';
+      const errMsg = String(err?.message || err || '').toLowerCase();
+      // Gracefully handle popup closure/cancellation without disruptive red banner
       if (
-        err?.code === 'auth/popup-closed-by-user' ||
-        err?.code === 'auth/cancelled-popup-request' ||
-        err?.message?.includes('popup-closed-by-user') ||
-        err?.message?.includes('cancelled-popup-request')
+        errCode === 'auth/popup-closed-by-user' ||
+        errCode === 'auth/cancelled-popup-request' ||
+        errCode === 'auth/user-cancelled' ||
+        errMsg.includes('popup-closed-by-user') ||
+        errMsg.includes('cancelled-popup-request')
       ) {
         return;
       }
 
-      console.error('Sign-In error:', err);
+      console.warn('Google sign-in status:', err?.message || err);
       if (isOrgMode) {
-        setError('Access denied: User is not an authorized organization administrator.');
-      } else if (err?.code === 'auth/popup-blocked' || err?.message?.includes('popup-blocked')) {
-        setError('The sign-in popup was blocked by your browser. Please allow popups or use email credentials.');
-      } else if (err?.code === 'auth/unauthorized-domain' || err?.message?.includes('unauthorized-domain')) {
-        const domain = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
-        setError(
-          `Google Sign-In is unavailable because "${domain}" is not in the Firebase Authorized Domains list. Please sign in or register with email and password below.`
-        );
+        setError(err?.message || 'Access denied: User is not an authorized organization administrator.');
+      } else if (errCode === 'auth/popup-blocked' || errMsg.includes('popup-blocked')) {
+        setError('The sign-in popup was blocked by your browser. Please allow popups or use institutional email credentials.');
+      } else if (errCode === 'auth/unauthorized-domain' || errMsg.includes('unauthorized-domain')) {
+        setError('Google Sign-In is not enabled for this domain. Please use institutional email credentials.');
       } else {
-        setError(err.message || 'Google Sign-In failed. Please try again or use email credentials.');
+        setError('Google Sign-In is currently unavailable. Please sign in with your email credentials.');
       }
     } finally {
       setIsGoogleSubmitting(false);
@@ -146,10 +169,25 @@ export const Login: React.FC<LoginProps> = ({
           throw new Error(matchVal.message || 'Passwords do not match.');
         }
 
-        await register(email, password, displayName);
+        await register(email.trim(), password, displayName.trim());
         onSuccessfulLogin?.(false);
       } else {
-        await login(email, password);
+        // Sign In mode
+        if (rememberMe) {
+          try {
+            localStorage.setItem('thesis_tracker_remembered_email', email.trim());
+          } catch {
+            // Ignore storage failure
+          }
+        } else {
+          try {
+            localStorage.removeItem('thesis_tracker_remembered_email');
+          } catch {
+            // Ignore storage failure
+          }
+        }
+
+        await login(email.trim(), password);
         onSuccessfulLogin?.(false);
       }
     } catch (err: any) {
@@ -160,6 +198,26 @@ export const Login: React.FC<LoginProps> = ({
       }
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError(null);
+    if (!forgotEmail.trim()) {
+      setForgotError('Please enter your institutional email address.');
+      return;
+    }
+
+    setForgotStatus('submitting');
+    try {
+      await sendPasswordResetEmail(auth, forgotEmail.trim());
+      setForgotStatus('success');
+    } catch (err: any) {
+      // If Firebase sends an error, provide clear guidance
+      console.warn('Password reset notice:', err);
+      // For privacy/security, indicate that if account exists, instructions have been triggered
+      setForgotStatus('success');
     }
   };
 
@@ -190,7 +248,7 @@ export const Login: React.FC<LoginProps> = ({
         </div>
 
         {/* ========================================================================= */}
-        {/* VIEW A: ORGANIZATION LOGIN (Clearly Separated)                           */}
+        {/* VIEW 1: SEPARATE ADMIN / ORGANIZATION LOGIN PATHWAY                       */}
         {/* ========================================================================= */}
         {isOrgMode ? (
           <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/50 space-y-5">
@@ -199,7 +257,7 @@ export const Login: React.FC<LoginProps> = ({
               <div>
                 <p className="text-xs font-bold">Organization Administration Access</p>
                 <p className="text-[11px] text-slate-400">
-                  Restricted access for authorized institutional & application administrators.
+                  Protected portal for authorized institutional and platform administrators.
                 </p>
               </div>
             </div>
@@ -305,23 +363,50 @@ export const Login: React.FC<LoginProps> = ({
               </button>
             </div>
           </div>
-        ) : isRegistering ? (
+        ) : (
           /* ========================================================================= */
-          /* VIEW B: GET STARTED / CREATE RESEARCH ACCOUNT (/register)                */
+          /* VIEW 2: UNIFIED RESEARCHER AUTHENTICATION PAGE ([ Sign In ] [ Sign Up ])  */
           /* ========================================================================= */
           <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/50 space-y-5 animate-in fade-in duration-150">
-            {/* Distinct Header for Registration */}
+            {/* TWO-MODE SWITCH: [ Sign In ] [ Sign Up ] */}
+            <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl text-xs font-bold border border-slate-200/70">
+              <button
+                type="button"
+                onClick={() => switchMode('login')}
+                className={`py-2.5 px-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                  !isRegistering
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <span>Sign In</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => switchMode('register')}
+                className={`py-2.5 px-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                  isRegistering
+                    ? 'bg-white text-blue-600 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <span>Sign Up</span>
+              </button>
+            </div>
+
+            {/* Header: Changes dynamically based on mode */}
             <div className="text-center space-y-1 pb-1 border-b border-slate-100">
-              <div className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg">
-                <UserPlus className="w-3.5 h-3.5" />
-                <span>Get Started — New Account</span>
-              </div>
-              <h2 className="text-lg font-extrabold text-slate-900">Create Research Account</h2>
-              <p className="text-xs text-slate-500">
-                Register to coordinate thesis studies, track milestones, and manage clinical cases.
+              <h2 className="text-xl font-extrabold text-slate-900">
+                {isRegistering ? 'Create Research Account' : 'Welcome Back'}
+              </h2>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                {isRegistering
+                  ? 'Register to coordinate thesis studies, track milestones, and manage clinical cases.'
+                  : 'Sign in to continue managing your research workspace.'}
               </p>
             </div>
 
+            {/* Error Banner */}
             {error && (
               <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800 animate-in fade-in">
                 <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -329,106 +414,17 @@ export const Login: React.FC<LoginProps> = ({
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Full Name / Investigator Title
-                </label>
-                <div className="relative">
-                  <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    required
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="e.g., Dr. Sarah Jenkins"
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Institutional Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="investigator@hospital.org"
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Create Password</label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
-                <p className="text-[11px] text-slate-500 mt-1 leading-normal">
-                  Minimum {MIN_PASSWORD_LENGTH} characters. Common or breached passwords will be rejected.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Confirm Password</label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="password"
-                    required
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSubmitting || isGoogleSubmitting}
-                className="w-full min-h-[46px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25 shadow-md transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
-              >
-                {isSubmitting ? (
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  'Create Research Account'
-                )}
-              </button>
-            </form>
-
-            <div className="relative flex items-center justify-center pt-1">
-              <div className="border-t border-slate-200 w-full" />
-              <span className="bg-white px-3 text-xs text-slate-400 font-medium shrink-0">
-                or sign up with Google
-              </span>
-              <div className="border-t border-slate-200 w-full" />
-            </div>
-
-            {/* Google Sign-Up */}
+            {/* Continue with Google (Supported in both modes) */}
             <button
               type="button"
               onClick={handleGoogleSignIn}
               disabled={isGoogleSubmitting || isSubmitting}
-              className="w-full min-h-[44px] flex items-center justify-center gap-3 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 rounded-xl font-semibold text-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+              className="w-full min-h-[48px] flex items-center justify-center gap-3 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border-2 border-slate-200 hover:border-slate-300 rounded-2xl font-bold text-sm shadow-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer touch-manipulation"
             >
               {isGoogleSubmitting ? (
                 <span className="w-4 h-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
               ) : (
-                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                   <path
                     fill="#4285F4"
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -450,95 +446,46 @@ export const Login: React.FC<LoginProps> = ({
               <span>Continue with Google</span>
             </button>
 
-            {/* Toggle to Sign In */}
-            <div className="pt-3 border-t border-slate-100 text-center text-xs text-slate-600">
-              <p>
-                Already registered?{' '}
-                <button
-                  type="button"
-                  onClick={() => switchMode('login')}
-                  className="font-bold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer underline"
-                >
-                  Sign In to your workspace →
-                </button>
-              </p>
-            </div>
-          </div>
-        ) : (
-          /* ========================================================================= */
-          /* VIEW C: SIGN IN TO RESEARCH WORKSPACE (/login)                           */
-          /* ========================================================================= */
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/50 space-y-5 animate-in fade-in duration-150">
-            {/* Distinct Header for Sign In */}
-            <div className="text-center space-y-1 pb-1 border-b border-slate-100">
-              <div className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg">
-                <LogIn className="w-3.5 h-3.5" />
-                <span>Existing Researcher Sign In</span>
-              </div>
-              <h2 className="text-lg font-extrabold text-slate-900">Sign In to Research Workspace</h2>
-              <p className="text-xs text-slate-500">
-                Access your clinical cases, milestones, and active research groups.
-              </p>
-            </div>
-
-            {error && (
-              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800 animate-in fade-in">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                <p className="font-medium leading-relaxed">{error}</p>
-              </div>
-            )}
-
-            {/* Primary Action: Google Sign-In */}
-            <div>
-              <button
-                type="button"
-                onClick={handleGoogleSignIn}
-                disabled={isGoogleSubmitting || isSubmitting}
-                className="w-full min-h-[48px] flex items-center justify-center gap-3 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border-2 border-slate-200 hover:border-slate-300 rounded-2xl font-bold text-sm shadow-xs transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer touch-manipulation"
-              >
-                {isGoogleSubmitting ? (
-                  <span className="w-4 h-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
-                ) : (
-                  <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-                    <path
-                      fill="#4285F4"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                    />
-                  </svg>
-                )}
-                <span>Continue with Google</span>
-              </button>
-            </div>
-
-            <div className="relative flex items-center justify-center">
+            {/* Divider */}
+            <div className="relative flex items-center justify-center my-3">
               <div className="border-t border-slate-200 w-full" />
-              <span className="bg-white px-3 text-xs text-slate-400 font-medium shrink-0">
-                or institutional credentials
+              <span className="bg-white px-3 text-[11px] text-slate-400 font-medium shrink-0">
+                or with email
               </span>
               <div className="border-t border-slate-200 w-full" />
             </div>
 
+            {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Sign Up Mode Fields: Full Name */}
+              {isRegistering && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Full Name / Investigator Title
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="e.g., Dr. Sarah Jenkins"
+                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Institutional Email */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Institutional Email
+                  {isRegistering ? 'Institutional Email' : 'Institutional Email / Username'}
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
-                    type="email"
+                    type="text"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -548,8 +495,11 @@ export const Login: React.FC<LoginProps> = ({
                 </div>
               </div>
 
+              {/* Password */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Password</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  {isRegistering ? 'Create Password' : 'Password'}
+                </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
@@ -563,50 +513,200 @@ export const Login: React.FC<LoginProps> = ({
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={isSubmitting || isGoogleSubmitting}
-                className="w-full min-h-[46px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25 shadow-md transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
-              >
-                {isSubmitting ? (
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  'Sign In to Research Workspace'
-                )}
-              </button>
+              {/* Sign Up Mode Fields: Confirm Password */}
+              {isRegistering && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Confirm Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="password"
+                      required
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Sign In Mode: Remember Me & Forgot Password? */}
+              {!isRegistering && (
+                <div className="flex items-center justify-between text-xs pt-0.5">
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-slate-600 hover:text-slate-900">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500/30"
+                    />
+                    <span className="font-medium">Remember Me</span>
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotEmail(email);
+                      setForgotStatus('idle');
+                      setForgotError(null);
+                      setShowForgotPassword(true);
+                    }}
+                    className="font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+              )}
+
+              {/* Primary Action Button */}
+              {isRegistering ? (
+                /* THREEUI SIGN-UP BUTTON for Sign Up */
+                <div className="pt-1">
+                  <SignUpButton
+                    type="submit"
+                    disabled={isSubmitting || isGoogleSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Creating Account...</span>
+                      </span>
+                    ) : (
+                      <span>Create Research Account</span>
+                    )}
+                  </SignUpButton>
+                </div>
+              ) : (
+                /* Clean conventional primary button for Sign In */
+                <button
+                  type="submit"
+                  disabled={isSubmitting || isGoogleSubmitting}
+                  className="w-full min-h-[46px] flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25 shadow-md transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+                >
+                  {isSubmitting ? (
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    'Sign In'
+                  )}
+                </button>
+              )}
             </form>
 
-            {/* Toggle to Register / Get Started */}
+            {/* Mode Switching Links */}
             <div className="pt-3 border-t border-slate-100 text-center text-xs text-slate-600">
-              <p>
-                Don't have an account?{' '}
-                <button
-                  type="button"
-                  onClick={() => switchMode('register')}
-                  className="font-bold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer underline"
-                >
-                  Get Started / Create Account →
-                </button>
-              </p>
-            </div>
-
-            {/* Visually Separated Organization Login Entry Point */}
-            <div className="pt-4 border-t border-slate-100 text-center space-y-1">
-              <button
-                type="button"
-                onClick={() => switchMode('organization-login')}
-                className="w-full py-2.5 px-3 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
-              >
-                <Building2 className="w-3.5 h-3.5 text-slate-500" />
-                <span>Organization Login</span>
-              </button>
-              <p className="text-[10px] text-slate-400">
-                Restricted access for authorized institutional and application administrators.
-              </p>
+              {isRegistering ? (
+                <p>
+                  Already registered?{' '}
+                  <button
+                    type="button"
+                    onClick={() => switchMode('login')}
+                    className="font-bold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+                  >
+                    Sign In to your workspace →
+                  </button>
+                </p>
+              ) : (
+                <p>
+                  Don't have an account?{' '}
+                  <button
+                    type="button"
+                    onClick={() => switchMode('register')}
+                    className="font-bold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+                  >
+                    Sign Up →
+                  </button>
+                </p>
+              )}
             </div>
           </div>
         )}
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotPassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 max-w-sm w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900">Reset Password</h3>
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {forgotStatus === 'success' ? (
+              <div className="space-y-4 py-2">
+                <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-start gap-2.5 text-xs text-emerald-800">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <p className="leading-relaxed">
+                    If an account is associated with <span className="font-semibold">{forgotEmail}</span>,
+                    password reset instructions have been dispatched. Please check your inbox.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(false)}
+                  className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                >
+                  Return to Sign In
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleForgotPasswordSubmit} className="space-y-3.5">
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Enter your institutional email address and we'll send instructions to reset your workspace access.
+                </p>
+
+                {forgotError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800">
+                    {forgotError}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Institutional Email
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="email"
+                      required
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      placeholder="investigator@hospital.org"
+                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword(false)}
+                    className="w-1/2 py-2 px-3 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={forgotStatus === 'submitting'}
+                    className="w-1/2 py-2 px-3 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    {forgotStatus === 'submitting' ? 'Sending...' : 'Send Link'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -32,8 +32,8 @@ export const LegalDocsModal: React.FC<LegalDocsModalProps> = ({
         } else if (res.policies.length > 0) {
           setActiveTab(res.policies[0].id);
         }
-      } catch (err) {
-        console.error('Failed to load legal policy documents:', err);
+      } catch (err: any) {
+        console.warn('Notice loading legal policy documents:', err?.message || err);
       } finally {
         setIsLoading(false);
       }

@@ -28,7 +28,7 @@ import type {
   UserProfile,
 } from '../types/index.js';
 
-export const PRIMARY_APP_OWNER = 'avishah.as119@gmail.com';
+export const PRIMARY_APP_OWNER = 'avishah.as118@gmail.com';
 
 interface StoredProfile {
   id: string;
@@ -507,8 +507,20 @@ export class RelationalDatabase {
   public isAppOwner(email: string | null | undefined): boolean {
     if (!email) return false;
     const normalized = email.trim().toLowerCase();
-    if (normalized === PRIMARY_APP_OWNER.toLowerCase() || normalized === 'nikhil.work119@gmail.com') return true;
-    const authorized = this.data.app_settings?.authorized_app_owners || [PRIMARY_APP_OWNER, 'nikhil.work119@gmail.com'];
+    if (
+      normalized === PRIMARY_APP_OWNER.toLowerCase() ||
+      normalized === 'avishah.as118@gmail.com' ||
+      normalized === 'avishah.as119@gmail.com' ||
+      normalized === 'nikhil.work119@gmail.com'
+    ) {
+      return true;
+    }
+    const authorized = this.data.app_settings?.authorized_app_owners || [
+      PRIMARY_APP_OWNER,
+      'avishah.as118@gmail.com',
+      'avishah.as119@gmail.com',
+      'nikhil.work119@gmail.com',
+    ];
     return authorized.map((e) => e.toLowerCase()).includes(normalized);
   }
 
@@ -704,7 +716,16 @@ export class RelationalDatabase {
 
       const existing = this.data.profiles.find((p) => p.email.toLowerCase() === email);
       if (existing) {
-        throw new ValidationError('An account with this email address is already registered.');
+        if (!existing.password_hash || existing.password_hash.trim() === '') {
+          // Existing Google account without password: set password so researcher can sign in with credentials
+          const salt = await bcrypt.genSalt(10);
+          existing.password_hash = await bcrypt.hash(params.password, salt);
+          if (displayName) existing.display_name = displayName;
+          existing.updated_at = new Date().toISOString();
+          await this.persist();
+          return this.resolveUserProfile(existing);
+        }
+        throw new ValidationError('An account with this email address is already registered. Please sign in with your password.');
       }
 
       const salt = await bcrypt.genSalt(10);

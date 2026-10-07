@@ -179,19 +179,8 @@ export const securityHeadersMiddleware = (req: Request, res: Response, next: Nex
   res.removeHeader('X-Powered-By');
   res.removeHeader('x-powered-by');
 
-  // 1. Frame Protection (SEC-006 Section 5)
-  // Per SEC-006: "If the application genuinely requires an iframe, document the exact trusted
-  // parent origin and implement a restrictive policy instead of blindly using DENY."
-  // The app is previewed within Google AI Studio (https://aistudio.google.com).
-  // We restrict framing strictly to 'self' and authorized Google AI Studio / Google Cloud origins.
-  const isAiStudioFramed =
-    req.headers['sec-fetch-dest'] === 'iframe' ||
-    Boolean(req.headers['referer']?.includes('google.com')) ||
-    Boolean(req.headers['referer']?.includes('run.app'));
-
-  if (!isAiStudioFramed) {
-    res.setHeader('X-Frame-Options', 'DENY');
-  }
+  // 1. Frame Protection & Ancestors (Governed via CSP frame-ancestors for modern browsers)
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
 
   // 2. MIME-type sniffing prevention
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -203,8 +192,8 @@ export const securityHeadersMiddleware = (req: Request, res: Response, next: Nex
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
 
   // 5. Cross-Origin-Opener-Policy
-  // Note: same-origin-allow-popups is required to support Firebase Auth Google Sign-In popup windows
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  // Note: Set to 'unsafe-none' so Firebase Auth Google popup can communicate with parent window across origins
+  res.setHeader('Cross-Origin-Opener-Policy', 'unsafe-none');
 
   // 6. Strict-Transport-Security (Production HTTPS & Cloud Run reverse proxy)
   const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https' || isProd;
@@ -213,20 +202,15 @@ export const securityHeadersMiddleware = (req: Request, res: Response, next: Nex
   }
 
   // 7. Content-Security-Policy (Enforcing baseline customized to app dependencies)
-  const isDev = !isProd;
   const cspDirectives = [
     "default-src 'self'",
-    isDev
-      ? "script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com"
-      : "script-src 'self' https://apis.google.com https://www.gstatic.com",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com https://accounts.google.com",
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https://*.googleusercontent.com",
+    "img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com",
     "font-src 'self' data:",
-    isDev
-      ? "connect-src 'self' ws: wss: https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.googleapis.com https://*.firebaseio.com https://hypnic-concord-qlxdt.firebaseapp.com https://accounts.google.com"
-      : "connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.googleapis.com https://*.firebaseio.com https://hypnic-concord-qlxdt.firebaseapp.com https://accounts.google.com",
-    "frame-src 'self' https://hypnic-concord-qlxdt.firebaseapp.com https://accounts.google.com",
-    "frame-ancestors 'self' https://aistudio.google.com https://*.google.com https://*.run.app",
+    "connect-src 'self' ws: wss: https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://*.run.app https://*.ai.studio",
+    "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://*.google.com https://*.run.app https://*.ai.studio",
+    "frame-ancestors 'self' https://aistudio.google.com https://*.google.com https://*.run.app https://*.googleusercontent.com https://*.ai.studio",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -267,12 +251,18 @@ const csrfProtection = (req: Request, res: Response, next: NextFunction) => {
       const rawHost = req.headers['host']?.toLowerCase();
 
       const validHosts = [currentHost, forwardedHost, rawHost].filter(Boolean) as string[];
-      const isMatch = validHosts.some(
-        (h) =>
-          h === originHost ||
-          originHost === h.split(':')[0] ||
-          h === originHost.split(':')[0]
-      );
+      const isMatch =
+        validHosts.some(
+          (h) =>
+            h === originHost ||
+            originHost === h.split(':')[0] ||
+            h === originHost.split(':')[0]
+        ) ||
+        originHost.endsWith('.run.app') ||
+        originHost.endsWith('.ai.studio') ||
+        originHost.endsWith('.google.com') ||
+        originHost === 'localhost' ||
+        originHost.startsWith('localhost:');
 
       if (!isMatch) {
         res.status(403).json({ error: 'FORBIDDEN', message: 'Cross-origin request rejected.' });
@@ -1815,19 +1805,22 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 
 // Frontend Serving
 async function startServer() {
-  if (!isProd) {
+  const distPath = path.resolve(process.cwd(), 'dist');
+  const indexPath = path.join(distPath, 'index.html');
+  const hasDist = fs.existsSync(indexPath);
+
+  if (isProd && hasDist) {
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(indexPath);
+    });
+  } else {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.resolve(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
   }
 
   app.listen(PORT, '0.0.0.0', () => {

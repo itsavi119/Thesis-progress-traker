@@ -69,7 +69,7 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setUserGroups([]);
         setCurrentGroup(null);
       } else {
-        console.error('Failed to load user research groups:', err);
+        console.warn('Notice loading user research groups:', err?.message || err);
       }
     } finally {
       setIsLoadingGroups(false);

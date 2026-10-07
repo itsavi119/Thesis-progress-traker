@@ -25,20 +25,51 @@ const VALID_TABS: ActiveTab[] = [
   'app-owner',
 ];
 
-const AUTH_ROUTES = ['login', 'register', 'organization-login'];
+const AUTH_ROUTES = ['login', 'register', 'auth', 'signup', 'signin', 'organization-login', 'admin'];
 const PUBLIC_SECTIONS = ['home', 'about', 'capabilities', 'features', 'how-it-works', 'privacy', 'policies', 'contact'];
 
 function parseCurrentRoute(): string {
   if (typeof window === 'undefined') return 'home';
 
-  const pathname = window.location.pathname.replace(/^\//, '').toLowerCase();
-  if (AUTH_ROUTES.includes(pathname)) {
-    return pathname;
+  // 1. Check URL query parameters (e.g., ?mode=signup or ?mode=register)
+  try {
+    const searchParams = new URLSearchParams(window.location.search);
+    const modeParam = searchParams.get('mode')?.toLowerCase();
+    if (modeParam === 'signup' || modeParam === 'register') {
+      return 'register';
+    }
+    if (modeParam === 'login' || modeParam === 'signin') {
+      return 'login';
+    }
+    if (modeParam === 'admin' || modeParam === 'organization-login') {
+      return 'organization-login';
+    }
+  } catch {
+    // Ignore search param parse issues
   }
 
+  // 2. Check pathname
+  const pathname = window.location.pathname.replace(/^\//, '').toLowerCase();
+  if (pathname === 'register' || pathname === 'signup') {
+    return 'register';
+  }
+  if (pathname === 'login' || pathname === 'signin') {
+    return 'login';
+  }
+  if (pathname === 'organization-login' || pathname === 'admin') {
+    return 'organization-login';
+  }
+  if (pathname === 'auth') {
+    return 'login'; // Direct Authentication Page access -> Default to Sign In
+  }
+
+  // 3. Check hash
   const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
   if (hash) {
-    if (AUTH_ROUTES.includes(hash)) return hash;
+    if (hash === 'register' || hash === 'signup') return 'register';
+    if (hash === 'login' || hash === 'signin') return 'login';
+    if (hash === 'organization-login' || hash === 'admin') return 'organization-login';
+    if (hash === 'auth') return 'login';
     if (VALID_TABS.includes(hash as ActiveTab)) return hash;
     if (PUBLIC_SECTIONS.includes(hash)) return 'home';
   }
@@ -58,26 +89,31 @@ const MainApp: React.FC = () => {
 
   // Sync route with browser history (supports standard pathnames and native back/forward)
   const navigateTo = useCallback((route: string, replace = false) => {
+    let normalized = route;
+    if (route === 'signup') normalized = 'register';
+    if (route === 'signin' || route === 'auth') normalized = 'login';
+    if (route === 'admin') normalized = 'organization-login';
+
     setCurrentRoute((prev) => {
-      if (prev === route) return prev;
+      if (prev === normalized) return prev;
 
       if (typeof window !== 'undefined') {
         let url = '/';
-        if (AUTH_ROUTES.includes(route)) {
-          url = `/${route}`;
-        } else if (VALID_TABS.includes(route as ActiveTab)) {
-          url = `#${route}`;
-        } else if (route === 'home') {
+        if (AUTH_ROUTES.includes(normalized)) {
+          url = `/${normalized}`;
+        } else if (VALID_TABS.includes(normalized as ActiveTab)) {
+          url = `#${normalized}`;
+        } else if (normalized === 'home') {
           url = '/';
         }
 
         if (replace) {
-          window.history.replaceState({ route }, '', url);
+          window.history.replaceState({ route: normalized }, '', url);
         } else {
-          window.history.pushState({ route }, '', url);
+          window.history.pushState({ route: normalized }, '', url);
         }
       }
-      return route;
+      return normalized;
     });
   }, []);
 
@@ -157,9 +193,16 @@ const MainApp: React.FC = () => {
   if (!isAuthenticated) {
     // A. Dedicated Authentication Routes: /login, /register, /organization-login
     if (AUTH_ROUTES.includes(currentRoute)) {
+      const authMode: 'login' | 'register' | 'organization-login' =
+        currentRoute === 'organization-login' || currentRoute === 'admin'
+          ? 'organization-login'
+          : currentRoute === 'register' || currentRoute === 'signup'
+          ? 'register'
+          : 'login';
+
       return (
         <Login
-          initialMode={currentRoute as 'login' | 'register' | 'organization-login'}
+          initialMode={authMode}
           onNavigateHome={() => navigateTo('home')}
           onSwitchMode={(mode) => navigateTo(mode)}
           onSuccessfulLogin={(isOrgAdmin) => {
