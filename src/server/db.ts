@@ -521,7 +521,16 @@ export class RelationalDatabase {
       'avishah.as119@gmail.com',
       'nikhil.work119@gmail.com',
     ];
-    return authorized.map((e) => e.toLowerCase()).includes(normalized);
+    if (authorized.map((e) => e.toLowerCase()).includes(normalized)) {
+      return true;
+    }
+
+    const profile = this.data.profiles.find((p) => p.email.toLowerCase() === normalized);
+    if (profile && this.data.organizations?.some((o) => o.owner_id === profile.id)) {
+      return true;
+    }
+
+    return false;
   }
 
   private resolveUserProfile(p: StoredProfile): UserProfile {
@@ -796,14 +805,33 @@ export class RelationalDatabase {
   }
 
   public async verifyUserCredentials(params: {
-    email: string;
+    email?: string;
+    organizationId?: string;
     password: string;
   }): Promise<UserProfile | null> {
-    if (!params || typeof params.email !== 'string' || typeof params.password !== 'string') {
+    if (!params || typeof params.password !== 'string') {
       return null;
     }
-    const email = params.email.trim().toLowerCase();
-    const profile = this.data.profiles.find((p) => p.email.toLowerCase() === email);
+    const identifier = (params.organizationId || params.email || '').trim().toLowerCase();
+    if (!identifier) return null;
+
+    let profile = this.data.profiles.find(
+      (p) => p.email.toLowerCase() === identifier || p.id.toLowerCase() === identifier
+    );
+
+    // If identifier was not found as a direct user profile, check if it matches an organization ID or contact email
+    if (!profile && this.data.organizations) {
+      const org = this.data.organizations.find(
+        (o) =>
+          o.id.toLowerCase() === identifier ||
+          o.name.toLowerCase() === identifier ||
+          (o.contact_email && o.contact_email.toLowerCase() === identifier)
+      );
+      if (org) {
+        profile = this.data.profiles.find((p) => p.id === org.owner_id);
+      }
+    }
+
     if (!profile) return null;
 
     if (profile.status === 'suspended') {

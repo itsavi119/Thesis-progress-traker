@@ -195,6 +195,7 @@ class ApiService {
 
   public async organizationLogin(params: {
     email?: string;
+    organizationId?: string;
     password?: string;
     uid?: string;
     displayName?: string;

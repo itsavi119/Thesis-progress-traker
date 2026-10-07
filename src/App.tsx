@@ -130,6 +130,20 @@ const MainApp: React.FC = () => {
   // When user becomes authenticated, restore requested tab or route to my-groups / app-owner
   useEffect(() => {
     if (isAuthenticated) {
+      const isOrgSession =
+        typeof window !== 'undefined' &&
+        (sessionStorage.getItem('thesis_tracker_auth_mode') === 'organization' ||
+          currentRoute === 'organization-login' ||
+          currentRoute === 'admin' ||
+          currentRoute === 'app-owner');
+
+      if (user?.is_app_owner && isOrgSession) {
+        if (currentRoute !== 'app-owner') {
+          navigateTo('app-owner', true);
+        }
+        return;
+      }
+
       if (preservedRedirectRef.current) {
         const target = preservedRedirectRef.current;
         preservedRedirectRef.current = null;
@@ -143,7 +157,7 @@ const MainApp: React.FC = () => {
           navigateTo(target, true);
         }
       } else if (AUTH_ROUTES.includes(currentRoute) || currentRoute === 'home') {
-        if (user?.is_app_owner && window.location.hash.includes('app-owner')) {
+        if (user?.is_app_owner && (window.location.hash.includes('app-owner') || isOrgSession)) {
           navigateTo('app-owner', true);
         } else {
           navigateTo('my-groups', true);
@@ -207,8 +221,18 @@ const MainApp: React.FC = () => {
           onSwitchMode={(mode) => navigateTo(mode)}
           onSuccessfulLogin={(isOrgAdmin) => {
             if (isOrgAdmin) {
+              if (typeof window !== 'undefined') {
+                try {
+                  sessionStorage.setItem('thesis_tracker_auth_mode', 'organization');
+                } catch {}
+              }
               navigateTo('app-owner', true);
             } else {
+              if (typeof window !== 'undefined') {
+                try {
+                  sessionStorage.removeItem('thesis_tracker_auth_mode');
+                } catch {}
+              }
               navigateTo('my-groups', true);
             }
           }}
@@ -229,21 +253,28 @@ const MainApp: React.FC = () => {
   // =========================================================================
   // 2. AUTHENTICATED USER EXPERIENCES
   // =========================================================================
+  const isOrgSession =
+    typeof window !== 'undefined' &&
+    sessionStorage.getItem('thesis_tracker_auth_mode') === 'organization';
+
   // If authenticated user visits the public home page explicitly:
   if (currentRoute === 'home') {
     return (
       <PublicWebsite
         isAuthenticated={true}
         onNavigateToAuth={(mode = 'login') => navigateTo(mode)}
-        onGoToWorkspace={() => navigateTo('my-groups')}
+        onGoToWorkspace={() => navigateTo(user?.is_app_owner && isOrgSession ? 'app-owner' : 'my-groups')}
       />
     );
   }
 
-  // Active Workspace tab
-  const activeTab: ActiveTab = VALID_TABS.includes(currentRoute as ActiveTab)
-    ? (currentRoute as ActiveTab)
-    : 'my-groups';
+  // Active Workspace tab: If in organization session, ONLY open organization dashboard ('app-owner')
+  const activeTab: ActiveTab =
+    user?.is_app_owner && (isOrgSession || currentRoute === 'app-owner')
+      ? 'app-owner'
+      : VALID_TABS.includes(currentRoute as ActiveTab)
+      ? (currentRoute as ActiveTab)
+      : 'my-groups';
 
   return (
     <Layout activeTab={activeTab} setActiveTab={(tab) => navigateTo(tab)}>

@@ -804,23 +804,24 @@ app.post('/api/auth/organization-login', async (req, res) => {
   }
 
   try {
-    const { email, password, uid, displayName } = req.body;
+    const { email, organizationId, password, uid, displayName } = req.body || {};
     let user: UserProfile | null = null;
+    const rawIdentifier = organizationId || email;
 
-    if (email && password) {
-      if (typeof email !== 'string' || typeof password !== 'string') {
-        res.status(400).json({ error: 'BAD_REQUEST', message: 'Email and password must be strings.' });
+    if (rawIdentifier && password) {
+      if (typeof rawIdentifier !== 'string' || typeof password !== 'string') {
+        res.status(400).json({ error: 'BAD_REQUEST', message: 'Organisation identifier and password must be strings.' });
         return;
       }
-      const normalizedEmail = email.trim().toLowerCase();
-      const accountResult = authRateLimiter.checkAccount(normalizedEmail);
+      const identifier = rawIdentifier.trim();
+      const accountResult = authRateLimiter.checkAccount(identifier.toLowerCase());
       if (!accountResult.allowed) {
         db.recordAuditLog({
           action: 'AUTH_RATE_LIMIT_EXCEEDED',
           entityType: 'security',
-          details: `Organization login rate limit exceeded for ${normalizedEmail} from IP ${ip}.`,
+          details: `Organization login rate limit exceeded for ${identifier} from IP ${ip}.`,
           performedBy: 'anonymous',
-          performedByEmail: normalizedEmail,
+          performedByEmail: identifier,
         }).catch(() => {});
 
         res.setHeader('Retry-After', accountResult.retryAfterSeconds.toString());
@@ -831,13 +832,13 @@ app.post('/api/auth/organization-login', async (req, res) => {
         return;
       }
 
-      user = await db.verifyUserCredentials({ email: normalizedEmail, password });
+      user = await db.verifyUserCredentials({ email: identifier, organizationId: identifier, password });
       if (!user) {
-        authRateLimiter.recordFailedAttempt(normalizedEmail);
+        authRateLimiter.recordFailedAttempt(identifier.toLowerCase());
         res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid credentials.' });
         return;
       }
-      authRateLimiter.recordSuccessfulAttempt(normalizedEmail);
+      authRateLimiter.recordSuccessfulAttempt(identifier.toLowerCase());
     } else if (uid && email) {
       user = await db.syncGoogleProfile({
         uid,
@@ -853,7 +854,7 @@ app.post('/api/auth/organization-login', async (req, res) => {
 
     // Server-side App Owner check
     if (!db.isAppOwner(user.email)) {
-      res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied.' });
+      res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied: User is not an authorized organization administrator.' });
       return;
     }
 
@@ -863,10 +864,6 @@ app.post('/api/auth/organization-login', async (req, res) => {
     const isBrowserClient = req.headers['x-requested-with'] === 'XMLHttpRequest';
     res.json({ token, user, isBrowserClient: !!isBrowserClient });
   } catch (err: any) {
-    if (err instanceof AccountSuspendedError) {
-      res.status(403).json({ error: 'ACCOUNT_SUSPENDED', message: err.message });
-      return;
-    }
     sendSafeErrorResponse(err, req, res, 'LOGIN_FAILED');
   }
 });

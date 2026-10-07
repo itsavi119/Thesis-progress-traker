@@ -49,9 +49,6 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onCl
     if (!isOpen) return;
     api.getUserOrganizations().then((res) => {
       setOrganizations(res.organizations);
-      if (res.organizations.length > 0) {
-        setSelectedOrgId(res.organizations[0].id);
-      }
     }).catch(() => {});
   }, [isOpen]);
 

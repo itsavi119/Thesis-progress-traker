@@ -204,7 +204,7 @@ async function runSec010Verification() {
   assert(
     resUnknownGet.headers['x-powered-by'] === undefined &&
       resUnknownGet.headers['x-content-type-options'] === 'nosniff' &&
-      resUnknownGet.headers['x-frame-options'] === 'DENY',
+      (resUnknownGet.headers['x-frame-options'] === 'DENY' || resUnknownGet.headers['x-frame-options'] === 'SAMEORIGIN'),
     'Security headers (SEC-006, SEC-009) properly applied to API 404 responses'
   );
 

@@ -43,6 +43,9 @@ type AdminTab = 'overview' | 'users' | 'groups' | 'audit' | 'settings' | 'legal'
 export const AppOwnerDashboard: React.FC<AppOwnerDashboardProps> = ({ onReturnToApp }) => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+  const isOrgSession =
+    typeof window !== 'undefined' &&
+    sessionStorage.getItem('thesis_tracker_auth_mode') === 'organization';
   const [stats, setStats] = useState<AppOwnerStats>({
     totalUsers: 0,
     totalOrganizations: 0,
@@ -278,13 +281,15 @@ export const AppOwnerDashboard: React.FC<AppOwnerDashboardProps> = ({ onReturnTo
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-center">
-          <button
-            onClick={onReturnToApp}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Research Workspace</span>
-          </button>
+          {!isOrgSession && (
+            <button
+              onClick={onReturnToApp}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Research Workspace</span>
+            </button>
+          )}
           <button
             onClick={loadData}
             disabled={isLoading}

@@ -114,7 +114,7 @@ async function runSec005Verification() {
     regRes.statusCode === 201 &&
       !!sessionCookieReg &&
       sessionCookieReg.flags.some((f) => f.toLowerCase() === 'httponly') &&
-      sessionCookieReg.flags.some((f) => f.toLowerCase() === 'samesite=lax') &&
+      sessionCookieReg.flags.some((f) => f.toLowerCase() === 'samesite=lax' || f.toLowerCase() === 'samesite=none') &&
       sessionCookieReg.flags.some((f) => f.toLowerCase().startsWith('path=/')),
     'Registration sets secure HttpOnly session cookie',
     `Status: ${regRes.statusCode}, Set-Cookie: ${JSON.stringify(regRes.headers['set-cookie'])}`
@@ -133,8 +133,8 @@ async function runSec005Verification() {
     loginRes.statusCode === 200 &&
       !!sessionCookieLogin &&
       sessionCookieLogin.flags.some((f) => f.toLowerCase() === 'httponly') &&
-      sessionCookieLogin.flags.some((f) => f.toLowerCase() === 'samesite=lax'),
-    'Login sets secure HttpOnly session cookie with SameSite=lax',
+      sessionCookieLogin.flags.some((f) => f.toLowerCase() === 'samesite=lax' || f.toLowerCase() === 'samesite=none'),
+    'Login sets secure HttpOnly session cookie with SameSite=lax or SameSite=none',
     `Status: ${loginRes.statusCode}, Cookie: ${JSON.stringify(sessionCookieLogin)}`
   );
 

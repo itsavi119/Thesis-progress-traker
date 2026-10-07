@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, Mail, User, AlertCircle, ArrowLeft, Shield, CheckCircle2, X } from 'lucide-react';
+import { Lock, Mail, User, AlertCircle, ArrowLeft, Shield, CheckCircle2, X, Building2 } from 'lucide-react';
 import { sendPasswordResetEmail } from 'firebase/auth';
-import { SignUpButton } from '@designcodeio/threeui';
-import '@designcodeio/threeui/style.css';
 
 import { auth } from '../firebase/config.js';
 import { useAuth } from '../context/AuthContext.js';
@@ -34,6 +32,11 @@ export const Login: React.FC<LoginProps> = ({
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [displayName, setDisplayName] = useState<string>('');
   const [rememberMe, setRememberMe] = useState<boolean>(false);
+
+  // Dedicated organization login credentials - strictly empty by default (never prefilled)
+  const [orgIdentifier, setOrgIdentifier] = useState<string>('');
+  const [orgPassword, setOrgPassword] = useState<string>('');
+
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState<boolean>(false);
@@ -44,27 +47,38 @@ export const Login: React.FC<LoginProps> = ({
   const [forgotStatus, setForgotStatus] = useState<'idle' | 'submitting' | 'success'>('idle');
   const [forgotError, setForgotError] = useState<string | null>(null);
 
-  // Restore remembered email on initial load
+  // Restore remembered email for researcher login only (never for organization login)
   useEffect(() => {
     try {
       const savedEmail = localStorage.getItem('thesis_tracker_remembered_email');
-      if (savedEmail) {
+      if (savedEmail && initialMode !== 'organization-login') {
         setEmail(savedEmail);
         setRememberMe(true);
       }
     } catch {
       // Ignore localStorage access failures
     }
-  }, []);
+  }, [initialMode]);
 
   useEffect(() => {
     setMode(initialMode);
     setError(null);
+    if (initialMode === 'organization-login') {
+      setOrgIdentifier('');
+      setOrgPassword('');
+    }
   }, [initialMode]);
 
   const switchMode = (newMode: 'login' | 'register' | 'organization-login') => {
     setMode(newMode);
     setError(null);
+    if (newMode === 'organization-login') {
+      setOrgIdentifier('');
+      setOrgPassword('');
+    } else {
+      setPassword('');
+      setConfirmPassword('');
+    }
     onSwitchMode?.(newMode);
   };
 
@@ -86,6 +100,11 @@ export const Login: React.FC<LoginProps> = ({
               setError('Access denied: User is not an authorized organization administrator.');
               return;
             }
+            if (typeof window !== 'undefined') {
+              try {
+                sessionStorage.setItem('thesis_tracker_auth_mode', 'organization');
+              } catch {}
+            }
             if (onSuccessfulLogin) {
               onSuccessfulLogin(true);
             } else {
@@ -99,6 +118,11 @@ export const Login: React.FC<LoginProps> = ({
       } else {
         const success = await signInWithGoogle();
         if (success) {
+          if (typeof window !== 'undefined') {
+            try {
+              sessionStorage.removeItem('thesis_tracker_auth_mode');
+            } catch {}
+          }
           onSuccessfulLogin?.(false);
         }
       }
@@ -138,14 +162,28 @@ export const Login: React.FC<LoginProps> = ({
 
     try {
       if (isOrgMode) {
+        if (!orgIdentifier.trim()) {
+          throw new Error('Please enter your organisation ID or administrator email.');
+        }
+        if (!orgPassword) {
+          throw new Error('Please enter your administrator password.');
+        }
+
         const authRes = await api.organizationLogin({
-          email: email.trim(),
-          password,
+          email: orgIdentifier.trim(),
+          organizationId: orgIdentifier.trim(),
+          password: orgPassword,
         });
 
         if (!authRes.user.is_app_owner) {
           api.logout();
           throw new Error('Access denied: You are not authorized as an organization administrator.');
+        }
+
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem('thesis_tracker_auth_mode', 'organization');
+          } catch {}
         }
 
         if (onSuccessfulLogin) {
@@ -304,24 +342,25 @@ export const Login: React.FC<LoginProps> = ({
             <div className="relative flex items-center justify-center">
               <div className="border-t border-slate-200 w-full" />
               <span className="bg-white px-3 text-[11px] text-slate-400 font-medium shrink-0">
-                or administrator credentials
+                or organisation administrator credentials
               </span>
               <div className="border-t border-slate-200 w-full" />
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Administrator Email
+                  Organisation ID or Administrator Email
                 </label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
-                    type="email"
+                    type="text"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@hospital.org"
+                    autoComplete="off"
+                    value={orgIdentifier}
+                    onChange={(e) => setOrgIdentifier(e.target.value)}
+                    placeholder="Enter organisation ID or admin email"
                     className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 focus:bg-white focus:border-slate-800 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800/10 font-medium"
                   />
                 </div>
@@ -336,9 +375,10 @@ export const Login: React.FC<LoginProps> = ({
                   <input
                     type="password"
                     required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
+                    autoComplete="new-password"
+                    value={orgPassword}
+                    onChange={(e) => setOrgPassword(e.target.value)}
+                    placeholder="Enter administrator password"
                     className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 focus:bg-white focus:border-slate-800 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800/10"
                   />
                 </div>
@@ -349,7 +389,7 @@ export const Login: React.FC<LoginProps> = ({
                 disabled={isSubmitting || isGoogleSubmitting}
                 className="w-full min-h-[46px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-sm bg-slate-900 hover:bg-slate-800 text-white shadow-md transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
               >
-                {isSubmitting ? 'Verifying...' : 'Sign In to Organization Workspace'}
+                {isSubmitting ? 'Verifying...' : 'Sign In to Organisation Dashboard'}
               </button>
             </form>
 
@@ -563,22 +603,20 @@ export const Login: React.FC<LoginProps> = ({
 
               {/* Primary Action Button */}
               {isRegistering ? (
-                /* THREEUI SIGN-UP BUTTON for Sign Up */
-                <div className="pt-1">
-                  <SignUpButton
-                    type="submit"
-                    disabled={isSubmitting || isGoogleSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        <span>Creating Account...</span>
-                      </span>
-                    ) : (
-                      <span>Create Research Account</span>
-                    )}
-                  </SignUpButton>
-                </div>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || isGoogleSubmitting}
+                  className="w-full min-h-[46px] flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25 shadow-md transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+                >
+                  {isSubmitting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Creating Account...</span>
+                    </span>
+                  ) : (
+                    <span>Create Research Account</span>
+                  )}
+                </button>
               ) : (
                 /* Clean conventional primary button for Sign In */
                 <button

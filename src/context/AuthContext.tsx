@@ -206,6 +206,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     const uid = user?.id;
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem('thesis_tracker_auth_mode');
+      } catch {}
+    }
     fbSignOut(auth).catch(() => {});
     api.logout();
     if (uid) {
