@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Users, AlertCircle, CheckCircle2, Plus, Trash2, FolderPlus, HelpCircle } from 'lucide-react';
 import { useGroup } from '../context/GroupContext.js';
-import { api } from '../services/api.js';
-import type { CustomFieldDefinition, Organization, StudyType, SubjectTerminology } from '../types/index.js';
+import type { CustomFieldDefinition, StudyType, SubjectTerminology } from '../types/index.js';
 
 interface CreateGroupModalProps {
   isOpen: boolean;
@@ -33,8 +32,6 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onCl
   const [targetSampleSize, setTargetSampleSize] = useState('100');
   const [institution, setInstitution] = useState('');
   const [description, setDescription] = useState('');
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [selectedOrgId, setSelectedOrgId] = useState<string>('');
 
   // Custom fields configuration
   const [customFields, setCustomFields] = useState<CustomFieldDefinition[]>([]);
@@ -44,13 +41,6 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onCl
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    api.getUserOrganizations().then((res) => {
-      setOrganizations(res.organizations);
-    }).catch(() => {});
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -104,7 +94,6 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onCl
         targetSampleSize: target,
         institution: institution.trim() || undefined,
         description: description.trim() || undefined,
-        organizationId: selectedOrgId || undefined,
         customFields: customFields.length > 0 ? customFields : undefined,
       });
 
@@ -241,26 +230,6 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onCl
               />
             </div>
           </div>
-
-          {organizations.length > 0 && (
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Parent Organization (Optional)
-              </label>
-              <select
-                value={selectedOrgId}
-                onChange={(e) => setSelectedOrgId(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:bg-white focus:border-blue-600"
-              >
-                <option value="">None / Standalone Study</option>
-                {organizations.map((org) => (
-                  <option key={org.id} value={org.id}>
-                    {org.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
 
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">

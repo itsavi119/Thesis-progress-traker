@@ -14,7 +14,6 @@ import {
   Plus,
   FolderOpen,
   Check,
-  ShieldCheck,
   FileText,
   KeyRound,
 } from 'lucide-react';
@@ -34,8 +33,7 @@ export type ActiveTab =
   | 'all-cases'
   | 'my-cases'
   | 'study-files'
-  | 'team-summary'
-  | 'app-owner';
+  | 'team-summary';
 
 interface LayoutProps {
   activeTab: ActiveTab;
@@ -78,9 +76,6 @@ export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, childre
   }, [currentGroup?.id]);
 
   const terminology = currentGroup?.subjectTerminology || 'Patient';
-  const isOrgMode =
-    activeTab === 'app-owner' ||
-    (typeof window !== 'undefined' && sessionStorage.getItem('thesis_tracker_auth_mode') === 'organization');
 
   const navItems = [
     { id: 'dashboard' as ActiveTab, label: 'Dashboard', icon: LayoutDashboard },
@@ -109,205 +104,160 @@ export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, childre
           <Logo
             size="md"
             showText={true}
-            subtitle={isOrgMode ? 'Organisation Administration Portal' : currentGroup ? currentGroup.name : 'Hospital Research Platform'}
-            clickable={!isOrgMode}
+            subtitle={currentGroup ? currentGroup.name : 'Hospital Research Platform'}
+            clickable={true}
             onClick={() => setActiveTab('my-groups')}
           />
 
-          {isOrgMode ? (
-            <div className="mt-4 p-3 bg-slate-900 text-white rounded-2xl flex items-center gap-3 shadow-md">
-              <div className="w-9 h-9 rounded-xl bg-blue-600/30 border border-blue-400/40 flex items-center justify-center font-bold text-amber-400 shrink-0">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
+          {/* Group Switcher Button */}
+          <div className="relative mt-4" ref={dropdownRef}>
+            <button
+              type="button"
+              onClick={() => setGroupDropdownOpen(!groupDropdownOpen)}
+              className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-left transition-colors cursor-pointer"
+            >
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold truncate">Organisation Portal</p>
-                <p className="text-[10px] text-slate-400 truncate">Institutional Administration</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Group Switcher Button */}
-              <div className="relative mt-4" ref={dropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => setGroupDropdownOpen(!groupDropdownOpen)}
-                  className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-left transition-colors cursor-pointer"
-                >
-                  <div className="min-w-0 flex-1">
-                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Active Group
-                    </span>
-                    <span className="block text-xs font-bold text-slate-900 truncate">
-                      {currentGroup ? currentGroup.name : 'No Group Selected'}
-                    </span>
-                  </div>
-                  <ChevronDown className="w-4 h-4 text-slate-500 shrink-0" />
-                </button>
-
-                {/* Dropdown Menu */}
-                {groupDropdownOpen && (
-                  <div className="absolute left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-2 space-y-1 animate-in fade-in duration-100 max-h-72 overflow-y-auto">
-                    <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Switch Group
-                    </div>
-                    {userGroups.map((g) => (
-                      <button
-                        key={g.id}
-                        onClick={() => handleSelectGroupAndSwitch(g.id)}
-                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium text-left cursor-pointer transition-colors ${
-                          currentGroup?.id === g.id
-                            ? 'bg-blue-50 text-blue-700 font-bold'
-                            : 'text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span className="truncate">{g.name}</span>
-                        {currentGroup?.id === g.id && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
-                      </button>
-                    ))}
-
-                    <div className="pt-1.5 border-t border-slate-100 space-y-1">
-                      <button
-                        onClick={() => {
-                          setGroupDropdownOpen(false);
-                          setActiveTab('my-groups');
-                        }}
-                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs text-slate-700 hover:bg-slate-100 font-medium cursor-pointer"
-                      >
-                        <FolderOpen className="w-3.5 h-3.5 text-blue-600" />
-                        <span>Home / My Groups</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setGroupDropdownOpen(false);
-                          setCreateGroupModalOpen(true);
-                        }}
-                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs text-blue-700 hover:bg-blue-50 font-bold cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Create New Group</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setGroupDropdownOpen(false);
-                          setJoinGroupModalOpen(true);
-                        }}
-                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs text-slate-700 hover:bg-slate-100 font-medium cursor-pointer"
-                      >
-                        <UserPlus className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Join with Code</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Realtime Live Sync Indicator */}
-              <div className="mt-3 flex items-center justify-between px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-                <span className="text-slate-600 flex items-center gap-2">
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      isLiveConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
-                    }`}
-                  />
-                  {isLiveConnected ? 'Live Cloud Sync' : 'Connecting...'}
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Active Group
                 </span>
-                <Radio className={`w-3.5 h-3.5 ${isLiveConnected ? 'text-emerald-600' : 'text-amber-500'}`} />
+                <span className="block text-xs font-bold text-slate-900 truncate">
+                  {currentGroup ? currentGroup.name : 'No Group Selected'}
+                </span>
               </div>
-            </>
-          )}
+              <ChevronDown className="w-4 h-4 text-slate-500 shrink-0" />
+            </button>
+
+            {/* Dropdown Menu */}
+            {groupDropdownOpen && (
+              <div className="absolute left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-2 space-y-1 animate-in fade-in duration-100 max-h-72 overflow-y-auto">
+                <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Switch Group
+                </div>
+                {userGroups.map((g) => (
+                  <button
+                    key={g.id}
+                    onClick={() => handleSelectGroupAndSwitch(g.id)}
+                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium text-left cursor-pointer transition-colors ${
+                      currentGroup?.id === g.id
+                        ? 'bg-blue-50 text-blue-700 font-bold'
+                        : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="truncate">{g.name}</span>
+                    {currentGroup?.id === g.id && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+                  </button>
+                ))}
+
+                <div className="pt-1.5 border-t border-slate-100 space-y-1">
+                  <button
+                    onClick={() => {
+                      setGroupDropdownOpen(false);
+                      setActiveTab('my-groups');
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs text-slate-700 hover:bg-slate-100 font-medium cursor-pointer"
+                  >
+                    <FolderOpen className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Home / My Groups</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setGroupDropdownOpen(false);
+                      setCreateGroupModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs text-blue-700 hover:bg-blue-50 font-bold cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Create New Group</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setGroupDropdownOpen(false);
+                      setJoinGroupModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs text-slate-700 hover:bg-slate-100 font-medium cursor-pointer"
+                  >
+                    <UserPlus className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Join with Code</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Realtime Live Sync Indicator */}
+          <div className="mt-3 flex items-center justify-between px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+            <span className="text-slate-600 flex items-center gap-2">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isLiveConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                }`}
+              />
+              {isLiveConnected ? 'Live Cloud Sync' : 'Connecting...'}
+            </span>
+            <Radio className={`w-3.5 h-3.5 ${isLiveConnected ? 'text-emerald-600' : 'text-amber-500'}`} />
+          </div>
         </div>
 
         {/* Navigation Links */}
         <nav className="flex-1 p-3 lg:p-4 space-y-1.5 overflow-y-auto">
-          {isOrgMode ? (
-            <div className="space-y-1.5">
-              <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Institutional Administration
-              </div>
-              <button
-                onClick={() => setActiveTab('app-owner')}
-                className="w-full min-h-[46px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-sm bg-slate-900 text-white shadow-xs cursor-pointer"
-              >
-                <ShieldCheck className="w-5 h-5 text-amber-400 shrink-0" />
-                <span className="truncate">Organisation Dashboard</span>
-              </button>
-            </div>
-          ) : (
+          {/* Direct link to Home / My Groups */}
+          <button
+            onClick={() => setActiveTab('my-groups')}
+            className={`w-full min-h-[46px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 text-left cursor-pointer active:scale-[0.98] select-none touch-manipulation ${
+              activeTab === 'my-groups'
+                ? 'bg-blue-50 text-blue-700 border border-blue-200 shadow-xs font-semibold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 active:bg-slate-200/60'
+            }`}
+          >
+            <FolderOpen className={`w-5 h-5 shrink-0 ${activeTab === 'my-groups' ? 'text-blue-600' : 'text-slate-400'}`} />
+            <span className="truncate">Home / My Groups</span>
+          </button>
+
+          {currentGroup && (
             <>
-              {/* Direct link to Home / My Groups */}
-              <button
-                onClick={() => setActiveTab('my-groups')}
-                className={`w-full min-h-[46px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 text-left cursor-pointer active:scale-[0.98] select-none touch-manipulation ${
-                  activeTab === 'my-groups'
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200 shadow-xs font-semibold'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 active:bg-slate-200/60'
-                }`}
-              >
-                <FolderOpen className={`w-5 h-5 shrink-0 ${activeTab === 'my-groups' ? 'text-blue-600' : 'text-slate-400'}`} />
-                <span className="truncate">Home / My Groups</span>
-              </button>
+              <div className="pt-2 pb-1 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">
+                Study Workspace
+              </div>
 
-              {currentGroup && (
-                <>
-                  <div className="pt-2 pb-1 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">
-                    Study Workspace
-                  </div>
-
-                  {navItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = activeTab === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => setActiveTab(item.id)}
-                        className={`w-full min-h-[46px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 text-left cursor-pointer active:scale-[0.98] select-none touch-manipulation ${
-                          isActive
-                            ? 'bg-blue-50 text-blue-700 border border-blue-200 shadow-xs font-semibold'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 active:bg-slate-200/60'
-                        }`}
-                      >
-                        <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
-                        <span className="truncate">
-                          {item.id === 'team-summary' ? 'Team' : item.label}
-                        </span>
-                        {item.highlight && (
-                          <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200/60 shrink-0">
-                            Action
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </>
-              )}
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`w-full min-h-[46px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 text-left cursor-pointer active:scale-[0.98] select-none touch-manipulation ${
+                      isActive
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200 shadow-xs font-semibold'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 active:bg-slate-200/60'
+                    }`}
+                  >
+                    <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
+                    <span className="truncate">
+                      {item.id === 'team-summary' ? 'Team' : item.label}
+                    </span>
+                    {item.highlight && (
+                      <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200/60 shrink-0">
+                        Action
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </>
           )}
         </nav>
 
         {/* User Account Box */}
         <div className="p-4 border-t border-slate-200 bg-slate-50/70">
-          {user?.is_app_owner && !isOrgMode && (
-            <button
-              onClick={() => setActiveTab('app-owner')}
-              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl mb-3 text-xs font-bold transition-all cursor-pointer bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200"
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Organization Workspace</span>
-            </button>
-          )}
-
           <div className="flex items-center gap-3 mb-3">
-            <div className={`w-9 h-9 rounded-xl ${isOrgMode ? 'bg-slate-900 text-amber-400' : 'bg-blue-100 text-blue-700'} flex items-center justify-center font-bold text-sm border border-slate-200 shrink-0`}>
-              {isOrgMode ? <ShieldCheck className="w-4 h-4" /> : <User className="w-4 h-4" />}
+            <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm border border-slate-200 shrink-0">
+              <User className="w-4 h-4" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-bold text-slate-900 truncate">{user?.display_name}</p>
               <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
-              {isOrgMode ? (
-                <span className="inline-block mt-0.5 text-[9px] font-bold text-amber-800 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-300">
-                  Organisation Administrator
-                </span>
-              ) : user?.auth_provider === 'google' || user?.has_password === false ? (
+              {user?.auth_provider === 'google' || user?.has_password === false ? (
                 <span className="inline-block mt-0.5 text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
                   Google SSO
                 </span>
@@ -343,16 +293,16 @@ export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, childre
       {/* MOBILE HEADER */}
       <header className="md:hidden sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-2xs">
         <button
-          onClick={() => setActiveTab(isOrgMode ? 'app-owner' : 'my-groups')}
+          onClick={() => setActiveTab('my-groups')}
           className="flex items-center gap-2.5 text-left active:opacity-75 transition-opacity cursor-pointer touch-manipulation"
         >
           <Logo size="sm" showText={false} />
           <div className="min-w-0 max-w-[200px]">
             <h1 className="text-xs font-extrabold text-slate-900 tracking-wider uppercase select-none truncate">
-              {isOrgMode ? 'ORGANISATION PORTAL' : currentGroup ? currentGroup.name : 'THESIS TRACKER'}
+              {currentGroup ? currentGroup.name : 'THESIS TRACKER'}
             </h1>
             <p className="text-[11px] text-blue-600 font-semibold truncate select-none">
-              {isOrgMode ? 'Administrator' : user?.display_name}
+              {user?.display_name}
             </p>
           </div>
         </button>
@@ -381,17 +331,12 @@ export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, childre
           <div className="bg-white border-t border-slate-200 rounded-t-3xl p-5 space-y-4 max-h-[85vh] overflow-y-auto shadow-2xl animate-in slide-in-from-bottom duration-200">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <div className="flex items-center gap-2.5">
-                <div className={`w-10 h-10 rounded-xl ${isOrgMode ? 'bg-slate-900 text-amber-400' : 'bg-blue-100 text-blue-700'} flex items-center justify-center font-bold`}>
-                  {isOrgMode ? <ShieldCheck className="w-5 h-5" /> : <User className="w-5 h-5" />}
+                <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                  <User className="w-5 h-5" />
                 </div>
                 <div>
                   <p className="text-sm font-bold text-slate-900">{user?.display_name}</p>
                   <p className="text-xs text-slate-500">{user?.email}</p>
-                  {isOrgMode && (
-                    <span className="inline-block mt-0.5 text-[9px] font-bold text-amber-800 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-300">
-                      Organisation Administrator
-                    </span>
-                  )}
                 </div>
               </div>
               <button
@@ -402,104 +347,68 @@ export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, childre
               </button>
             </div>
 
-            {isOrgMode ? (
-              <div className="space-y-1 pt-2 border-t border-slate-100">
-                <button
-                  onClick={() => {
-                    setActiveTab('app-owner');
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full min-h-[46px] flex items-center gap-3 px-3.5 py-3 rounded-xl font-bold text-sm bg-slate-900 text-white cursor-pointer shadow-xs"
-                >
-                  <ShieldCheck className="w-5 h-5 text-amber-400" />
-                  <span>Organisation Dashboard</span>
-                </button>
-              </div>
-            ) : (
-              <>
-                {/* Switch Group in Mobile Drawer */}
-                <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Your Research Groups
-                  </span>
-                  <div className="space-y-1">
-                    {userGroups.map((g) => (
-                      <button
-                        key={g.id}
-                        onClick={() => handleSelectGroupAndSwitch(g.id)}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-left cursor-pointer ${
-                          currentGroup?.id === g.id
-                            ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200'
-                            : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        <span className="truncate">{g.name}</span>
-                        {currentGroup?.id === g.id && <Check className="w-3.5 h-3.5 text-blue-600" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-1 pt-2 border-t border-slate-100">
+            {/* Switch Group in Mobile Drawer */}
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Your Research Groups
+              </span>
+              <div className="space-y-1">
+                {userGroups.map((g) => (
                   <button
-                    onClick={() => {
-                      setActiveTab('my-groups');
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full min-h-[46px] flex items-center gap-3 px-3.5 py-3 rounded-xl font-medium text-sm transition-all cursor-pointer ${
-                      activeTab === 'my-groups'
+                    key={g.id}
+                    onClick={() => handleSelectGroupAndSwitch(g.id)}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-left cursor-pointer ${
+                      currentGroup?.id === g.id
                         ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200'
-                        : 'text-slate-600 hover:bg-slate-100'
+                        : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    <FolderOpen className="w-5 h-5 text-blue-600" />
-                    <span>Home / My Groups</span>
+                    <span className="truncate">{g.name}</span>
+                    {currentGroup?.id === g.id && <Check className="w-3.5 h-3.5 text-blue-600" />}
                   </button>
-
-                  {currentGroup &&
-                    navItems.map((item) => {
-                      const Icon = item.icon;
-                      const isActive = activeTab === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          onClick={() => {
-                            setActiveTab(item.id);
-                            setMobileMenuOpen(false);
-                          }}
-                          className={`w-full min-h-[46px] flex items-center gap-3 px-3.5 py-3 rounded-xl font-medium text-sm transition-all cursor-pointer ${
-                            isActive
-                              ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200'
-                              : 'text-slate-600 hover:bg-slate-100'
-                          }`}
-                        >
-                          <Icon className="w-5 h-5 text-blue-600" />
-                          <span>{item.id === 'team-summary' ? 'Team' : item.label}</span>
-                        </button>
-                      );
-                    })}
-                </div>
-              </>
-            )}
-
-            {user?.is_app_owner && (
-              <div className="pt-2 border-t border-slate-100">
-                <button
-                  onClick={() => {
-                    setActiveTab('app-owner');
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`w-full min-h-[46px] flex items-center gap-3 px-3.5 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
-                    activeTab === 'app-owner'
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-blue-50 text-blue-700 border border-blue-200'
-                  }`}
-                >
-                  <ShieldCheck className="w-5 h-5 text-blue-600" />
-                  <span>Organization Workspace</span>
-                </button>
+                ))}
               </div>
-            )}
+            </div>
+
+            <div className="space-y-1 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => {
+                  setActiveTab('my-groups');
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full min-h-[46px] flex items-center gap-3 px-3.5 py-3 rounded-xl font-medium text-sm transition-all cursor-pointer ${
+                  activeTab === 'my-groups'
+                    ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <FolderOpen className="w-5 h-5 text-blue-600" />
+                <span>Home / My Groups</span>
+              </button>
+
+              {currentGroup &&
+                navItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setActiveTab(item.id);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`w-full min-h-[46px] flex items-center gap-3 px-3.5 py-3 rounded-xl font-medium text-sm transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200'
+                          : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <Icon className="w-5 h-5 text-blue-600" />
+                      <span>{item.id === 'team-summary' ? 'Team' : item.label}</span>
+                    </button>
+                  );
+                })}
+            </div>
 
             <div className="flex gap-2 pt-2 border-t border-slate-100">
               <button

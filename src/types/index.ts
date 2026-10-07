@@ -1,6 +1,6 @@
 export type CaseStatus = 'In Progress' | 'Completed' | 'Excluded';
 
-export type UserRole = 'member' | 'admin';
+export type UserRole = 'member' | 'admin' | 'super_admin';
 
 export type GroupMemberRole = 'owner' | 'researcher';
 
@@ -31,25 +31,13 @@ export interface UserProfile {
   email: string;
   display_name: string;
   role: UserRole;
-  is_app_owner?: boolean;
   status?: 'active' | 'suspended';
+  last_login?: string;
+  last_active_at?: string;
   has_password?: boolean;
   auth_provider?: 'google' | 'password';
   created_at: string;
   updated_at: string;
-}
-
-export interface Organization {
-  id: string;
-  name: string;
-  description?: string;
-  institution?: string;
-  contactEmail?: string;
-  ownerId: string;
-  studiesCount?: number;
-  membersCount?: number;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface GroupMember {
@@ -62,8 +50,6 @@ export interface GroupMember {
 
 export interface ResearchGroup {
   id: string;
-  organizationId?: string;
-  organizationName?: string;
   name: string;
   studyTitle: string;
   studyType?: StudyType;
@@ -166,11 +152,15 @@ export interface AuthResponse {
   user: UserProfile;
 }
 
-// --- APP OWNER & ORGANIZATION TYPES ---
+// --- ADMINISTRATIVE PORTAL TYPES ---
 
-export interface AppOwnerStats {
+export interface AdminStats {
   totalUsers: number;
-  totalOrganizations: number;
+  activeUsers: number;
+  inactiveUsers: number;
+  newUsersLast30Days: number;
+  recentlyActiveUsers24h: number;
+  currentlyOnlineUsers: number;
   totalGroups: number;
   activeGroups: number;
   totalMemberships: number;
@@ -178,13 +168,17 @@ export interface AppOwnerStats {
   totalFiles: number;
 }
 
-export interface AppOwnerUser {
+export interface AdminUser {
   id: string;
   email: string;
   displayName: string;
+  role: UserRole;
   status: 'active' | 'suspended';
   createdAt: string;
-  isAppOwner: boolean;
+  lastLogin?: string;
+  lastActiveAt?: string;
+  groupCount: number;
+  caseCount: number;
   groups: Array<{
     groupId: string;
     groupName: string;
@@ -193,10 +187,8 @@ export interface AppOwnerUser {
   }>;
 }
 
-export interface AppOwnerGroup {
+export interface AdminGroup {
   id: string;
-  organizationId?: string;
-  organizationName?: string;
   name: string;
   studyTitle: string;
   studyType?: StudyType;
@@ -224,7 +216,7 @@ export interface AppOwnerGroup {
 export interface AuditLogEntry {
   id: string;
   action: string;
-  entityType: 'user' | 'group' | 'organization' | 'settings' | 'security' | 'legal' | 'file';
+  entityType: 'user' | 'group' | 'settings' | 'security' | 'legal' | 'file';
   entityId?: string;
   entityName?: string;
   details: string;
@@ -233,8 +225,7 @@ export interface AuditLogEntry {
   createdAt: string;
 }
 
-export interface AppOwnerSettings {
-  authorizedAppOwners: string[];
+export interface AdminSettings {
   maintenanceMode: boolean;
   allowRegistration: boolean;
   updatedAt: string;

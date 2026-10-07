@@ -12,7 +12,11 @@ import { AllCases } from './pages/AllCases.js';
 import { MyCases } from './pages/MyCases.js';
 import { StudyFiles } from './pages/StudyFiles.js';
 import { TeamSummary } from './pages/TeamSummary.js';
-import { AppOwnerDashboard } from './pages/AppOwnerDashboard.js';
+import { AdminLogin } from './pages/admin/AdminLogin.js';
+import { AdminPanel } from './pages/admin/AdminPanel.js';
+import { AccessDenied } from './pages/admin/AccessDenied.js';
+import { api } from './services/api.js';
+import type { UserProfile } from './types/index.js';
 
 const VALID_TABS: ActiveTab[] = [
   'my-groups',
@@ -22,10 +26,9 @@ const VALID_TABS: ActiveTab[] = [
   'my-cases',
   'study-files',
   'team-summary',
-  'app-owner',
 ];
 
-const AUTH_ROUTES = ['login', 'register', 'auth', 'signup', 'signin', 'organization-login', 'admin'];
+const AUTH_ROUTES = ['login', 'register', 'auth', 'signup', 'signin'];
 const PUBLIC_SECTIONS = ['home', 'about', 'capabilities', 'features', 'how-it-works', 'privacy', 'policies', 'contact'];
 
 function parseCurrentRoute(): string {
@@ -41,23 +44,23 @@ function parseCurrentRoute(): string {
     if (modeParam === 'login' || modeParam === 'signin') {
       return 'login';
     }
-    if (modeParam === 'admin' || modeParam === 'organization-login') {
-      return 'organization-login';
-    }
   } catch {
     // Ignore search param parse issues
   }
 
   // 2. Check pathname
   const pathname = window.location.pathname.replace(/^\//, '').toLowerCase();
+  if (pathname === 'admin/login' || pathname.startsWith('admin/login')) {
+    return 'admin-login';
+  }
+  if (pathname === 'admin' || pathname.startsWith('admin')) {
+    return 'admin';
+  }
   if (pathname === 'register' || pathname === 'signup') {
     return 'register';
   }
   if (pathname === 'login' || pathname === 'signin') {
     return 'login';
-  }
-  if (pathname === 'organization-login' || pathname === 'admin') {
-    return 'organization-login';
   }
   if (pathname === 'auth') {
     return 'login'; // Direct Authentication Page access -> Default to Sign In
@@ -66,9 +69,10 @@ function parseCurrentRoute(): string {
   // 3. Check hash
   const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
   if (hash) {
+    if (hash === 'admin/login') return 'admin-login';
+    if (hash === 'admin') return 'admin';
     if (hash === 'register' || hash === 'signup') return 'register';
     if (hash === 'login' || hash === 'signin') return 'login';
-    if (hash === 'organization-login' || hash === 'admin') return 'organization-login';
     if (hash === 'auth') return 'login';
     if (VALID_TABS.includes(hash as ActiveTab)) return hash;
     if (PUBLIC_SECTIONS.includes(hash)) return 'home';
@@ -83,23 +87,30 @@ function parseCurrentRoute(): string {
 
 const MainApp: React.FC = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
-  const { currentGroup, userGroups, isLoadingGroups } = useGroup();
+  const { isLoadingGroups } = useGroup();
   const [currentRoute, setCurrentRoute] = useState<string>(parseCurrentRoute);
   const preservedRedirectRef = useRef<ActiveTab | null>(null);
+
+  // Administrative session state
+  const [adminUser, setAdminUser] = useState<UserProfile | null>(null);
+  const [isVerifyingAdmin, setIsVerifyingAdmin] = useState<boolean>(false);
 
   // Sync route with browser history (supports standard pathnames and native back/forward)
   const navigateTo = useCallback((route: string, replace = false) => {
     let normalized = route;
     if (route === 'signup') normalized = 'register';
     if (route === 'signin' || route === 'auth') normalized = 'login';
-    if (route === 'admin') normalized = 'organization-login';
 
     setCurrentRoute((prev) => {
       if (prev === normalized) return prev;
 
       if (typeof window !== 'undefined') {
         let url = '/';
-        if (AUTH_ROUTES.includes(normalized)) {
+        if (normalized === 'admin-login') {
+          url = '/admin/login';
+        } else if (normalized === 'admin') {
+          url = '/admin';
+        } else if (AUTH_ROUTES.includes(normalized)) {
           url = `/${normalized}`;
         } else if (VALID_TABS.includes(normalized as ActiveTab)) {
           url = `#${normalized}`;
@@ -117,6 +128,24 @@ const MainApp: React.FC = () => {
     });
   }, []);
 
+  // Check admin session when entering /admin route
+  useEffect(() => {
+    if (currentRoute === 'admin') {
+      setIsVerifyingAdmin(true);
+      api
+        .verifyAdminSession()
+        .then((res) => {
+          setAdminUser(res.user);
+        })
+        .catch(() => {
+          setAdminUser(null);
+        })
+        .finally(() => {
+          setIsVerifyingAdmin(false);
+        });
+    }
+  }, [currentRoute]);
+
   // Preserve intended tab when unauthenticated user directly opens a protected URL
   useEffect(() => {
     if (!isAuthenticated && typeof window !== 'undefined') {
@@ -127,44 +156,18 @@ const MainApp: React.FC = () => {
     }
   }, [isAuthenticated]);
 
-  // When user becomes authenticated, restore requested tab or route to my-groups / app-owner
+  // When user becomes authenticated, restore requested tab or route to my-groups
   useEffect(() => {
     if (isAuthenticated) {
-      const isOrgSession =
-        typeof window !== 'undefined' &&
-        (sessionStorage.getItem('thesis_tracker_auth_mode') === 'organization' ||
-          currentRoute === 'organization-login' ||
-          currentRoute === 'admin' ||
-          currentRoute === 'app-owner');
-
-      if (user?.is_app_owner && isOrgSession) {
-        if (currentRoute !== 'app-owner') {
-          navigateTo('app-owner', true);
-        }
-        return;
-      }
-
       if (preservedRedirectRef.current) {
         const target = preservedRedirectRef.current;
         preservedRedirectRef.current = null;
-        if (target === 'app-owner') {
-          if (user?.is_app_owner) {
-            navigateTo('app-owner', true);
-          } else {
-            navigateTo('my-groups', true);
-          }
-        } else {
-          navigateTo(target, true);
-        }
+        navigateTo(target, true);
       } else if (AUTH_ROUTES.includes(currentRoute) || currentRoute === 'home') {
-        if (user?.is_app_owner && (window.location.hash.includes('app-owner') || isOrgSession)) {
-          navigateTo('app-owner', true);
-        } else {
-          navigateTo('my-groups', true);
-        }
+        navigateTo('my-groups', true);
       }
     }
-  }, [isAuthenticated, user?.is_app_owner, currentRoute, navigateTo]);
+  }, [isAuthenticated, currentRoute, navigateTo]);
 
   // Listen for browser Back / Forward events
   useEffect(() => {
@@ -179,13 +182,6 @@ const MainApp: React.FC = () => {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
-
-  // Restrict app-owner tab from non-admin accounts
-  useEffect(() => {
-    if (currentRoute === 'app-owner' && isAuthenticated && !user?.is_app_owner) {
-      navigateTo('my-groups', true);
-    }
-  }, [currentRoute, isAuthenticated, user?.is_app_owner, navigateTo]);
 
   if (isLoading || (isAuthenticated && isLoadingGroups)) {
     return (
@@ -202,15 +198,60 @@ const MainApp: React.FC = () => {
   }
 
   // =========================================================================
+  // 0. ADMINISTRATIVE ACCESS ROUTES (/admin, /admin/login)
+  // =========================================================================
+  if (currentRoute === 'admin-login') {
+    return (
+      <AdminLogin
+        onLoginSuccess={(adminProfile) => {
+          setAdminUser(adminProfile);
+          navigateTo('admin', true);
+        }}
+        onNavigateHome={() => navigateTo('home')}
+      />
+    );
+  }
+
+  if (currentRoute === 'admin') {
+    if (isVerifyingAdmin) {
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4">
+          <div className="w-8 h-8 border-2 border-slate-700 border-t-rose-500 rounded-full animate-spin mb-4" />
+          <p className="text-xs text-slate-400">Verifying administrative credentials...</p>
+        </div>
+      );
+    }
+
+    if (!adminUser || (adminUser.role !== 'admin' && adminUser.role !== 'super_admin')) {
+      return (
+        <AccessDenied
+          userEmail={adminUser?.email || (isAuthenticated ? user?.email : undefined)}
+          onNavigateHome={() => navigateTo('home')}
+          onNavigateAdminLogin={() => navigateTo('admin-login')}
+        />
+      );
+    }
+
+    return (
+      <AdminPanel
+        currentUser={adminUser}
+        onLogout={() => {
+          setAdminUser(null);
+          navigateTo('admin-login', true);
+        }}
+        onNavigateHome={() => navigateTo('home')}
+      />
+    );
+  }
+
+  // =========================================================================
   // 1. UNAUTHENTICATED EXPERIENCES
   // =========================================================================
   if (!isAuthenticated) {
-    // A. Dedicated Authentication Routes: /login, /register, /organization-login
+    // Dedicated Authentication Routes: /login, /register
     if (AUTH_ROUTES.includes(currentRoute)) {
-      const authMode: 'login' | 'register' | 'organization-login' =
-        currentRoute === 'organization-login' || currentRoute === 'admin'
-          ? 'organization-login'
-          : currentRoute === 'register' || currentRoute === 'signup'
+      const authMode: 'login' | 'register' =
+        currentRoute === 'register' || currentRoute === 'signup'
           ? 'register'
           : 'login';
 
@@ -219,28 +260,14 @@ const MainApp: React.FC = () => {
           initialMode={authMode}
           onNavigateHome={() => navigateTo('home')}
           onSwitchMode={(mode) => navigateTo(mode)}
-          onSuccessfulLogin={(isOrgAdmin) => {
-            if (isOrgAdmin) {
-              if (typeof window !== 'undefined') {
-                try {
-                  sessionStorage.setItem('thesis_tracker_auth_mode', 'organization');
-                } catch {}
-              }
-              navigateTo('app-owner', true);
-            } else {
-              if (typeof window !== 'undefined') {
-                try {
-                  sessionStorage.removeItem('thesis_tracker_auth_mode');
-                } catch {}
-              }
-              navigateTo('my-groups', true);
-            }
+          onSuccessfulLogin={() => {
+            navigateTo('my-groups', true);
           }}
         />
       );
     }
 
-    // B. Public Website at / (Homepage, About, Features, How It Works, Policies, Contact)
+    // Public Website at / (Homepage, About, Features, How It Works, Policies, Contact)
     return (
       <PublicWebsite
         isAuthenticated={false}
@@ -253,9 +280,6 @@ const MainApp: React.FC = () => {
   // =========================================================================
   // 2. AUTHENTICATED USER EXPERIENCES
   // =========================================================================
-  const isOrgSession =
-    typeof window !== 'undefined' &&
-    sessionStorage.getItem('thesis_tracker_auth_mode') === 'organization';
 
   // If authenticated user visits the public home page explicitly:
   if (currentRoute === 'home') {
@@ -263,18 +287,15 @@ const MainApp: React.FC = () => {
       <PublicWebsite
         isAuthenticated={true}
         onNavigateToAuth={(mode = 'login') => navigateTo(mode)}
-        onGoToWorkspace={() => navigateTo(user?.is_app_owner && isOrgSession ? 'app-owner' : 'my-groups')}
+        onGoToWorkspace={() => navigateTo('my-groups')}
       />
     );
   }
 
-  // Active Workspace tab: If in organization session, ONLY open organization dashboard ('app-owner')
-  const activeTab: ActiveTab =
-    user?.is_app_owner && (isOrgSession || currentRoute === 'app-owner')
-      ? 'app-owner'
-      : VALID_TABS.includes(currentRoute as ActiveTab)
-      ? (currentRoute as ActiveTab)
-      : 'my-groups';
+  // Active Workspace tab
+  const activeTab: ActiveTab = VALID_TABS.includes(currentRoute as ActiveTab)
+    ? (currentRoute as ActiveTab)
+    : 'my-groups';
 
   return (
     <Layout activeTab={activeTab} setActiveTab={(tab) => navigateTo(tab)}>
@@ -296,9 +317,6 @@ const MainApp: React.FC = () => {
         )}
         {activeTab === 'study-files' && <StudyFiles />}
         {activeTab === 'team-summary' && <TeamSummary />}
-        {activeTab === 'app-owner' && user?.is_app_owner && (
-          <AppOwnerDashboard onReturnToApp={() => navigateTo('my-groups')} />
-        )}
       </div>
     </Layout>
   );

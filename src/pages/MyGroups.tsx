@@ -133,11 +133,6 @@ export const MyGroups: React.FC<MyGroupsProps> = ({ onOpenGroup }) => {
                               {group.studyType}
                             </span>
                           )}
-                          {group.organizationName && (
-                            <span className="text-[10px] font-medium text-slate-400">
-                              {group.organizationName}
-                            </span>
-                          )}
                         </div>
                         <h4 className="text-base font-extrabold text-slate-900 group-hover:text-blue-600 transition-colors">
                           {group.name}

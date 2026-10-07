@@ -18,7 +18,6 @@ interface GroupContextType {
     targetSampleSize: number;
     description?: string;
     institution?: string;
-    organizationId?: string;
     customFields?: CustomFieldDefinition[];
   }) => Promise<ResearchGroup>;
   joinGroup: (code: string) => Promise<ResearchGroup>;
@@ -105,7 +104,6 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     targetSampleSize: number;
     description?: string;
     institution?: string;
-    organizationId?: string;
     customFields?: CustomFieldDefinition[];
   }): Promise<ResearchGroup> => {
     const res = await api.createGroup(params);

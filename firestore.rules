@@ -3,31 +3,71 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Allow authenticated researchers to manage user profiles
-    match /users/{userId} {
-      allow read, write: if request.auth != null;
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // Multi-group research studies, memberships, and invitations
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.role == 'admin' ||
+        request.auth.token.role == 'super_admin' ||
+        request.auth.token.admin == true
+      );
+    }
+
+    // User profiles: users can only read their own profile, or admins can read any
+    // Users can only create/update their own profile without elevating their role
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && (!('role' in request.resource.data) || request.resource.data.role == 'member');
+      allow update: if (isOwner(userId) && (!('role' in request.resource.data) || request.resource.data.role == resource.data.role)) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Groups collection: members can read, only group owner or admin can modify/delete
     match /groups/{groupId} {
-      allow read, write: if request.auth != null;
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        resource.data.ownerId == request.auth.uid || isAdmin()
+      );
+      allow delete: if isSignedIn() && (
+        resource.data.ownerId == request.auth.uid || isAdmin()
+      );
 
       match /members/{memberId} {
-        allow read, write: if request.auth != null;
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && (
+          get(/databases/$(database)/documents/groups/$(groupId)).data.ownerId == request.auth.uid || isAdmin()
+        );
       }
 
       match /cases/{caseId} {
-        allow read, write: if request.auth != null;
+        allow read, write: if isSignedIn();
       }
 
       match /invitations/{inviteId} {
-        allow read, write: if request.auth != null;
+        allow read, write: if isSignedIn();
       }
     }
 
     // Patient cases collection scoped with group_id
     match /cases/{caseId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isSignedIn();
+    }
+
+    // Administrative audit logs and administrative data - strictly isolated to admins
+    match /admin_audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /admin_settings/{settingId} {
+      allow read, write: if isAdmin();
     }
 
     // Connection verification document
@@ -35,6 +75,7 @@ service cloud.firestore {
       allow read: if true;
     }
 
+    // Default deny for all other paths
     match /{document=**} {
       allow read, write: if false;
     }

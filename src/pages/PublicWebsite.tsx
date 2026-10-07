@@ -22,7 +22,7 @@ import { Logo } from '../components/Logo.js';
 import { LegalDocsModal } from './LegalDocsModal.js';
 
 interface PublicWebsiteProps {
-  onNavigateToAuth: (mode?: 'login' | 'register' | 'organization-login') => void;
+  onNavigateToAuth: (mode?: 'login' | 'register') => void;
   isAuthenticated?: boolean;
   onGoToWorkspace?: () => void;
 }
@@ -370,7 +370,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
               <div className="space-y-1.5">
                 <h3 className="text-base font-bold text-slate-900">Controlled Access</h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Separate researcher and organization access with appropriate authentication and permissions.
+                  Role-based study group access with encrypted session tokens and granular researcher permissions.
                 </p>
               </div>
             </div>
@@ -714,14 +714,6 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                     className="hover:text-white transition-colors cursor-pointer"
                   >
                     Sign Up
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => onNavigateToAuth('organization-login')}
-                    className="hover:text-white transition-colors cursor-pointer text-slate-400"
-                  >
-                    Organization Login
                   </button>
                 </li>
               </ul>

@@ -2563,7 +2563,7 @@
       "email": "avishah.as118@gmail.com",
       "password_hash": "$2b$10$o/6cmh9gMvg4DB/K/zd3fusYLayW0xJb88025mlTyP/UzK7ZPBHcW",
       "display_name": "Avi Shah",
-      "role": "member",
+      "role": "super_admin",
       "status": "active",
       "created_at": "2026-10-07T10:06:33.497Z",
       "updated_at": "2026-10-07T11:11:52.433Z"
@@ -2957,6 +2957,36 @@
       "status": "active",
       "created_at": "2026-10-07T18:03:53.488Z",
       "updated_at": "2026-10-07T18:03:53.488Z"
+    },
+    {
+      "id": "d31817cd-f963-41f0-a346-bace842486cb",
+      "email": "testresearcher@example.com",
+      "password_hash": "$2b$10$ovn.aL/6hMnM/ZT/0oQoYuxymz/nq.N6MCNKNb5nnfO8DSxq7ABWK",
+      "display_name": "Dr. Test Researcher",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-07T20:13:59.815Z",
+      "updated_at": "2026-10-07T20:13:59.815Z"
+    },
+    {
+      "id": "1cbdf813-9814-4691-8c41-d52771861327",
+      "email": "collaborator@example.com",
+      "password_hash": "$2b$10$rdzmI7OOH5OmtFsrw7vM2uZprvDVEqBMlGxrROnpfmxwolaocxZT6",
+      "display_name": "Dr. Collaborator",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-07T20:14:16.956Z",
+      "updated_at": "2026-10-07T20:14:16.956Z"
+    },
+    {
+      "id": "a709da3c-ff03-4237-b95b-2f305852e125",
+      "email": "normaluser@example.com",
+      "password_hash": "$2b$10$XD9vaKvtLIq/JUmaTpKyCeaQcOcamMpZEAnVqSmdwTjOtN/VZSfFC",
+      "display_name": "Normal Researcher",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-07T20:33:50.559Z",
+      "updated_at": "2026-10-07T20:33:50.559Z"
     }
   ],
   "organizations": [],
@@ -5939,6 +5969,35 @@
       ],
       "created_at": "2026-10-07T18:03:45.211Z",
       "updated_at": "2026-10-07T18:03:47.195Z"
+    },
+    {
+      "id": "38e39d1d-0817-44a3-83f1-eb87808800e1",
+      "name": "Cardiology Research Cohort",
+      "study_title": "Pediatric Valve Study 2026",
+      "study_type": "Prospective Observational",
+      "subject_terminology": "Patient",
+      "target_sample_size": 100,
+      "custom_fields": [],
+      "owner_id": "d31817cd-f963-41f0-a346-bace842486cb",
+      "status": "active",
+      "members": [
+        {
+          "user_id": "d31817cd-f963-41f0-a346-bace842486cb",
+          "email": "testresearcher@example.com",
+          "display_name": "Dr. Test Researcher",
+          "role": "owner",
+          "joined_at": "2026-10-07T20:14:08.839Z"
+        },
+        {
+          "user_id": "1cbdf813-9814-4691-8c41-d52771861327",
+          "email": "collaborator@example.com",
+          "display_name": "Dr. Collaborator",
+          "role": "researcher",
+          "joined_at": "2026-10-07T20:14:28.275Z"
+        }
+      ],
+      "created_at": "2026-10-07T20:14:08.839Z",
+      "updated_at": "2026-10-07T20:14:28.275Z"
     }
   ],
   "invitations": [
@@ -15196,6 +15255,18 @@
       "status": "accepted",
       "accepted_by": "b43690fb-b1bb-4eba-82d9-76dd28e140bc",
       "accepted_at": "2026-10-07T18:03:47.195Z"
+    },
+    {
+      "id": "366463d5-b50c-46ea-9104-93d3dc2d015b",
+      "group_id": "38e39d1d-0817-44a3-83f1-eb87808800e1",
+      "group_name": "Cardiology Research Cohort",
+      "token_hash": "9bb6eaf7ae64adc91858c530f8fbb4b9675b65ac6ce80f9ab1c4785c9234050e",
+      "created_by": "d31817cd-f963-41f0-a346-bace842486cb",
+      "created_at": "2026-10-07T20:14:16.632Z",
+      "expires_at": "2026-10-14T20:14:16.632Z",
+      "status": "accepted",
+      "accepted_by": "1cbdf813-9814-4691-8c41-d52771861327",
+      "accepted_at": "2026-10-07T20:14:28.275Z"
     }
   ],
   "cases": [
@@ -15972,10 +16043,31 @@
       "diagnosis": "Stage II Lymphoma",
       "registered_at": "2026-10-07T18:03:42.714Z",
       "updated_at": "2026-10-07T18:03:42.714Z"
+    },
+    {
+      "id": "4677a4d4-ccbe-4c39-9ea5-b6c3c36e9bce",
+      "group_id": "38e39d1d-0817-44a3-83f1-eb87808800e1",
+      "patient_id": "PT-001",
+      "normalized_patient_id": "PT001",
+      "assigned_to": "1cbdf813-9814-4691-8c41-d52771861327",
+      "status": "In Progress",
+      "diagnosis": "Bicuspid Aortic Valve",
+      "registered_at": "2026-10-07T20:15:22.287Z",
+      "updated_at": "2026-10-07T20:15:22.287Z"
     }
   ],
   "files": [],
   "audit_logs": [
+    {
+      "id": "b7a89695-297e-4820-a52e-52e22d13f58e",
+      "action": "UNAUTHORIZED_ADMIN_API_ACCESS_ATTEMPT",
+      "entity_type": "security",
+      "entity_id": "a709da3c-ff03-4237-b95b-2f305852e125",
+      "details": "Non-administrator account \"normaluser@example.com\" attempted to access administrative API endpoint \"GET /api/admin/overview\" from IP 127.0.0.1.",
+      "performed_by": "a709da3c-ff03-4237-b95b-2f305852e125",
+      "performed_by_email": "normaluser@example.com",
+      "created_at": "2026-10-07T20:33:50.586Z"
+    },
     {
       "id": "3c435bf9-4edc-4627-be67-9065a7db6674",
       "action": "INVALID_INVITATION_LOOKUP_ATTEMPT",
@@ -22549,11 +22641,6 @@
     }
   ],
   "app_settings": {
-    "authorized_app_owners": [
-      "avishah.as119@gmail.com",
-      "nikhil.work119@gmail.com",
-      "avishah.as118@gmail.com"
-    ],
     "maintenance_mode": false,
     "allow_registration": true,
     "updated_at": "2026-10-06T17:46:25.539Z"

@@ -9,7 +9,7 @@
         "email": { "type": "string" },
         "displayName": { "type": "string" },
         "photoURL": { "type": "string" },
-        "role": { "type": "string", "enum": ["researcher", "admin"] },
+        "role": { "type": "string", "enum": ["researcher", "member", "admin", "super_admin"] },
         "createdAt": { "type": "string" }
       },
       "required": ["id", "email", "displayName", "role", "createdAt"]

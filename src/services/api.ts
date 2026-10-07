@@ -1,8 +1,8 @@
 import type {
-  AppOwnerGroup,
-  AppOwnerSettings,
-  AppOwnerStats,
-  AppOwnerUser,
+  AdminGroup,
+  AdminSettings,
+  AdminStats,
+  AdminUser,
   AuditLogEntry,
   AuthResponse,
   CaseRecord,
@@ -12,13 +12,13 @@ import type {
   DuplicateCheckResult,
   GroupInvitation,
   LegalPolicyDoc,
-  Organization,
   ResearchFile,
   ResearchGroup,
   StudyType,
   SubjectTerminology,
   TeamSummaryResponse,
   UserProfile,
+  UserRole,
 } from '../types/index.js';
 import { offlineStorage } from './offlineStorage.js';
 
@@ -26,12 +26,32 @@ class ApiService {
   private activeGroupId: string | null = null;
   private currentUserId: string | null = null;
   private token: string | null = null;
+  private adminToken: string | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
       this.token = localStorage.getItem('thesis_tracker_jwt_token');
+      this.adminToken = localStorage.getItem('thesis_tracker_admin_token');
       this.activeGroupId = localStorage.getItem('thesis_tracker_active_group_id');
     }
+  }
+
+  public setAdminToken(token: string | null) {
+    this.adminToken = token;
+    if (typeof window !== 'undefined') {
+      if (token) {
+        localStorage.setItem('thesis_tracker_admin_token', token);
+      } else {
+        localStorage.removeItem('thesis_tracker_admin_token');
+      }
+    }
+  }
+
+  public getAdminToken(): string | null {
+    if (!this.adminToken && typeof window !== 'undefined') {
+      this.adminToken = localStorage.getItem('thesis_tracker_admin_token');
+    }
+    return this.adminToken;
   }
 
   public setCurrentUserId(userId: string | null) {
@@ -112,8 +132,11 @@ class ApiService {
       ...((options.headers as Record<string, string>) || {}),
     };
 
+    const adminToken = this.getAdminToken();
     const token = this.getToken();
-    if (token && !headers['Authorization']) {
+    if (endpoint.startsWith('/api/admin/') && adminToken) {
+      headers['Authorization'] = `Bearer ${adminToken}`;
+    } else if (token && !headers['Authorization']) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
@@ -193,22 +216,6 @@ class ApiService {
     return data;
   }
 
-  public async organizationLogin(params: {
-    email?: string;
-    organizationId?: string;
-    password?: string;
-    uid?: string;
-    displayName?: string;
-  }): Promise<AuthResponse> {
-    const data = await this.request<AuthResponse>('/api/auth/organization-login', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    });
-    this.setToken(data.token);
-    this.setCurrentUserId(data.user.id);
-    return data;
-  }
-
   public async syncGoogleUser(params: {
     uid: string;
     email: string;
@@ -262,28 +269,6 @@ class ApiService {
     });
   }
 
-  // --- ORGANIZATIONS ---
-
-  public async getUserOrganizations(): Promise<{ organizations: Organization[] }> {
-    return this.request<{ organizations: Organization[] }>('/api/organizations');
-  }
-
-  public async createOrganization(params: {
-    name: string;
-    description?: string;
-    institution?: string;
-    contactEmail?: string;
-  }): Promise<{ organization: Organization }> {
-    return this.request<{ organization: Organization }>('/api/organizations', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    });
-  }
-
-  public async getOrganization(id: string): Promise<{ organization: Organization }> {
-    return this.request<{ organization: Organization }>(`/api/organizations/${id}`);
-  }
-
   // --- RESEARCH GROUPS / STUDIES MANAGEMENT ---
 
   public async getUserGroups(): Promise<{ groups: ResearchGroup[] }> {
@@ -298,7 +283,6 @@ class ApiService {
     targetSampleSize: number;
     description?: string;
     institution?: string;
-    organizationId?: string;
     customFields?: CustomFieldDefinition[];
   }): Promise<{ group: ResearchGroup }> {
     return this.request<{ group: ResearchGroup }>('/api/groups', {
@@ -321,7 +305,6 @@ class ApiService {
       targetSampleSize?: number;
       description?: string;
       institution?: string;
-      organizationId?: string;
       customFields?: CustomFieldDefinition[];
     }
   ): Promise<{ group: ResearchGroup }> {
@@ -667,109 +650,187 @@ class ApiService {
   }
 
   // =========================================================================
-  // --- APP OWNER & ORGANIZATION ADMINISTRATION CLIENT API ---
+  // --- ADMINISTRATIVE PORTAL CLIENT API ---
   // =========================================================================
 
-  public async getAppOwnerOverview(): Promise<{ stats: AppOwnerStats }> {
-    return this.request<{ stats: AppOwnerStats }>('/api/app-owner/overview');
+  public async sendPresenceHeartbeat(): Promise<void> {
+    try {
+      await this.request<{ ok: boolean }>('/api/presence/heartbeat', {
+        method: 'POST',
+      });
+    } catch {}
   }
 
-  public async getAppOwnerOrganizations(): Promise<{ organizations: Organization[] }> {
-    return this.request<{ organizations: Organization[] }>('/api/app-owner/organizations');
+  public async adminLogin(params: {
+    email: string;
+    password?: string;
+  }): Promise<AuthResponse> {
+    const data = await this.request<AuthResponse>('/api/admin/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    if (data.token) {
+      this.setAdminToken(data.token);
+    }
+    return data;
   }
 
-  public async getAppOwnerUsers(options?: {
+  public async adminGoogleSync(params: {
+    uid: string;
+    email: string;
+    displayName?: string;
+  }): Promise<AuthResponse> {
+    const data = await this.request<AuthResponse>('/api/admin/auth/google-sync', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    if (data.token) {
+      this.setAdminToken(data.token);
+    }
+    return data;
+  }
+
+  public async verifyAdminSession(): Promise<{
+    user: UserProfile;
+    role: string;
+    isSuperAdmin: boolean;
+  }> {
+    return this.request<{
+      user: UserProfile;
+      role: string;
+      isSuperAdmin: boolean;
+    }>('/api/admin/auth/verify');
+  }
+
+  public async adminLogout(): Promise<void> {
+    try {
+      await this.request<{ success: boolean }>('/api/admin/auth/logout', {
+        method: 'POST',
+      });
+    } catch {}
+    this.setAdminToken(null);
+  }
+
+  public async getAdminOverview(): Promise<{
+    stats: AdminStats;
+    recentAudit: AuditLogEntry[];
+    recentUsers: AdminUser[];
+  }> {
+    return this.request<{
+      stats: AdminStats;
+      recentAudit: AuditLogEntry[];
+      recentUsers: AdminUser[];
+    }>('/api/admin/overview');
+  }
+
+  public async getAdminUsers(params?: {
     search?: string;
     status?: string;
-  }): Promise<{ users: AppOwnerUser[] }> {
-    const params = new URLSearchParams();
-    if (options?.search) params.append('search', options.search);
-    if (options?.status) params.append('status', options.status);
-    const query = params.toString() ? `?${params.toString()}` : '';
-    return this.request<{ users: AppOwnerUser[] }>(`/api/app-owner/users${query}`);
+    role?: string;
+  }): Promise<{ users: AdminUser[] }> {
+    const query = new URLSearchParams();
+    if (params?.search) query.set('search', params.search);
+    if (params?.status) query.set('status', params.status);
+    if (params?.role) query.set('role', params.role);
+    const qs = query.toString();
+    return this.request<{ users: AdminUser[] }>(`/api/admin/users${qs ? `?${qs}` : ''}`);
   }
 
-  public async setAppOwnerUserStatus(
+  public async getAdminUserDetail(userId: string): Promise<{
+    user: AdminUser;
+    activity: AuditLogEntry[];
+    casesCount: number;
+  }> {
+    return this.request<{
+      user: AdminUser;
+      activity: AuditLogEntry[];
+      casesCount: number;
+    }>(`/api/admin/users/${userId}`);
+  }
+
+  public async setAdminUserStatus(
     userId: string,
     status: 'active' | 'suspended'
-  ): Promise<{ success: boolean; user: AppOwnerUser }> {
-    return this.request<{ success: boolean; user: AppOwnerUser }>(
-      `/api/app-owner/users/${userId}/status`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-      }
-    );
+  ): Promise<{ user: AdminUser }> {
+    return this.request<{ user: AdminUser }>(`/api/admin/users/${userId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
   }
 
-  public async getAppOwnerGroups(options?: {
+  public async setAdminUserRole(
+    userId: string,
+    role: UserRole
+  ): Promise<{ user: AdminUser }> {
+    return this.request<{ user: AdminUser }>(`/api/admin/users/${userId}/role`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    });
+  }
+
+  public async deleteAdminUser(
+    userId: string
+  ): Promise<{ success: boolean; email: string }> {
+    return this.request<{ success: boolean; email: string }>(`/api/admin/users/${userId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  public async getAdminGroups(params?: {
     search?: string;
     status?: string;
-  }): Promise<{ groups: AppOwnerGroup[] }> {
-    const params = new URLSearchParams();
-    if (options?.search) params.append('search', options.search);
-    if (options?.status) params.append('status', options.status);
-    const query = params.toString() ? `?${params.toString()}` : '';
-    return this.request<{ groups: AppOwnerGroup[] }>(`/api/app-owner/groups${query}`);
+  }): Promise<{ groups: AdminGroup[] }> {
+    const query = new URLSearchParams();
+    if (params?.search) query.set('search', params.search);
+    if (params?.status) query.set('status', params.status);
+    const qs = query.toString();
+    return this.request<{ groups: AdminGroup[] }>(`/api/admin/groups${qs ? `?${qs}` : ''}`);
   }
 
-  public async setAppOwnerGroupStatus(
+  public async setAdminGroupStatus(
     groupId: string,
     status: 'active' | 'archived' | 'suspended'
-  ): Promise<{ success: boolean; group: AppOwnerGroup }> {
-    return this.request<{ success: boolean; group: AppOwnerGroup }>(
-      `/api/app-owner/groups/${groupId}/status`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-      }
-    );
+  ): Promise<{ group: AdminGroup }> {
+    return this.request<{ group: AdminGroup }>(`/api/admin/groups/${groupId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
   }
 
-  public async deleteAppOwnerGroup(
-    groupId: string
+  public async deleteAdminGroup(
+    groupId: string,
+    confirmGroupName: string
   ): Promise<{ success: boolean; groupName: string }> {
-    return this.request<{ success: boolean; groupName: string }>(
-      `/api/app-owner/groups/${groupId}`,
-      {
-        method: 'DELETE',
-      }
-    );
+    return this.request<{ success: boolean; groupName: string }>(`/api/admin/groups/${groupId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ confirmGroupName }),
+    });
   }
 
-  public async getAppOwnerAuditLogs(options?: {
+  public async getAdminAuditLogs(params?: {
     limit?: number;
     action?: string;
     entityType?: string;
   }): Promise<{ logs: AuditLogEntry[] }> {
-    const params = new URLSearchParams();
-    if (options?.limit) params.append('limit', String(options.limit));
-    if (options?.action) params.append('action', options.action);
-    if (options?.entityType) params.append('entityType', options.entityType);
-    const query = params.toString() ? `?${params.toString()}` : '';
-    return this.request<{ logs: AuditLogEntry[] }>(`/api/app-owner/audit-logs${query}`);
+    const query = new URLSearchParams();
+    if (params?.limit) query.set('limit', params.limit.toString());
+    if (params?.action) query.set('action', params.action);
+    if (params?.entityType) query.set('entityType', params.entityType);
+    const qs = query.toString();
+    return this.request<{ logs: AuditLogEntry[] }>(`/api/admin/audit-logs${qs ? `?${qs}` : ''}`);
   }
 
-  public async getAppOwnerSettings(): Promise<{ settings: AppOwnerSettings }> {
-    return this.request<{ settings: AppOwnerSettings }>('/api/app-owner/settings');
+  public async getAdminSettings(): Promise<{ settings: AdminSettings }> {
+    return this.request<{ settings: AdminSettings }>('/api/admin/settings');
   }
 
-  public async updateAppOwnerSettings(
-    updates: Partial<AppOwnerSettings>
-  ): Promise<{ settings: AppOwnerSettings }> {
-    return this.request<{ settings: AppOwnerSettings }>('/api/app-owner/settings', {
+  public async updateAdminSettings(params: {
+    maintenanceMode?: boolean;
+    allowRegistration?: boolean;
+  }): Promise<{ settings: AdminSettings }> {
+    return this.request<{ settings: AdminSettings }>('/api/admin/settings', {
       method: 'PATCH',
-      body: JSON.stringify(updates),
-    });
-  }
-
-  public async updateLegalPolicy(
-    id: string,
-    content: string
-  ): Promise<{ policy: LegalPolicyDoc }> {
-    return this.request<{ policy: LegalPolicyDoc }>(`/api/app-owner/legal-policies/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify(params),
     });
   }
 }

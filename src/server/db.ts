@@ -5,10 +5,10 @@ import bcrypt from 'bcryptjs';
 import { normalizePatientId, validatePatientId } from '../utils/normalizePatientId.js';
 import { validateServerPassword } from './passwordSecurity.js';
 import type {
-  AppOwnerGroup,
-  AppOwnerSettings,
-  AppOwnerStats,
-  AppOwnerUser,
+  AdminGroup,
+  AdminSettings,
+  AdminStats,
+  AdminUser,
   AuditLogEntry,
   CaseRecord,
   CaseStatus,
@@ -18,7 +18,6 @@ import type {
   GroupMember,
   GroupMemberRole,
   LegalPolicyDoc,
-  Organization,
   ResearchFile,
   ResearchGroup,
   StudyType,
@@ -26,28 +25,20 @@ import type {
   TeamMemberSummary,
   TeamSummaryResponse,
   UserProfile,
+  UserRole,
 } from '../types/index.js';
 
-export const PRIMARY_APP_OWNER = 'avishah.as118@gmail.com';
+export const INITIAL_ADMIN_EMAIL = 'avishah.as118@gmail.com';
 
-interface StoredProfile {
+export interface StoredProfile {
   id: string;
   email: string;
   password_hash: string;
   display_name: string;
-  role: 'member' | 'admin';
+  role: UserRole;
   status?: 'active' | 'suspended';
-  created_at: string;
-  updated_at: string;
-}
-
-interface StoredOrganization {
-  id: string;
-  name: string;
-  description?: string;
-  institution?: string;
-  contact_email?: string;
-  owner_id: string;
+  last_login?: string;
+  last_active_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -128,7 +119,7 @@ interface StoredCase {
 interface StoredAuditLog {
   id: string;
   action: string;
-  entity_type: 'user' | 'group' | 'organization' | 'settings' | 'security' | 'legal' | 'file';
+  entity_type: 'user' | 'group' | 'settings' | 'security' | 'legal' | 'file';
   entity_id?: string;
   entity_name?: string;
   details: string;
@@ -138,7 +129,6 @@ interface StoredAuditLog {
 }
 
 interface StoredAppSettings {
-  authorized_app_owners: string[];
   maintenance_mode: boolean;
   allow_registration: boolean;
   updated_at: string;
@@ -155,7 +145,7 @@ interface StoredLegalDoc {
 interface DatabaseSchema {
   version: number;
   profiles: StoredProfile[];
-  organizations?: StoredOrganization[];
+  organizations?: any[];
   groups: StoredGroup[];
   invitations: StoredInvitation[];
   cases: StoredCase[];
@@ -356,7 +346,6 @@ export class RelationalDatabase {
       files: [],
       audit_logs: [],
       app_settings: {
-        authorized_app_owners: [PRIMARY_APP_OWNER],
         maintenance_mode: false,
         allow_registration: true,
         updated_at: new Date().toISOString(),
@@ -375,29 +364,40 @@ export class RelationalDatabase {
         this.data = {
           version: parsed.version || 3,
           profiles: Array.isArray(parsed.profiles) ? parsed.profiles : [],
-          organizations: Array.isArray(parsed.organizations) ? parsed.organizations : [],
+          organizations: [],
           groups: Array.isArray(parsed.groups) ? parsed.groups : [],
           invitations: Array.isArray(parsed.invitations) ? parsed.invitations : [],
           cases: Array.isArray(parsed.cases) ? parsed.cases : [],
           files: Array.isArray(parsed.files) ? parsed.files : [],
           audit_logs: Array.isArray(parsed.audit_logs) ? parsed.audit_logs : [],
-          app_settings: parsed.app_settings || {
-            authorized_app_owners: [PRIMARY_APP_OWNER],
-            maintenance_mode: false,
-            allow_registration: true,
-            updated_at: new Date().toISOString(),
+          app_settings: {
+            maintenance_mode: parsed.app_settings?.maintenance_mode ?? false,
+            allow_registration: parsed.app_settings?.allow_registration ?? true,
+            updated_at: parsed.app_settings?.updated_at || new Date().toISOString(),
           },
           legal_docs: Array.isArray(parsed.legal_docs) && parsed.legal_docs.length > 0
             ? parsed.legal_docs
             : DEFAULT_LEGAL_DOCS,
         };
 
-        // Ensure PRIMARY_APP_OWNER and current user are in authorized_app_owners
-        const bootstrapOwners = [PRIMARY_APP_OWNER, 'nikhil.work119@gmail.com'];
-        for (const bo of bootstrapOwners) {
-          if (!this.data.app_settings!.authorized_app_owners.map((e) => e.toLowerCase()).includes(bo.toLowerCase())) {
-            this.data.app_settings!.authorized_app_owners.push(bo);
-          }
+        // Bootstrap initial administrator account securely on the server
+        const adminEmailNormalized = INITIAL_ADMIN_EMAIL.toLowerCase();
+        const existingAdmin = this.data.profiles.find((p) => p.email.toLowerCase() === adminEmailNormalized);
+        if (existingAdmin) {
+          existingAdmin.role = 'super_admin';
+          existingAdmin.status = 'active';
+        } else {
+          const now = new Date().toISOString();
+          this.data.profiles.push({
+            id: 'admin-' + crypto.randomUUID(),
+            email: INITIAL_ADMIN_EMAIL,
+            password_hash: '',
+            display_name: 'Initial Administrator',
+            role: 'super_admin',
+            status: 'active',
+            created_at: now,
+            updated_at: now,
+          });
         }
 
         // Migrate legacy invitations: compute deterministic token_hash if missing
@@ -502,35 +502,36 @@ export class RelationalDatabase {
     }
   }
 
-  // --- APP OWNER AUTHORIZATION ---
+  // --- ROLE-BASED ADMIN AUTHORIZATION ---
 
-  public isAppOwner(email: string | null | undefined): boolean {
-    if (!email) return false;
-    const normalized = email.trim().toLowerCase();
-    if (
-      normalized === PRIMARY_APP_OWNER.toLowerCase() ||
-      normalized === 'avishah.as118@gmail.com' ||
-      normalized === 'avishah.as119@gmail.com' ||
-      normalized === 'nikhil.work119@gmail.com'
-    ) {
-      return true;
+  public isAdmin(userOrEmail: StoredProfile | UserProfile | string | null | undefined): boolean {
+    if (!userOrEmail) return false;
+    if (typeof userOrEmail === 'string') {
+      const email = userOrEmail.trim().toLowerCase();
+      if (email === INITIAL_ADMIN_EMAIL.toLowerCase()) return true;
+      const profile = this.data.profiles.find((p) => p.email.toLowerCase() === email);
+      return profile ? (profile.role === 'admin' || profile.role === 'super_admin') : false;
     }
-    const authorized = this.data.app_settings?.authorized_app_owners || [
-      PRIMARY_APP_OWNER,
-      'avishah.as118@gmail.com',
-      'avishah.as119@gmail.com',
-      'nikhil.work119@gmail.com',
-    ];
-    if (authorized.map((e) => e.toLowerCase()).includes(normalized)) {
-      return true;
-    }
+    const role = userOrEmail.role;
+    return role === 'admin' || role === 'super_admin';
+  }
 
-    const profile = this.data.profiles.find((p) => p.email.toLowerCase() === normalized);
-    if (profile && this.data.organizations?.some((o) => o.owner_id === profile.id)) {
-      return true;
+  public isSuperAdmin(userOrEmail: StoredProfile | UserProfile | string | null | undefined): boolean {
+    if (!userOrEmail) return false;
+    if (typeof userOrEmail === 'string') {
+      const email = userOrEmail.trim().toLowerCase();
+      if (email === INITIAL_ADMIN_EMAIL.toLowerCase()) return true;
+      const profile = this.data.profiles.find((p) => p.email.toLowerCase() === email);
+      return profile ? profile.role === 'super_admin' : false;
     }
+    return userOrEmail.role === 'super_admin';
+  }
 
-    return false;
+  public recordUserPresence(userId: string): void {
+    const profile = this.data.profiles.find((p) => p.id === userId);
+    if (profile) {
+      profile.last_active_at = new Date().toISOString();
+    }
   }
 
   private resolveUserProfile(p: StoredProfile): UserProfile {
@@ -538,8 +539,10 @@ export class RelationalDatabase {
     const hasPassword = Boolean(password_hash && password_hash.trim().length > 0);
     return {
       ...safeProfile,
+      role: p.role || 'member',
       status: p.status || 'active',
-      is_app_owner: this.isAppOwner(p.email),
+      last_login: p.last_login,
+      last_active_at: p.last_active_at,
       has_password: hasPassword,
       auth_provider: hasPassword ? 'password' : 'google',
     };
@@ -566,16 +569,8 @@ export class RelationalDatabase {
   }
 
   private mapGroupToPublic(g: StoredGroup): ResearchGroup {
-    let orgName: string | undefined;
-    if (g.organization_id && this.data.organizations) {
-      const org = this.data.organizations.find((o) => o.id === g.organization_id);
-      if (org) orgName = org.name;
-    }
-
     return {
       id: g.id,
-      organizationId: g.organization_id,
-      organizationName: orgName,
       name: g.name,
       studyTitle: g.study_title,
       studyType: g.study_type || 'Clinical Pharmacy',
@@ -602,7 +597,7 @@ export class RelationalDatabase {
 
   public async recordAuditLog(entry: {
     action: string;
-    entityType: 'user' | 'group' | 'organization' | 'settings' | 'security' | 'legal' | 'file';
+    entityType: 'user' | 'group' | 'settings' | 'security' | 'legal' | 'file';
     entityId?: string;
     entityName?: string;
     details: string;
@@ -696,7 +691,7 @@ export class RelationalDatabase {
   }): Promise<UserProfile> {
     return this.mutex.runExclusive(async () => {
       if (this.data.app_settings && !this.data.app_settings.allow_registration) {
-        throw new ValidationError('New researcher registration is temporarily paused by the organization administrator.');
+        throw new ValidationError('New researcher registration is temporarily paused by the administrator.');
       }
 
       if (
@@ -741,12 +736,15 @@ export class RelationalDatabase {
       const password_hash = await bcrypt.hash(params.password, salt);
       const now = new Date().toISOString();
 
+      const isInitialAdmin = email === INITIAL_ADMIN_EMAIL.toLowerCase();
+      const role: UserRole = isInitialAdmin ? 'super_admin' : 'member';
+
       const newProfile: StoredProfile = {
         id: crypto.randomUUID(),
         email,
         password_hash,
         display_name: displayName,
-        role: 'member',
+        role,
         status: 'active',
         created_at: now,
         updated_at: now,
@@ -775,6 +773,11 @@ export class RelationalDatabase {
         if (profile.status === 'suspended') {
           throw new AccountSuspendedError();
         }
+        if (email === INITIAL_ADMIN_EMAIL.toLowerCase() && profile.role !== 'super_admin') {
+          profile.role = 'super_admin';
+        }
+        profile.last_login = new Date().toISOString();
+        profile.last_active_at = profile.last_login;
         profile.display_name = (typeof params.displayName === 'string' && params.displayName.trim()) ? params.displayName.trim() : profile.display_name;
         profile.updated_at = new Date().toISOString();
         await this.persist();
@@ -782,17 +785,21 @@ export class RelationalDatabase {
       }
 
       if (this.data.app_settings && !this.data.app_settings.allow_registration) {
-        throw new ValidationError('New researcher registration is temporarily paused by the organization administrator.');
+        throw new ValidationError('New researcher registration is temporarily paused by the administrator.');
       }
 
       const now = new Date().toISOString();
+      const isInitialAdmin = email === INITIAL_ADMIN_EMAIL.toLowerCase();
+      const role: UserRole = isInitialAdmin ? 'super_admin' : 'member';
       const newProfile: StoredProfile = {
         id: params.uid,
         email,
         password_hash: '',
         display_name: (typeof params.displayName === 'string' && params.displayName.trim()) ? params.displayName.trim() : email.split('@')[0],
-        role: 'member',
+        role,
         status: 'active',
+        last_login: now,
+        last_active_at: now,
         created_at: now,
         updated_at: now,
       };
@@ -805,32 +812,18 @@ export class RelationalDatabase {
   }
 
   public async verifyUserCredentials(params: {
-    email?: string;
-    organizationId?: string;
+    email: string;
     password: string;
   }): Promise<UserProfile | null> {
-    if (!params || typeof params.password !== 'string') {
+    if (!params || typeof params.password !== 'string' || typeof params.email !== 'string') {
       return null;
     }
-    const identifier = (params.organizationId || params.email || '').trim().toLowerCase();
+    const identifier = params.email.trim().toLowerCase();
     if (!identifier) return null;
 
-    let profile = this.data.profiles.find(
-      (p) => p.email.toLowerCase() === identifier || p.id.toLowerCase() === identifier
+    const profile = this.data.profiles.find(
+      (p) => p.email.toLowerCase() === identifier
     );
-
-    // If identifier was not found as a direct user profile, check if it matches an organization ID or contact email
-    if (!profile && this.data.organizations) {
-      const org = this.data.organizations.find(
-        (o) =>
-          o.id.toLowerCase() === identifier ||
-          o.name.toLowerCase() === identifier ||
-          (o.contact_email && o.contact_email.toLowerCase() === identifier)
-      );
-      if (org) {
-        profile = this.data.profiles.find((p) => p.id === org.owner_id);
-      }
-    }
 
     if (!profile) return null;
 
@@ -840,6 +833,10 @@ export class RelationalDatabase {
 
     const matches = await bcrypt.compare(params.password, profile.password_hash);
     if (!matches) return null;
+
+    profile.last_login = new Date().toISOString();
+    profile.last_active_at = profile.last_login;
+    await this.persist();
 
     return this.resolveUserProfile(profile);
   }
@@ -895,7 +892,7 @@ export class RelationalDatabase {
   }): Promise<void> {
     return this.mutex.runExclusive(async () => {
       const admin = this.data.profiles.find((p) => p.id === params.adminUserId);
-      if (!admin || !this.isAppOwner(admin.email)) {
+      if (!admin || !this.isAdmin(admin)) {
         throw new UnauthorizedGroupActionError('Access denied: Administrator authorization required.');
       }
 
@@ -968,107 +965,6 @@ export class RelationalDatabase {
     });
   }
 
-  // --- ORGANIZATIONS MANAGEMENT ---
-
-  public async getUserOrganizations(userId: string): Promise<Organization[]> {
-    if (!this.data.organizations) this.data.organizations = [];
-    const list = this.data.organizations.filter((o) => {
-      // User owns the organization OR is a member of studies inside this organization
-      const ownsOrg = o.owner_id === userId;
-      const inOrgStudy = this.data.groups.some(
-        (g) => g.organization_id === o.id && g.members.some((m) => m.user_id === userId)
-      );
-      return ownsOrg || inOrgStudy;
-    });
-
-    return list.map((o) => {
-      const studies = this.data.groups.filter((g) => g.organization_id === o.id);
-      const uniqueMembers = new Set<string>();
-      studies.forEach((s) => s.members.forEach((m) => uniqueMembers.add(m.user_id)));
-      return {
-        id: o.id,
-        name: o.name,
-        description: o.description,
-        institution: o.institution,
-        contactEmail: o.contact_email,
-        ownerId: o.owner_id,
-        studiesCount: studies.length,
-        membersCount: uniqueMembers.size,
-        createdAt: o.created_at,
-        updatedAt: o.updated_at,
-      };
-    });
-  }
-
-  public async createOrganization(
-    userId: string,
-    params: {
-      name: string;
-      description?: string;
-      institution?: string;
-      contactEmail?: string;
-    }
-  ): Promise<Organization> {
-    return this.mutex.runExclusive(async () => {
-      if (!params || typeof params.name !== 'string' || !params.name.trim()) {
-        throw new ValidationError('Organization name is required.');
-      }
-      const name = params.name.trim();
-
-      if (!this.data.organizations) this.data.organizations = [];
-      const now = new Date().toISOString();
-      const newOrg: StoredOrganization = {
-        id: crypto.randomUUID(),
-        name,
-        description: typeof params.description === 'string' && params.description.trim() ? params.description.trim() : undefined,
-        institution: typeof params.institution === 'string' && params.institution.trim() ? params.institution.trim() : undefined,
-        contact_email: typeof params.contactEmail === 'string' && params.contactEmail.trim() ? params.contactEmail.trim() : undefined,
-        owner_id: userId,
-        created_at: now,
-        updated_at: now,
-      };
-
-      this.data.organizations.push(newOrg);
-      await this.persist();
-
-      return {
-        id: newOrg.id,
-        name: newOrg.name,
-        description: newOrg.description,
-        institution: newOrg.institution,
-        contactEmail: newOrg.contact_email,
-        ownerId: newOrg.owner_id,
-        studiesCount: 0,
-        membersCount: 1,
-        createdAt: newOrg.created_at,
-        updatedAt: newOrg.updated_at,
-      };
-    });
-  }
-
-  public async getOrganizationById(orgId: string): Promise<Organization | null> {
-    if (!this.data.organizations) return null;
-    const org = this.data.organizations.find((o) => o.id === orgId);
-    if (!org) return null;
-
-    const studies = this.data.groups.filter((g) => g.organization_id === org.id);
-    const uniqueMembers = new Set<string>();
-    studies.forEach((s) => s.members.forEach((m) => uniqueMembers.add(m.user_id)));
-
-    return {
-      id: org.id,
-      name: org.name,
-      description: org.description,
-      institution: org.institution,
-      contactEmail: org.contact_email,
-      ownerId: org.owner_id,
-      studiesCount: studies.length,
-      membersCount: uniqueMembers.size,
-      createdAt: org.created_at,
-      updatedAt: org.updated_at,
-    };
-  }
-
   // --- RESEARCH GROUPS / STUDIES MANAGEMENT ---
 
   public async getUserGroups(userId: string): Promise<ResearchGroup[]> {
@@ -1101,7 +997,6 @@ export class RelationalDatabase {
       targetSampleSize: number;
       description?: string;
       institution?: string;
-      organizationId?: string;
       customFields?: CustomFieldDefinition[];
     }
   ): Promise<ResearchGroup> {
@@ -1141,7 +1036,6 @@ export class RelationalDatabase {
 
       const newGroup: StoredGroup = {
         id: newGroupId,
-        organization_id: typeof params.organizationId === 'string' && params.organizationId.trim() ? params.organizationId.trim() : undefined,
         name,
         study_title: studyTitle,
         study_type: params.studyType || 'Clinical Pharmacy',
@@ -1175,7 +1069,6 @@ export class RelationalDatabase {
       targetSampleSize?: number;
       description?: string;
       institution?: string;
-      organizationId?: string;
       customFields?: CustomFieldDefinition[];
     }
   ): Promise<ResearchGroup> {
@@ -1218,10 +1111,6 @@ export class RelationalDatabase {
       if (updates.institution !== undefined) {
         if (typeof updates.institution !== 'string') throw new ValidationError('Institution must be a string.');
         group.institution = updates.institution.trim() || undefined;
-      }
-      if (updates.organizationId !== undefined) {
-        if (typeof updates.organizationId !== 'string') throw new ValidationError('Organization ID must be a string.');
-        group.organization_id = updates.organizationId.trim() || undefined;
       }
       if (updates.customFields !== undefined) {
         if (!Array.isArray(updates.customFields)) throw new ValidationError('Custom fields must be an array.');
@@ -1944,12 +1833,62 @@ export class RelationalDatabase {
   }
 
   // =========================================================================
-  // --- APP OWNER / ORGANIZATION ADMINISTRATION METHODS ---
+  // --- ADMINISTRATIVE PORTAL BACKEND METHODS ---
   // =========================================================================
 
-  public async getAppOwnerOverview(): Promise<AppOwnerStats> {
+  private mapToAdminUser(p: StoredProfile): AdminUser {
+    const userGroups = this.data.groups
+      .filter((g) => g.members.some((m) => m.user_id === p.id))
+      .map((g) => {
+        const m = g.members.find((mem) => mem.user_id === p.id)!;
+        return {
+          groupId: g.id,
+          groupName: g.name,
+          role: m.role,
+          joinedAt: m.joined_at,
+        };
+      });
+
+    const userCaseCount = this.data.cases.filter((c) => c.assigned_to === p.id).length;
+
+    return {
+      id: p.id,
+      email: p.email,
+      displayName: p.display_name,
+      role: p.role,
+      status: p.status || 'active',
+      createdAt: p.created_at,
+      lastLogin: p.last_login,
+      lastActiveAt: p.last_active_at,
+      groupCount: userGroups.length,
+      caseCount: userCaseCount,
+      groups: userGroups,
+    };
+  }
+
+  public async getAdminOverview(): Promise<AdminStats> {
     const totalUsers = this.data.profiles.length;
-    const totalOrganizations = this.data.organizations?.length || 0;
+    const activeUsers = this.data.profiles.filter((p) => (p.status || 'active') === 'active').length;
+    const inactiveUsers = this.data.profiles.filter((p) => p.status === 'suspended').length;
+
+    const now = Date.now();
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+    const fiveMinutesAgo = now - 5 * 60 * 1000;
+
+    const newUsersLast30Days = this.data.profiles.filter(
+      (p) => new Date(p.created_at).getTime() >= thirtyDaysAgo
+    ).length;
+
+    const recentlyActiveUsers24h = this.data.profiles.filter((p) => {
+      const activeTime = p.last_active_at || p.last_login || p.updated_at;
+      return activeTime && new Date(activeTime).getTime() >= oneDayAgo;
+    }).length;
+
+    const currentlyOnlineUsers = this.data.profiles.filter((p) => {
+      return p.last_active_at && new Date(p.last_active_at).getTime() >= fiveMinutesAgo;
+    }).length;
+
     const totalGroups = this.data.groups.length;
     const activeGroups = this.data.groups.filter((g) => (g.status || 'active') === 'active').length;
     const totalMemberships = this.data.groups.reduce((acc, g) => acc + g.members.length, 0);
@@ -1958,7 +1897,11 @@ export class RelationalDatabase {
 
     return {
       totalUsers,
-      totalOrganizations,
+      activeUsers,
+      inactiveUsers,
+      newUsersLast30Days,
+      recentlyActiveUsers24h,
+      currentlyOnlineUsers,
       totalGroups,
       activeGroups,
       totalMemberships,
@@ -1967,31 +1910,11 @@ export class RelationalDatabase {
     };
   }
 
-  public async getAppOwnerOrganizations(): Promise<Organization[]> {
-    if (!this.data.organizations) this.data.organizations = [];
-    return this.data.organizations.map((o) => {
-      const studies = this.data.groups.filter((g) => g.organization_id === o.id);
-      const uniqueMembers = new Set<string>();
-      studies.forEach((s) => s.members.forEach((m) => uniqueMembers.add(m.user_id)));
-      return {
-        id: o.id,
-        name: o.name,
-        description: o.description,
-        institution: o.institution,
-        contactEmail: o.contact_email,
-        ownerId: o.owner_id,
-        studiesCount: studies.length,
-        membersCount: uniqueMembers.size,
-        createdAt: o.created_at,
-        updatedAt: o.updated_at,
-      };
-    });
-  }
-
-  public async getAppOwnerUsers(options?: {
+  public async getAdminUsers(options?: {
     search?: string;
     status?: string;
-  }): Promise<AppOwnerUser[]> {
+    role?: string;
+  }): Promise<AdminUser[]> {
     let list = this.data.profiles;
 
     if (options?.search) {
@@ -2007,42 +1930,56 @@ export class RelationalDatabase {
       list = list.filter((p) => (p.status || 'active') === options.status);
     }
 
-    return list.map((p) => {
-      const userGroups = this.data.groups
-        .filter((g) => g.members.some((m) => m.user_id === p.id))
-        .map((g) => {
-          const m = g.members.find((mem) => mem.user_id === p.id)!;
-          return {
-            groupId: g.id,
-            groupName: g.name,
-            role: m.role,
-            joinedAt: m.joined_at,
-          };
-        });
+    if (options?.role && options.role !== 'ALL') {
+      list = list.filter((p) => p.role === options.role);
+    }
 
-      return {
-        id: p.id,
-        email: p.email,
-        displayName: p.display_name,
-        status: p.status || 'active',
-        createdAt: p.created_at,
-        isAppOwner: this.isAppOwner(p.email),
-        groups: userGroups,
-      };
-    });
+    return list.map((p) => this.mapToAdminUser(p));
   }
 
-  public async setAppOwnerUserStatus(
+  public async getAdminUserDetail(userId: string): Promise<{
+    user: AdminUser;
+    activity: AuditLogEntry[];
+    casesCount: number;
+  } | null> {
+    const profile = this.data.profiles.find((p) => p.id === userId);
+    if (!profile) return null;
+
+    const user = this.mapToAdminUser(profile);
+    const activity = (this.data.audit_logs || [])
+      .filter((l) => l.performed_by === userId || l.entity_id === userId || l.performed_by_email === profile.email)
+      .slice(0, 50);
+
+    const casesCount = this.data.cases.filter((c) => c.assigned_to === userId).length;
+
+    return {
+      user,
+      activity: activity.map((l) => ({
+        id: l.id,
+        action: l.action,
+        entityType: l.entity_type,
+        entityId: l.entity_id,
+        entityName: l.entity_name,
+        details: l.details,
+        performedBy: l.performed_by,
+        performedByEmail: l.performed_by_email,
+        createdAt: l.created_at,
+      })),
+      casesCount,
+    };
+  }
+
+  public async setAdminUserStatus(
     userId: string,
     newStatus: 'active' | 'suspended',
     adminEmail: string
-  ): Promise<AppOwnerUser> {
+  ): Promise<AdminUser> {
     return this.mutex.runExclusive(async () => {
       const profile = this.data.profiles.find((p) => p.id === userId);
       if (!profile) throw new ValidationError('User profile not found.');
 
-      if (this.isAppOwner(profile.email)) {
-        throw new ValidationError('Action rejected: Cannot modify status of an authorized App Owner account.');
+      if (profile.email.toLowerCase() === INITIAL_ADMIN_EMAIL.toLowerCase()) {
+        throw new ValidationError('Action rejected: Cannot modify status of the primary initial administrator.');
       }
 
       profile.status = newStatus;
@@ -2059,34 +1996,87 @@ export class RelationalDatabase {
         performedByEmail: adminEmail,
       });
 
-      const userGroups = this.data.groups
-        .filter((g) => g.members.some((m) => m.user_id === profile.id))
-        .map((g) => {
-          const m = g.members.find((mem) => mem.user_id === profile.id)!;
-          return {
-            groupId: g.id,
-            groupName: g.name,
-            role: m.role,
-            joinedAt: m.joined_at,
-          };
-        });
-
-      return {
-        id: profile.id,
-        email: profile.email,
-        displayName: profile.display_name,
-        status: profile.status,
-        createdAt: profile.created_at,
-        isAppOwner: false,
-        groups: userGroups,
-      };
+      return this.mapToAdminUser(profile);
     });
   }
 
-  public async getAppOwnerGroups(options?: {
+  public async setAdminUserRole(
+    userId: string,
+    newRole: UserRole,
+    adminEmail: string,
+    operatorIsSuperAdmin: boolean
+  ): Promise<AdminUser> {
+    return this.mutex.runExclusive(async () => {
+      const profile = this.data.profiles.find((p) => p.id === userId);
+      if (!profile) throw new ValidationError('User profile not found.');
+
+      if (profile.email.toLowerCase() === INITIAL_ADMIN_EMAIL.toLowerCase() && newRole !== 'super_admin') {
+        throw new ValidationError('Action rejected: Cannot revoke role from the primary initial administrator.');
+      }
+
+      if (!operatorIsSuperAdmin && (newRole === 'super_admin' || profile.role === 'super_admin')) {
+        throw new UnauthorizedGroupActionError('Only Super Administrators can assign or modify Super Administrator roles.');
+      }
+
+      const previousRole = profile.role;
+      profile.role = newRole;
+      profile.updated_at = new Date().toISOString();
+      await this.persist();
+
+      await this.recordAuditLog({
+        action: 'USER_ROLE_CHANGED',
+        entityType: 'user',
+        entityId: profile.id,
+        entityName: profile.display_name,
+        details: `Role for "${profile.email}" changed from ${previousRole} to ${newRole}.`,
+        performedBy: adminEmail,
+        performedByEmail: adminEmail,
+      });
+
+      return this.mapToAdminUser(profile);
+    });
+  }
+
+  public async deleteAdminUser(
+    userId: string,
+    adminEmail: string
+  ): Promise<{ success: boolean; email: string }> {
+    return this.mutex.runExclusive(async () => {
+      const idx = this.data.profiles.findIndex((p) => p.id === userId);
+      if (idx === -1) throw new ValidationError('User not found.');
+
+      const target = this.data.profiles[idx];
+      if (target.email.toLowerCase() === INITIAL_ADMIN_EMAIL.toLowerCase()) {
+        throw new ValidationError('Action rejected: Cannot delete the primary initial administrator account.');
+      }
+
+      const [removed] = this.data.profiles.splice(idx, 1);
+
+      // Remove from group memberships
+      for (const group of this.data.groups) {
+        group.members = group.members.filter((m) => m.user_id !== userId);
+      }
+
+      await this.persist();
+
+      await this.recordAuditLog({
+        action: 'USER_DELETED',
+        entityType: 'user',
+        entityId: removed.id,
+        entityName: removed.display_name,
+        details: `User account "${removed.email}" permanently removed by administrator.`,
+        performedBy: adminEmail,
+        performedByEmail: adminEmail,
+      });
+
+      return { success: true, email: removed.email };
+    });
+  }
+
+  public async getAdminGroups(options?: {
     search?: string;
     status?: string;
-  }): Promise<AppOwnerGroup[]> {
+  }): Promise<AdminGroup[]> {
     let list = this.data.groups;
 
     if (options?.search) {
@@ -2107,16 +2097,9 @@ export class RelationalDatabase {
       const owner = this.data.profiles.find((p) => p.id === g.owner_id);
       const caseCount = this.data.cases.filter((c) => c.group_id === g.id).length;
       const invitationsCount = this.data.invitations.filter((i) => i.group_id === g.id).length;
-      let orgName: string | undefined;
-      if (g.organization_id && this.data.organizations) {
-        const org = this.data.organizations.find((o) => o.id === g.organization_id);
-        if (org) orgName = org.name;
-      }
 
       return {
         id: g.id,
-        organizationId: g.organization_id,
-        organizationName: orgName,
         name: g.name,
         studyTitle: g.study_title,
         studyType: g.study_type,
@@ -2143,11 +2126,11 @@ export class RelationalDatabase {
     });
   }
 
-  public async setAppOwnerGroupStatus(
+  public async setAdminGroupStatus(
     groupId: string,
     newStatus: 'active' | 'archived' | 'suspended',
     adminEmail: string
-  ): Promise<AppOwnerGroup> {
+  ): Promise<AdminGroup> {
     return this.mutex.runExclusive(async () => {
       const group = this.data.groups.find((g) => g.id === groupId);
       if (!group) throw new GroupNotFoundError();
@@ -2198,7 +2181,11 @@ export class RelationalDatabase {
     });
   }
 
-  public async deleteAppOwnerGroup(
+  public findGroupById(groupId: string): StoredGroup | undefined {
+    return this.data.groups.find((g) => g.id === groupId);
+  }
+
+  public async deleteAdminGroup(
     groupId: string,
     adminEmail: string
   ): Promise<{ success: boolean; groupName: string }> {
@@ -2234,54 +2221,34 @@ export class RelationalDatabase {
     });
   }
 
-  public getAppSettings(): AppOwnerSettings {
+  public getAdminSettings(): AdminSettings {
     const settings = this.data.app_settings || {
-      authorized_app_owners: [PRIMARY_APP_OWNER],
       maintenance_mode: false,
       allow_registration: true,
       updated_at: new Date().toISOString(),
     };
 
     return {
-      authorizedAppOwners: settings.authorized_app_owners,
       maintenanceMode: settings.maintenance_mode,
       allowRegistration: settings.allow_registration,
       updatedAt: settings.updated_at,
     };
   }
 
-  public async updateAppSettings(
+  public async updateAdminSettings(
     updates: {
-      authorizedAppOwners?: string[];
       maintenanceMode?: boolean;
       allowRegistration?: boolean;
     },
     adminEmail: string
-  ): Promise<AppOwnerSettings> {
+  ): Promise<AdminSettings> {
     return this.mutex.runExclusive(async () => {
       if (!this.data.app_settings) {
         this.data.app_settings = {
-          authorized_app_owners: [PRIMARY_APP_OWNER],
           maintenance_mode: false,
           allow_registration: true,
           updated_at: new Date().toISOString(),
         };
-      }
-
-      if (updates.authorizedAppOwners !== undefined) {
-        const unique = Array.from(
-          new Set(
-            updates.authorizedAppOwners
-              .map((e) => e.trim().toLowerCase())
-              .filter((e) => e.includes('@') && e.includes('.'))
-          )
-        );
-
-        if (!unique.includes(PRIMARY_APP_OWNER.toLowerCase())) {
-          unique.unshift(PRIMARY_APP_OWNER.toLowerCase());
-        }
-
-        this.data.app_settings.authorized_app_owners = unique;
       }
 
       if (updates.maintenanceMode !== undefined) {
@@ -2298,13 +2265,12 @@ export class RelationalDatabase {
       await this.recordAuditLog({
         action: 'APP_SETTINGS_UPDATED',
         entityType: 'settings',
-        details: `Application settings updated by ${adminEmail}. Authorized owners count: ${this.data.app_settings.authorized_app_owners.length}.`,
+        details: `Application settings updated by ${adminEmail}. Registration allowed: ${this.data.app_settings.allow_registration}. Maintenance: ${this.data.app_settings.maintenance_mode}.`,
         performedBy: adminEmail,
         performedByEmail: adminEmail,
       });
 
       return {
-        authorizedAppOwners: this.data.app_settings.authorized_app_owners,
         maintenanceMode: this.data.app_settings.maintenance_mode,
         allowRegistration: this.data.app_settings.allow_registration,
         updatedAt: this.data.app_settings.updated_at,

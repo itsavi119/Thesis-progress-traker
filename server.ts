@@ -163,6 +163,7 @@ export function sendSafeErrorResponse(
 
 // Cookie & Session Configuration (SEC-005)
 export const AUTH_COOKIE_NAME = 'thesis_tracker_session';
+export const ADMIN_AUTH_COOKIE_NAME = 'thesis_tracker_admin_session';
 export const COOKIE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours (reduced token lifetime)
 
 export const getAuthCookieOptions = () => ({
@@ -618,18 +619,6 @@ if (!isProd) {
   });
 }
 
-// Strict App Owner Authorization Middleware
-const authenticateAppOwner = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  await authenticateToken(req, res, () => {
-    if (!req.user || !db.isAppOwner(req.user.email)) {
-      // Generic access denied - NEVER reveal App Owner identity or technical internals
-      res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied.' });
-      return;
-    }
-    next();
-  });
-};
-
 // Helper to extract and validate required groupId from request
 function getGroupId(req: AuthenticatedRequest): string | null {
   const headerId = typeof req.headers['x-group-id'] === 'string' && req.headers['x-group-id'].trim() ? req.headers['x-group-id'].trim() : null;
@@ -780,94 +769,6 @@ app.post('/api/auth/google-sync', async (req: RequestWithId, res: Response) => {
   }
 });
 
-// Organization Login entrypoint: Validates credentials and verifies App Owner / Org Admin authorization
-app.post('/api/auth/organization-login', async (req, res) => {
-  const ip = getClientIp(req);
-
-  // Layer A: IP-based rate limiting
-  const ipResult = authRateLimiter.checkIp(ip);
-  if (!ipResult.allowed) {
-    db.recordAuditLog({
-      action: 'AUTH_RATE_LIMIT_EXCEEDED',
-      entityType: 'security',
-      details: `Authentication rate limit exceeded for organization login from IP ${ip}.`,
-      performedBy: 'anonymous',
-      performedByEmail: 'anonymous',
-    }).catch(() => {});
-
-    res.setHeader('Retry-After', ipResult.retryAfterSeconds.toString());
-    res.status(429).json({
-      error: 'TOO_MANY_REQUESTS',
-      message: 'Too many authentication requests from this IP address. Please wait before trying again.',
-    });
-    return;
-  }
-
-  try {
-    const { email, organizationId, password, uid, displayName } = req.body || {};
-    let user: UserProfile | null = null;
-    const rawIdentifier = organizationId || email;
-
-    if (rawIdentifier && password) {
-      if (typeof rawIdentifier !== 'string' || typeof password !== 'string') {
-        res.status(400).json({ error: 'BAD_REQUEST', message: 'Organisation identifier and password must be strings.' });
-        return;
-      }
-      const identifier = rawIdentifier.trim();
-      const accountResult = authRateLimiter.checkAccount(identifier.toLowerCase());
-      if (!accountResult.allowed) {
-        db.recordAuditLog({
-          action: 'AUTH_RATE_LIMIT_EXCEEDED',
-          entityType: 'security',
-          details: `Organization login rate limit exceeded for ${identifier} from IP ${ip}.`,
-          performedBy: 'anonymous',
-          performedByEmail: identifier,
-        }).catch(() => {});
-
-        res.setHeader('Retry-After', accountResult.retryAfterSeconds.toString());
-        res.status(429).json({
-          error: 'TOO_MANY_REQUESTS',
-          message: 'Too many failed login attempts. Please wait before trying again.',
-        });
-        return;
-      }
-
-      user = await db.verifyUserCredentials({ email: identifier, organizationId: identifier, password });
-      if (!user) {
-        authRateLimiter.recordFailedAttempt(identifier.toLowerCase());
-        res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid credentials.' });
-        return;
-      }
-      authRateLimiter.recordSuccessfulAttempt(identifier.toLowerCase());
-    } else if (uid && email) {
-      user = await db.syncGoogleProfile({
-        uid,
-        email,
-        displayName: displayName || email.split('@')[0],
-      });
-    }
-
-    if (!user) {
-      res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid credentials.' });
-      return;
-    }
-
-    // Server-side App Owner check
-    if (!db.isAppOwner(user.email)) {
-      res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied: User is not an authorized organization administrator.' });
-      return;
-    }
-
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '24h' });
-    res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
-
-    const isBrowserClient = req.headers['x-requested-with'] === 'XMLHttpRequest';
-    res.json({ token, user, isBrowserClient: !!isBrowserClient });
-  } catch (err: any) {
-    sendSafeErrorResponse(err, req, res, 'LOGIN_FAILED');
-  }
-});
-
 app.post('/api/auth/logout', (req: AuthenticatedRequest, res: Response) => {
   const token = req.cookies?.[AUTH_COOKIE_NAME] || req.headers['authorization']?.split(' ')[1];
   if (token) {
@@ -952,7 +853,7 @@ app.post('/api/auth/reset-password', async (req: RequestWithId, res: Response) =
 // SEC-008: Administrative user password setting (strictly enforces identical policy with no bypass)
 app.post('/api/auth/admin/set-user-password', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    if (!db.isAppOwner(req.user!.email)) {
+    if (!db.isAdmin(req.user!)) {
       res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied.' });
       return;
     }
@@ -982,61 +883,6 @@ app.get('/api/auth/me', authenticateToken, async (req: AuthenticatedRequest, res
   res.json({ user: req.user });
 });
 
-// --- ORGANIZATIONS MANAGEMENT ---
-
-app.get('/api/organizations', authenticateToken, async (req: AuthenticatedRequest, res) => {
-  try {
-    const organizations = await db.getUserOrganizations(req.user!.id);
-    res.json({ organizations });
-  } catch (err: any) {
-    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
-  }
-});
-
-app.post('/api/organizations', authenticateToken, async (req: AuthenticatedRequest, res) => {
-  try {
-    const { name, description, institution, contactEmail } = req.body || {};
-    if (!name || typeof name !== 'string' || !name.trim()) {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'Organization name is required.' });
-      return;
-    }
-    if (description !== undefined && typeof description !== 'string') {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'Description must be a string.' });
-      return;
-    }
-    if (institution !== undefined && typeof institution !== 'string') {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'Institution must be a string.' });
-      return;
-    }
-    if (contactEmail !== undefined && typeof contactEmail !== 'string') {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'Contact email must be a string.' });
-      return;
-    }
-
-    const organization = await db.createOrganization(req.user!.id, req.body);
-    res.status(201).json({ organization });
-  } catch (err: any) {
-    sendSafeErrorResponse(err, req, res, 'CREATE_ORG_FAILED');
-  }
-});
-
-app.get('/api/organizations/:id', authenticateToken, async (req: AuthenticatedRequest, res) => {
-  try {
-    if (!req.params.id || typeof req.params.id !== 'string') {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'Organization ID is required.' });
-      return;
-    }
-    const organization = await db.getOrganizationById(req.params.id);
-    if (!organization) {
-      res.status(404).json({ error: 'NOT_FOUND', message: 'Organization not found.' });
-      return;
-    }
-    res.json({ organization });
-  } catch (err: any) {
-    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
-  }
-});
-
 // --- RESEARCH GROUPS / STUDIES MANAGEMENT ---
 
 // List all groups that the authenticated user belongs to
@@ -1060,7 +906,6 @@ app.post('/api/groups', authenticateToken, async (req: AuthenticatedRequest, res
       targetSampleSize,
       description,
       institution,
-      organizationId,
       customFields,
     } = req.body || {};
 
@@ -1080,10 +925,6 @@ app.post('/api/groups', authenticateToken, async (req: AuthenticatedRequest, res
       res.status(400).json({ error: 'BAD_REQUEST', message: 'Institution must be a string.' });
       return;
     }
-    if (organizationId !== undefined && typeof organizationId !== 'string') {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'Organization ID must be a string.' });
-      return;
-    }
     if (customFields !== undefined && !Array.isArray(customFields)) {
       res.status(400).json({ error: 'BAD_REQUEST', message: 'Custom fields must be an array.' });
       return;
@@ -1097,7 +938,6 @@ app.post('/api/groups', authenticateToken, async (req: AuthenticatedRequest, res
       targetSampleSize,
       description,
       institution,
-      organizationId,
       customFields,
     });
     res.status(201).json({ group });
@@ -1119,7 +959,7 @@ app.get('/api/groups/:groupId', authenticateToken, async (req: AuthenticatedRequ
 // Update group settings (Owner only)
 app.patch('/api/groups/:groupId/settings', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
-    const { name, studyTitle, description, institution, organizationId, customFields } = req.body || {};
+    const { name, studyTitle, description, institution, customFields } = req.body || {};
     if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
       res.status(400).json({ error: 'BAD_REQUEST', message: 'Study name must be a non-empty string.' });
       return;
@@ -1134,10 +974,6 @@ app.patch('/api/groups/:groupId/settings', authenticateToken, async (req: Authen
     }
     if (institution !== undefined && typeof institution !== 'string') {
       res.status(400).json({ error: 'BAD_REQUEST', message: 'Institution must be a string.' });
-      return;
-    }
-    if (organizationId !== undefined && typeof organizationId !== 'string') {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'Organization ID must be a string.' });
       return;
     }
     if (customFields !== undefined && !Array.isArray(customFields)) {
@@ -1578,151 +1414,6 @@ app.get('/api/cases/team-summary', authenticateToken, async (req: AuthenticatedR
   }
 });
 
-// =========================================================================
-// --- APP OWNER / ORGANIZATION ADMINISTRATION ENDPOINTS ---
-// (Protected strictly with authenticateAppOwner middleware)
-// =========================================================================
-
-// 1. Overview statistics
-app.get('/api/app-owner/overview', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
-  try {
-    const stats = await db.getAppOwnerOverview();
-    res.json({ stats });
-  } catch (err: any) {
-    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
-  }
-});
-
-// 2. Organizations list
-app.get('/api/app-owner/organizations', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
-  try {
-    const organizations = await db.getAppOwnerOrganizations();
-    res.json({ organizations });
-  } catch (err: any) {
-    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
-  }
-});
-
-// 3. User list
-app.get('/api/app-owner/users', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
-  try {
-    const { search, status } = req.query as { search?: string; status?: string };
-    const users = await db.getAppOwnerUsers({
-      search: typeof search === 'string' ? search : undefined,
-      status: typeof status === 'string' ? status : undefined,
-    });
-    res.json({ users });
-  } catch (err: any) {
-    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
-  }
-});
-
-// 4. User status management (suspend / reactivate)
-app.patch('/api/app-owner/users/:id/status', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
-  try {
-    const { status } = req.body || {};
-    if (!status || typeof status !== 'string' || !['active', 'suspended'].includes(status)) {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'Valid status ("active" or "suspended") is required.' });
-      return;
-    }
-
-    const updated = await db.setAppOwnerUserStatus(req.params.id, status as any, req.user!.email);
-    res.json({ success: true, user: updated });
-  } catch (err: any) {
-    sendSafeErrorResponse(err, req, res, 'ACTION_FAILED');
-  }
-});
-
-// 5. Groups / Studies list
-app.get('/api/app-owner/groups', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
-  try {
-    const { search, status } = req.query as { search?: string; status?: string };
-    const groups = await db.getAppOwnerGroups({
-      search: typeof search === 'string' ? search : undefined,
-      status: typeof status === 'string' ? status : undefined,
-    });
-    res.json({ groups });
-  } catch (err: any) {
-    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
-  }
-});
-
-// 6. Group status management
-app.patch('/api/app-owner/groups/:id/status', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
-  try {
-    const { status } = req.body || {};
-    if (!status || typeof status !== 'string' || !['active', 'archived', 'suspended'].includes(status)) {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'Valid status ("active", "archived", or "suspended") is required.' });
-      return;
-    }
-
-    const updated = await db.setAppOwnerGroupStatus(req.params.id, status as any, req.user!.email);
-    res.json({ success: true, group: updated });
-  } catch (err: any) {
-    sendSafeErrorResponse(err, req, res, 'ACTION_FAILED');
-  }
-});
-
-// 7. Delete group (App Owner)
-app.delete('/api/app-owner/groups/:id', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
-  try {
-    const result = await db.deleteAppOwnerGroup(req.params.id, req.user!.email);
-    res.json(result);
-  } catch (err: any) {
-    sendSafeErrorResponse(err, req, res, 'DELETE_FAILED');
-  }
-});
-
-// 8. Audit log list
-app.get('/api/app-owner/audit-logs', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
-  try {
-    const { limit, action, entityType } = req.query as { limit?: string; action?: string; entityType?: string };
-    const logs = db.getAuditLogs({
-      limit: limit && !isNaN(parseInt(limit, 10)) ? parseInt(limit, 10) : 100,
-      action: typeof action === 'string' ? action : undefined,
-      entityType: typeof entityType === 'string' ? entityType : undefined,
-    });
-    res.json({ logs });
-  } catch (err: any) {
-    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
-  }
-});
-
-// 9. Application settings
-app.get('/api/app-owner/settings', authenticateAppOwner, (req: AuthenticatedRequest, res) => {
-  try {
-    const settings = db.getAppSettings();
-    res.json({ settings });
-  } catch (err: any) {
-    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
-  }
-});
-
-app.patch('/api/app-owner/settings', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
-  try {
-    const updated = await db.updateAppSettings(req.body || {}, req.user!.email);
-    res.json({ settings: updated });
-  } catch (err: any) {
-    sendSafeErrorResponse(err, req, res, 'UPDATE_FAILED');
-  }
-});
-
-// 10. Legal Policy update (App Owner)
-app.patch('/api/app-owner/legal-policies/:id', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
-  try {
-    const { content } = req.body || {};
-    if (!content || typeof content !== 'string') {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'Policy content is required as a string.' });
-      return;
-    }
-
-    const updated = await db.updateLegalPolicy(req.params.id, content, req.user!.email);
-    res.json({ policy: updated });
-  } catch (err: any) {
-    sendSafeErrorResponse(err, req, res, 'UPDATE_FAILED');
-  }
-});
-
 // --- REAL-TIME SSE STREAM (Group-Scoped with strict BOLA authorization boundary) ---
 
 app.get(
@@ -1781,6 +1472,443 @@ if (!isProd) {
     return obj.trim();
   });
 }
+
+// =========================================================================
+// --- ADMINISTRATIVE ACCESS CONTROL & API ENDPOINTS ---
+// =========================================================================
+
+export interface AdminRequest extends RequestWithId {
+  user?: UserProfile;
+  adminRole?: 'admin' | 'super_admin';
+  isSuperAdmin?: boolean;
+}
+
+const requireAdmin = async (
+  req: AdminRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  let token: string | null = null;
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  } else if (req.cookies && req.cookies[ADMIN_AUTH_COOKIE_NAME]) {
+    token = req.cookies[ADMIN_AUTH_COOKIE_NAME];
+  } else if (req.cookies && req.cookies[AUTH_COOKIE_NAME]) {
+    token = req.cookies[AUTH_COOKIE_NAME];
+  }
+
+  if (!token) {
+    res.status(401).json({ error: 'UNAUTHORIZED', message: 'Administrative authentication required.' });
+    return;
+  }
+
+  if (db.isTokenRevoked(token)) {
+    res.status(401).json({ error: 'UNAUTHORIZED', message: 'Administrative session has expired. Please sign in again.' });
+    return;
+  }
+
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as { userId: string };
+    const user = await db.findProfileById(payload.userId);
+    if (!user) {
+      res.status(401).json({ error: 'UNAUTHORIZED', message: 'Administrator account not found.' });
+      return;
+    }
+
+    if (user.status === 'suspended') {
+      res.status(403).json({ error: 'ACCOUNT_SUSPENDED', message: 'Administrator account has been suspended.' });
+      return;
+    }
+
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      const ip = getClientIp(req);
+      db.recordAuditLog({
+        action: 'UNAUTHORIZED_ADMIN_API_ACCESS_ATTEMPT',
+        entityType: 'security',
+        entityId: user.id,
+        details: `Non-administrator account "${user.email}" attempted to access administrative API endpoint "${req.method} ${req.originalUrl || req.path}" from IP ${ip}.`,
+        performedBy: user.id,
+        performedByEmail: user.email,
+      }).catch(() => {});
+
+      res.status(403).json({
+        error: 'FORBIDDEN',
+        message: 'Access denied: Administrator privileges required.',
+      });
+      return;
+    }
+
+    req.user = user;
+    req.adminRole = user.role as 'admin' | 'super_admin';
+    req.isSuperAdmin = user.role === 'super_admin';
+    next();
+  } catch {
+    res.status(401).json({ error: 'UNAUTHORIZED', message: 'Invalid or expired administrative session.' });
+  }
+};
+
+const requireSuperAdmin = async (
+  req: AdminRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  await requireAdmin(req, res, () => {
+    if (!req.isSuperAdmin) {
+      db.recordAuditLog({
+        action: 'UNAUTHORIZED_SUPER_ADMIN_ACTION_ATTEMPT',
+        entityType: 'security',
+        entityId: req.user?.id,
+        details: `Administrator "${req.user?.email}" attempted Super Administrator operation without required role.`,
+        performedBy: req.user?.id || 'unknown',
+        performedByEmail: req.user?.email || 'unknown',
+      }).catch(() => {});
+
+      res.status(403).json({
+        error: 'FORBIDDEN',
+        message: 'Access denied: Super Administrator privileges required.',
+      });
+      return;
+    }
+    next();
+  });
+};
+
+// User Presence Heartbeat (authenticated researchers and admins)
+app.post('/api/presence/heartbeat', authenticateToken, (req: AuthenticatedRequest, res: Response) => {
+  if (req.user?.id) {
+    db.recordUserPresence(req.user.id);
+  }
+  res.json({ ok: true });
+});
+
+// Admin Authentication: Credentials Login
+app.post('/api/admin/auth/login', async (req: RequestWithId, res: Response) => {
+  const ip = getClientIp(req);
+  const ipResult = authRateLimiter.checkIp(ip);
+  if (!ipResult.allowed) {
+    res.setHeader('Retry-After', ipResult.retryAfterSeconds.toString());
+    res.status(429).json({
+      error: 'TOO_MANY_REQUESTS',
+      message: 'Too many authentication attempts. Please wait before retrying.',
+    });
+    return;
+  }
+
+  try {
+    const { email, password } = req.body || {};
+    if (!email || typeof email !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Administrator email is required.' });
+      return;
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const accountResult = authRateLimiter.checkAccount(normalizedEmail);
+    if (!accountResult.allowed) {
+      res.setHeader('Retry-After', accountResult.retryAfterSeconds.toString());
+      res.status(429).json({
+        error: 'TOO_MANY_REQUESTS',
+        message: 'Too many failed login attempts for this account. Please wait.',
+      });
+      return;
+    }
+
+    let user: UserProfile | null = null;
+    if (typeof password === 'string' && password.length > 0) {
+      user = await db.verifyUserCredentials({ email: normalizedEmail, password });
+    }
+
+    if (!user) {
+      authRateLimiter.recordFailedAttempt(normalizedEmail);
+      await db.recordAuditLog({
+        action: 'ADMIN_LOGIN_FAILED',
+        entityType: 'security',
+        details: `Failed administrator authentication attempt for "${normalizedEmail}" from IP ${ip}.`,
+        performedBy: 'anonymous',
+        performedByEmail: normalizedEmail,
+      });
+      res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid administrator credentials.' });
+      return;
+    }
+
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      authRateLimiter.recordFailedAttempt(normalizedEmail);
+      await db.recordAuditLog({
+        action: 'UNAUTHORIZED_ADMIN_LOGIN_ATTEMPT',
+        entityType: 'security',
+        entityId: user.id,
+        details: `Non-administrator user "${user.email}" attempted to authenticate into the admin portal from IP ${ip}.`,
+        performedBy: user.id,
+        performedByEmail: user.email,
+      });
+      res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied: Account does not have administrator privileges.' });
+      return;
+    }
+
+    authRateLimiter.recordSuccessfulAttempt(normalizedEmail);
+    const token = jwt.sign(
+      { userId: user.id, role: user.role, isAdmin: true },
+      JWT_SECRET,
+      { expiresIn: '8h' }
+    );
+
+    res.cookie(ADMIN_AUTH_COOKIE_NAME, token, getAuthCookieOptions());
+
+    await db.recordAuditLog({
+      action: 'ADMIN_LOGIN_SUCCESS',
+      entityType: 'security',
+      entityId: user.id,
+      details: `Administrator "${user.email}" (${user.role}) successfully authenticated from IP ${ip}.`,
+      performedBy: user.id,
+      performedByEmail: user.email,
+    });
+
+    res.json({ token, user });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'ADMIN_LOGIN_ERROR');
+  }
+});
+
+// Admin Authentication: Google Sign-In Sync
+app.post('/api/admin/auth/google-sync', async (req: RequestWithId, res: Response) => {
+  const ip = getClientIp(req);
+  try {
+    const { uid, email, displayName } = req.body || {};
+    if (!uid || !email || typeof uid !== 'string' || typeof email !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'UID and email required.' });
+      return;
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await db.syncGoogleProfile({
+      uid,
+      email: normalizedEmail,
+      displayName: displayName || email.split('@')[0],
+    });
+
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      await db.recordAuditLog({
+        action: 'UNAUTHORIZED_ADMIN_GOOGLE_LOGIN_ATTEMPT',
+        entityType: 'security',
+        entityId: user.id,
+        details: `Non-admin user "${user.email}" attempted Google sign-in to the admin portal from IP ${ip}.`,
+        performedBy: user.id,
+        performedByEmail: user.email,
+      });
+      res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied: Account does not have administrator privileges.' });
+      return;
+    }
+
+    const token = jwt.sign(
+      { userId: user.id, role: user.role, isAdmin: true },
+      JWT_SECRET,
+      { expiresIn: '8h' }
+    );
+
+    res.cookie(ADMIN_AUTH_COOKIE_NAME, token, getAuthCookieOptions());
+
+    await db.recordAuditLog({
+      action: 'ADMIN_LOGIN_SUCCESS',
+      entityType: 'security',
+      entityId: user.id,
+      details: `Administrator "${user.email}" (${user.role}) authenticated via Google Sign-In from IP ${ip}.`,
+      performedBy: user.id,
+      performedByEmail: user.email,
+    });
+
+    res.json({ token, user });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'ADMIN_GOOGLE_AUTH_ERROR');
+  }
+});
+
+// Admin Authentication: Verify Session
+app.get('/api/admin/auth/verify', requireAdmin, (req: AdminRequest, res: Response) => {
+  res.json({ user: req.user, role: req.adminRole, isSuperAdmin: req.isSuperAdmin });
+});
+
+// Admin Authentication: Logout
+app.post('/api/admin/auth/logout', requireAdmin, (req: AdminRequest, res: Response) => {
+  const token = req.cookies?.[ADMIN_AUTH_COOKIE_NAME] || req.headers.authorization?.replace('Bearer ', '');
+  if (token) {
+    db.revokeSessionToken(token);
+  }
+  res.clearCookie(ADMIN_AUTH_COOKIE_NAME, getAuthCookieOptions());
+  db.recordAuditLog({
+    action: 'ADMIN_LOGOUT',
+    entityType: 'security',
+    entityId: req.user?.id,
+    details: `Administrator "${req.user?.email}" logged out.`,
+    performedBy: req.user?.id || 'unknown',
+    performedByEmail: req.user?.email || 'unknown',
+  }).catch(() => {});
+  res.json({ success: true, message: 'Logged out successfully.' });
+});
+
+// Admin Overview: Real metrics only
+app.get('/api/admin/overview', requireAdmin, async (_req: AdminRequest, res: Response) => {
+  try {
+    const stats = await db.getAdminOverview();
+    const recentAudit = db.getAuditLogs({ limit: 10 });
+    const allUsers = await db.getAdminUsers({});
+    const recentUsers = allUsers.slice(0, 5);
+    res.json({ stats, recentAudit, recentUsers });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, _req, res, 'ADMIN_OVERVIEW_ERROR');
+  }
+});
+
+// Admin Users: List with search and filter
+app.get('/api/admin/users', requireAdmin, async (req: AdminRequest, res: Response) => {
+  try {
+    const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+    const status = typeof req.query.status === 'string' ? req.query.status : undefined;
+    const role = typeof req.query.role === 'string' ? req.query.role : undefined;
+    const users = await db.getAdminUsers({ search, status, role });
+    res.json({ users });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'ADMIN_USERS_ERROR');
+  }
+});
+
+// Admin Users: Get single user detail
+app.get('/api/admin/users/:id', requireAdmin, async (req: AdminRequest, res: Response) => {
+  try {
+    const detail = await db.getAdminUserDetail(req.params.id);
+    if (!detail) {
+      res.status(404).json({ error: 'NOT_FOUND', message: 'User not found.' });
+      return;
+    }
+    res.json(detail);
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'ADMIN_USER_DETAIL_ERROR');
+  }
+});
+
+// Admin Users: Update status (enable/disable account)
+app.patch('/api/admin/users/:id/status', requireAdmin, async (req: AdminRequest, res: Response) => {
+  try {
+    const { status } = req.body || {};
+    if (status !== 'active' && status !== 'suspended') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Status must be "active" or "suspended".' });
+      return;
+    }
+    const updated = await db.setAdminUserStatus(req.params.id, status, req.user!.email);
+    res.json({ user: updated });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'ADMIN_STATUS_UPDATE_ERROR');
+  }
+});
+
+// Admin Users: Update role (promotion/demotion)
+app.patch('/api/admin/users/:id/role', requireAdmin, async (req: AdminRequest, res: Response) => {
+  try {
+    const { role } = req.body || {};
+    if (role !== 'member' && role !== 'admin' && role !== 'super_admin') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Role must be "member", "admin", or "super_admin".' });
+      return;
+    }
+    const updated = await db.setAdminUserRole(req.params.id, role, req.user!.email, req.isSuperAdmin || false);
+    res.json({ user: updated });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'ADMIN_ROLE_UPDATE_ERROR');
+  }
+});
+
+// Admin Users: Delete account
+app.delete('/api/admin/users/:id', requireSuperAdmin, async (req: AdminRequest, res: Response) => {
+  try {
+    const result = await db.deleteAdminUser(req.params.id, req.user!.email);
+    res.json(result);
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'ADMIN_DELETE_USER_ERROR');
+  }
+});
+
+// Admin Groups: List all groups
+app.get('/api/admin/groups', requireAdmin, async (req: AdminRequest, res: Response) => {
+  try {
+    const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+    const status = typeof req.query.status === 'string' ? req.query.status : undefined;
+    const groups = await db.getAdminGroups({ search, status });
+    res.json({ groups });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'ADMIN_GROUPS_ERROR');
+  }
+});
+
+// Admin Groups: Update status
+app.patch('/api/admin/groups/:id/status', requireAdmin, async (req: AdminRequest, res: Response) => {
+  try {
+    const { status } = req.body || {};
+    if (status !== 'active' && status !== 'archived' && status !== 'suspended') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Status must be "active", "archived", or "suspended".' });
+      return;
+    }
+    const updated = await db.setAdminGroupStatus(req.params.id, status, req.user!.email);
+    res.json({ group: updated });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'ADMIN_GROUP_STATUS_ERROR');
+  }
+});
+
+// Admin Groups: Delete group (strictly requires confirmation with group name)
+app.delete('/api/admin/groups/:id', requireAdmin, async (req: AdminRequest, res: Response) => {
+  try {
+    const { confirmGroupName } = req.body || {};
+    if (typeof confirmGroupName !== 'string' || !confirmGroupName.trim()) {
+      res.status(400).json({ error: 'CONFIRMATION_REQUIRED', message: 'Confirmation with group name is required before deletion.' });
+      return;
+    }
+    const group = db.findGroupById(req.params.id);
+    if (!group) {
+      res.status(404).json({ error: 'NOT_FOUND', message: 'Research group not found.' });
+      return;
+    }
+    if (group.name.trim().toLowerCase() !== confirmGroupName.trim().toLowerCase()) {
+      res.status(400).json({ error: 'NAME_MISMATCH', message: 'Group name does not match confirmation.' });
+      return;
+    }
+    const result = await db.deleteAdminGroup(req.params.id, req.user!.email);
+    res.json(result);
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'ADMIN_GROUP_DELETE_ERROR');
+  }
+});
+
+// Admin Audit Logs: Real security and activity events
+app.get('/api/admin/audit-logs', requireAdmin, (req: AdminRequest, res: Response) => {
+  try {
+    const limit = typeof req.query.limit === 'string' ? Math.min(500, parseInt(req.query.limit, 10)) : 100;
+    const action = typeof req.query.action === 'string' ? req.query.action : undefined;
+    const entityType = typeof req.query.entityType === 'string' ? req.query.entityType : undefined;
+    const logs = db.getAuditLogs({ limit, action, entityType });
+    res.json({ logs });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'ADMIN_AUDIT_LOGS_ERROR');
+  }
+});
+
+// Admin Settings: Get & Update
+app.get('/api/admin/settings', requireAdmin, (_req: AdminRequest, res: Response) => {
+  res.json({ settings: db.getAdminSettings() });
+});
+
+app.patch('/api/admin/settings', requireAdmin, async (req: AdminRequest, res: Response) => {
+  try {
+    const { maintenanceMode, allowRegistration } = req.body || {};
+    const updated = await db.updateAdminSettings(
+      {
+        maintenanceMode: typeof maintenanceMode === 'boolean' ? maintenanceMode : undefined,
+        allowRegistration: typeof allowRegistration === 'boolean' ? allowRegistration : undefined,
+      },
+      req.user!.email
+    );
+    res.json({ settings: updated });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'ADMIN_SETTINGS_UPDATE_ERROR');
+  }
+});
 
 // SEC-010: Unknown API Routes 404 Handler
 // Any unmatched request under /api (regardless of HTTP method) returns a strict JSON 404.
