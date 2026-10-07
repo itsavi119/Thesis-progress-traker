@@ -167,8 +167,8 @@ export const COOKIE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours (reduced token
 
 export const getAuthCookieOptions = () => ({
   httpOnly: true,
-  secure: isProd,
-  sameSite: 'lax' as const,
+  secure: true,
+  sameSite: 'none' as const,
   path: '/',
   maxAge: COOKIE_MAX_AGE_MS,
 });
@@ -252,12 +252,29 @@ const csrfProtection = (req: Request, res: Response, next: NextFunction) => {
     return next();
   }
 
+  // Requests with custom header X-Requested-With are safe against cross-site form submissions
+  if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
+    return next();
+  }
+
   const origin = req.headers['origin'];
-  const host = req.headers['host'];
+  const host = (req.headers['x-forwarded-host'] as string) || req.headers['host'];
   if (origin && host) {
     try {
-      const originHost = new URL(origin).host;
-      if (originHost !== host) {
+      const originHost = new URL(origin).host.toLowerCase();
+      const currentHost = host.toLowerCase();
+      const forwardedHost = (req.headers['x-forwarded-host'] as string)?.toLowerCase();
+      const rawHost = req.headers['host']?.toLowerCase();
+
+      const validHosts = [currentHost, forwardedHost, rawHost].filter(Boolean) as string[];
+      const isMatch = validHosts.some(
+        (h) =>
+          h === originHost ||
+          originHost === h.split(':')[0] ||
+          h === originHost.split(':')[0]
+      );
+
+      if (!isMatch) {
         res.status(403).json({ error: 'FORBIDDEN', message: 'Cross-origin request rejected.' });
         return;
       }
@@ -668,11 +685,7 @@ app.post('/api/auth/register', async (req: RequestWithId, res: Response) => {
     res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
 
     const isBrowserClient = req.headers['x-requested-with'] === 'XMLHttpRequest';
-    if (isBrowserClient) {
-      res.status(201).json({ user });
-    } else {
-      res.status(201).json({ token, user });
-    }
+    res.status(201).json({ token, user, isBrowserClient: !!isBrowserClient });
   } catch (err: any) {
     sendSafeErrorResponse(err, req, res, 'REGISTRATION_FAILED');
   }
@@ -743,11 +756,7 @@ app.post('/api/auth/login', async (req: RequestWithId, res: Response) => {
     res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
 
     const isBrowserClient = req.headers['x-requested-with'] === 'XMLHttpRequest';
-    if (isBrowserClient) {
-      res.json({ user });
-    } else {
-      res.json({ token, user });
-    }
+    res.json({ token, user, isBrowserClient: !!isBrowserClient });
   } catch (err: any) {
     sendSafeErrorResponse(err, req, res, 'LOGIN_FAILED');
   }
@@ -775,11 +784,7 @@ app.post('/api/auth/google-sync', async (req: RequestWithId, res: Response) => {
     res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
 
     const isBrowserClient = req.headers['x-requested-with'] === 'XMLHttpRequest';
-    if (isBrowserClient) {
-      res.json({ user });
-    } else {
-      res.json({ token, user });
-    }
+    res.json({ token, user, isBrowserClient: !!isBrowserClient });
   } catch (err: any) {
     sendSafeErrorResponse(err, req, res, 'GOOGLE_SYNC_FAILED');
   }
@@ -866,11 +871,7 @@ app.post('/api/auth/organization-login', async (req, res) => {
     res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
 
     const isBrowserClient = req.headers['x-requested-with'] === 'XMLHttpRequest';
-    if (isBrowserClient) {
-      res.json({ user });
-    } else {
-      res.json({ token, user });
-    }
+    res.json({ token, user, isBrowserClient: !!isBrowserClient });
   } catch (err: any) {
     if (err instanceof AccountSuspendedError) {
       res.status(403).json({ error: 'ACCOUNT_SUSPENDED', message: err.message });
@@ -885,12 +886,7 @@ app.post('/api/auth/logout', (req: AuthenticatedRequest, res: Response) => {
   if (token) {
     db.revokeSessionToken(token);
   }
-  res.clearCookie(AUTH_COOKIE_NAME, {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: 'lax',
-    path: '/',
-  });
+  res.clearCookie(AUTH_COOKIE_NAME, getAuthCookieOptions());
   res.json({ success: true, message: 'Logged out successfully.' });
 });
 

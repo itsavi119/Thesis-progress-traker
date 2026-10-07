@@ -4,6 +4,7 @@ import { GroupProvider, useGroup } from './context/GroupContext.js';
 import { Layout, type ActiveTab } from './components/Layout.js';
 import { Logo } from './components/Logo.js';
 import { Login } from './pages/Login.js';
+import { PublicWebsite } from './pages/PublicWebsite.js';
 import { MyGroups } from './pages/MyGroups.js';
 import { Dashboard } from './pages/Dashboard.js';
 import { AddPatient } from './pages/AddPatient.js';
@@ -24,49 +25,73 @@ const VALID_TABS: ActiveTab[] = [
   'app-owner',
 ];
 
-function getInitialTab(): ActiveTab {
-  if (typeof window !== 'undefined') {
-    const hash = window.location.hash.replace(/^#\/?/, '') as ActiveTab;
-    if (VALID_TABS.includes(hash)) {
-      return hash;
-    }
+const AUTH_ROUTES = ['login', 'register', 'organization-login'];
+const PUBLIC_SECTIONS = ['home', 'about', 'capabilities', 'features', 'how-it-works', 'privacy', 'policies', 'contact'];
+
+function parseCurrentRoute(): string {
+  if (typeof window === 'undefined') return 'home';
+
+  const pathname = window.location.pathname.replace(/^\//, '').toLowerCase();
+  if (AUTH_ROUTES.includes(pathname)) {
+    return pathname;
   }
-  return 'my-groups';
+
+  const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
+  if (hash) {
+    if (AUTH_ROUTES.includes(hash)) return hash;
+    if (VALID_TABS.includes(hash as ActiveTab)) return hash;
+    if (PUBLIC_SECTIONS.includes(hash)) return 'home';
+  }
+
+  if (VALID_TABS.includes(pathname as ActiveTab)) {
+    return pathname;
+  }
+
+  return 'home';
 }
 
 const MainApp: React.FC = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { currentGroup, userGroups, isLoadingGroups } = useGroup();
-  const [activeTab, setActiveTabState] = useState<ActiveTab>(getInitialTab);
+  const [currentRoute, setCurrentRoute] = useState<string>(parseCurrentRoute);
   const preservedRedirectRef = useRef<ActiveTab | null>(null);
 
-  // Preserve intended tab when an unauthenticated user directly opens a protected URL (TEST 25)
+  // Sync route with browser history (supports standard pathnames and native back/forward)
+  const navigateTo = useCallback((route: string, replace = false) => {
+    setCurrentRoute((prev) => {
+      if (prev === route) return prev;
+
+      if (typeof window !== 'undefined') {
+        let url = '/';
+        if (AUTH_ROUTES.includes(route)) {
+          url = `/${route}`;
+        } else if (VALID_TABS.includes(route as ActiveTab)) {
+          url = `#${route}`;
+        } else if (route === 'home') {
+          url = '/';
+        }
+
+        if (replace) {
+          window.history.replaceState({ route }, '', url);
+        } else {
+          window.history.pushState({ route }, '', url);
+        }
+      }
+      return route;
+    });
+  }, []);
+
+  // Preserve intended tab when unauthenticated user directly opens a protected URL
   useEffect(() => {
     if (!isAuthenticated && typeof window !== 'undefined') {
-      const hash = window.location.hash.replace(/^#\/?/, '') as ActiveTab;
-      if (VALID_TABS.includes(hash) && hash !== 'my-groups') {
-        preservedRedirectRef.current = hash;
+      const parsed = parseCurrentRoute();
+      if (VALID_TABS.includes(parsed as ActiveTab) && parsed !== 'my-groups') {
+        preservedRedirectRef.current = parsed as ActiveTab;
       }
     }
   }, [isAuthenticated]);
 
-  // Sync state with browser History for native Android Back / Forward button support
-  const navigateTo = useCallback((tab: ActiveTab, replace = false) => {
-    setActiveTabState((prev) => {
-      if (prev === tab) return prev;
-      if (typeof window !== 'undefined') {
-        const hash = `#${tab}`;
-        if (replace) {
-          window.history.replaceState({ tab }, '', hash);
-        } else {
-          window.history.pushState({ tab }, '', hash);
-        }
-      }
-      return tab;
-    });
-  }, []);
-
-  // When user becomes authenticated, restore originally requested route if authorized (TEST 25)
+  // When user becomes authenticated, restore requested tab or route to my-groups / app-owner
   useEffect(() => {
     if (isAuthenticated) {
       if (preservedRedirectRef.current) {
@@ -81,41 +106,36 @@ const MainApp: React.FC = () => {
         } else {
           navigateTo(target, true);
         }
+      } else if (AUTH_ROUTES.includes(currentRoute) || currentRoute === 'home') {
+        if (user?.is_app_owner && window.location.hash.includes('app-owner')) {
+          navigateTo('app-owner', true);
+        } else {
+          navigateTo('my-groups', true);
+        }
       }
     }
-  }, [isAuthenticated, user?.is_app_owner, navigateTo]);
+  }, [isAuthenticated, user?.is_app_owner, currentRoute, navigateTo]);
 
-  // Listen for browser & Android Back / Forward navigation
+  // Listen for browser Back / Forward events
   useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const currentHash = window.location.hash.replace(/^#\/?/, '') as ActiveTab;
-    const initial = VALID_TABS.includes(currentHash) ? currentHash : 'my-groups';
-    window.history.replaceState({ tab: initial }, '', `#${initial}`);
-
     const handlePopState = (event: PopStateEvent) => {
-      if (event.state && event.state.tab && VALID_TABS.includes(event.state.tab)) {
-        setActiveTabState(event.state.tab);
+      if (event.state?.route) {
+        setCurrentRoute(event.state.route);
       } else {
-        const hash = window.location.hash.replace(/^#\/?/, '') as ActiveTab;
-        if (VALID_TABS.includes(hash)) {
-          setActiveTabState(hash);
-        } else {
-          setActiveTabState('my-groups');
-        }
+        setCurrentRoute(parseCurrentRoute());
       }
     };
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [isAuthenticated]);
+  }, []);
 
-  // Restrict admin workspace from non-admin accounts
+  // Restrict app-owner tab from non-admin accounts
   useEffect(() => {
-    if (activeTab === 'app-owner' && !user?.is_app_owner) {
+    if (currentRoute === 'app-owner' && isAuthenticated && !user?.is_app_owner) {
       navigateTo('my-groups', true);
     }
-  }, [activeTab, user?.is_app_owner, navigateTo]);
+  }, [currentRoute, isAuthenticated, user?.is_app_owner, navigateTo]);
 
   if (isLoading || (isAuthenticated && isLoadingGroups)) {
     return (
@@ -131,20 +151,59 @@ const MainApp: React.FC = () => {
     );
   }
 
+  // =========================================================================
+  // 1. UNAUTHENTICATED EXPERIENCES
+  // =========================================================================
   if (!isAuthenticated) {
+    // A. Dedicated Authentication Routes: /login, /register, /organization-login
+    if (AUTH_ROUTES.includes(currentRoute)) {
+      return (
+        <Login
+          initialMode={currentRoute as 'login' | 'register' | 'organization-login'}
+          onNavigateHome={() => navigateTo('home')}
+          onSwitchMode={(mode) => navigateTo(mode)}
+          onSuccessfulLogin={(isOrgAdmin) => {
+            if (isOrgAdmin) {
+              navigateTo('app-owner', true);
+            } else {
+              navigateTo('my-groups', true);
+            }
+          }}
+        />
+      );
+    }
+
+    // B. Public Website at / (Homepage, About, Features, How It Works, Policies, Contact)
     return (
-      <Login
-        onSuccessfulLogin={(isOrgAdmin) => {
-          if (isOrgAdmin) {
-            navigateTo('app-owner', true);
-          }
-        }}
+      <PublicWebsite
+        isAuthenticated={false}
+        onNavigateToAuth={(mode = 'login') => navigateTo(mode)}
+        onGoToWorkspace={() => navigateTo('my-groups')}
       />
     );
   }
 
+  // =========================================================================
+  // 2. AUTHENTICATED USER EXPERIENCES
+  // =========================================================================
+  // If authenticated user visits the public home page explicitly:
+  if (currentRoute === 'home') {
+    return (
+      <PublicWebsite
+        isAuthenticated={true}
+        onNavigateToAuth={(mode = 'login') => navigateTo(mode)}
+        onGoToWorkspace={() => navigateTo('my-groups')}
+      />
+    );
+  }
+
+  // Active Workspace tab
+  const activeTab: ActiveTab = VALID_TABS.includes(currentRoute as ActiveTab)
+    ? (currentRoute as ActiveTab)
+    : 'my-groups';
+
   return (
-    <Layout activeTab={activeTab} setActiveTab={navigateTo}>
+    <Layout activeTab={activeTab} setActiveTab={(tab) => navigateTo(tab)}>
       <div key={activeTab} className="animate-in fade-in duration-150 ease-out">
         {activeTab === 'my-groups' && (
           <MyGroups

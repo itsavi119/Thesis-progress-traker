@@ -71,23 +71,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signInWithGoogle = async () => {
-    const credential = await signInWithPopup(auth, googleProvider);
-    if (!credential.user) {
-      throw new Error('Google Sign-In was cancelled or failed.');
+    try {
+      const credential = await signInWithPopup(auth, googleProvider);
+      if (!credential.user) {
+        return;
+      }
+
+      // 1. Sync with Firestore users collection
+      try {
+        await firestoreService.syncUserProfile(credential.user);
+      } catch (fsErr) {
+        console.warn('Firestore profile sync skipped or offline:', fsErr);
+      }
+
+      // 2. Synchronize server session token
+      const res = await api.syncGoogleUser({
+        uid: credential.user.uid,
+        email: credential.user.email || '',
+        displayName: credential.user.displayName || credential.user.email?.split('@')[0] || 'Researcher',
+      });
+
+      setUser(res.user);
+      await refreshTeamCapacity();
+    } catch (err: any) {
+      if (
+        err?.code === 'auth/popup-closed-by-user' ||
+        err?.code === 'auth/cancelled-popup-request' ||
+        err?.message?.includes('popup-closed-by-user') ||
+        err?.message?.includes('cancelled-popup-request')
+      ) {
+        // User closed or dismissed the popup window voluntarily; not an error
+        return;
+      }
+      throw err;
     }
-
-    // 1. Sync with Firestore users collection
-    await firestoreService.syncUserProfile(credential.user);
-
-    // 2. Synchronize server session token
-    const res = await api.syncGoogleUser({
-      uid: credential.user.uid,
-      email: credential.user.email || '',
-      displayName: credential.user.displayName || credential.user.email?.split('@')[0] || 'Researcher',
-    });
-
-    setUser(res.user);
-    await refreshTeamCapacity();
   };
 
   const logout = () => {

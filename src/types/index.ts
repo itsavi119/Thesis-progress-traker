@@ -33,6 +33,8 @@ export interface UserProfile {
   role: UserRole;
   is_app_owner?: boolean;
   status?: 'active' | 'suspended';
+  has_password?: boolean;
+  auth_provider?: 'google' | 'password';
   created_at: string;
   updated_at: string;
 }

@@ -25,11 +25,11 @@ import { offlineStorage } from './offlineStorage.js';
 class ApiService {
   private activeGroupId: string | null = null;
   private currentUserId: string | null = null;
+  private token: string | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
-      // SEC-005 Migration: Purge any legacy JWT tokens stored in localStorage
-      localStorage.removeItem('thesis_tracker_jwt_token');
+      this.token = localStorage.getItem('thesis_tracker_jwt_token');
       this.activeGroupId = localStorage.getItem('thesis_tracker_active_group_id');
     }
   }
@@ -45,15 +45,22 @@ class ApiService {
     return this.currentUserId;
   }
 
-  // Legacy compatibility stub (does not persist token to localStorage)
-  public setToken(_token?: string | null) {
+  public setToken(token?: string | null) {
+    this.token = token || null;
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('thesis_tracker_jwt_token');
+      if (token) {
+        localStorage.setItem('thesis_tracker_jwt_token', token);
+      } else {
+        localStorage.removeItem('thesis_tracker_jwt_token');
+      }
     }
   }
 
   public getToken(): string | null {
-    return null;
+    if (!this.token && typeof window !== 'undefined') {
+      this.token = localStorage.getItem('thesis_tracker_jwt_token');
+    }
+    return this.token;
   }
 
   public setActiveGroupId(groupId: string | null) {
@@ -76,6 +83,7 @@ class ApiService {
 
   public async logout() {
     const uid = this.currentUserId;
+    this.token = null;
     this.activeGroupId = null;
     this.currentUserId = null;
 
@@ -104,6 +112,11 @@ class ApiService {
       ...((options.headers as Record<string, string>) || {}),
     };
 
+    const token = this.getToken();
+    if (token && !headers['Authorization']) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const groupId = this.getActiveGroupId();
     if (groupId && !headers['X-Group-Id']) {
       headers['X-Group-Id'] = groupId;
@@ -115,24 +128,34 @@ class ApiService {
       credentials: 'same-origin', // Transmits secure HttpOnly cookie automatically
     });
 
-    if (!response.ok) {
-      let errPayload: any = null;
+    // Safely consume the response body stream exactly once to prevent "body stream already read"
+    const rawText = await response.text();
+    let data: any = null;
+    if (rawText && rawText.trim()) {
       try {
-        errPayload = await response.json();
+        data = JSON.parse(rawText);
       } catch {
-        const text = await response.text();
-        throw new Error(text || `Request failed with status ${response.status}`);
+        data = null;
       }
+    }
 
-      const msg = errPayload.message || errPayload.error || `HTTP error ${response.status}`;
+    if (!response.ok) {
+      const isHtml = rawText && rawText.trim().startsWith('<');
+      const fallbackText = (!isHtml && rawText && rawText.trim()) ? rawText.trim() : `Request failed with status ${response.status}`;
+      const msg = (data && (data.message || data.error)) || fallbackText;
       const error = new Error(msg) as any;
       error.status = response.status;
-      error.code = errPayload.error;
-      error.case = errPayload.case;
+      if (data && typeof data === 'object') {
+        error.code = data.error;
+        error.case = data.case;
+      }
       throw error;
     }
 
-    return response.json();
+    if (data !== null) {
+      return data as T;
+    }
+    return (rawText as unknown) as T;
   }
 
   // --- LEGAL POLICIES (Public / Authenticated) ---
@@ -597,6 +620,10 @@ class ApiService {
       const params = new URLSearchParams();
       if (groupId) {
         params.append('groupId', groupId);
+      }
+      const token = this.getToken();
+      if (token) {
+        params.append('token', token);
       }
 
       const url = `/api/cases/events?${params.toString()}`;

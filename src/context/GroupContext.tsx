@@ -64,8 +64,13 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setCurrentGroup(null);
         api.setActiveGroupId(null);
       }
-    } catch (err) {
-      console.error('Failed to load user research groups:', err);
+    } catch (err: any) {
+      if (err?.status === 401 || err?.message?.includes('Authentication required')) {
+        setUserGroups([]);
+        setCurrentGroup(null);
+      } else {
+        console.error('Failed to load user research groups:', err);
+      }
     } finally {
       setIsLoadingGroups(false);
     }

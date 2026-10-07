@@ -1,6 +1,6 @@
 {
   "name": "Thesis Progress Tracker",
-  "description": "Multi-group research case coordination and duplicate patient prevention platform for hospital thesis studies with collaborative 3-researcher groups.",
+  "description": "A structured research coordination platform for managing thesis studies, clinical research cases, milestones, and investigator collaboration.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

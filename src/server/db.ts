@@ -514,10 +514,13 @@ export class RelationalDatabase {
 
   private resolveUserProfile(p: StoredProfile): UserProfile {
     const { password_hash, ...safeProfile } = p;
+    const hasPassword = Boolean(password_hash && password_hash.trim().length > 0);
     return {
       ...safeProfile,
       status: p.status || 'active',
       is_app_owner: this.isAppOwner(p.email),
+      has_password: hasPassword,
+      auth_provider: hasPassword ? 'password' : 'google',
     };
   }
 
