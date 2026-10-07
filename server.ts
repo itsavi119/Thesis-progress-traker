@@ -214,11 +214,107 @@ export class InvitationRateLimiter {
   }
 }
 
+export function getClientIp(req: Request): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.trim()) {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.socket.remoteAddress || '127.0.0.1';
+}
+
 export const invitationRateLimiter = new InvitationRateLimiter();
 
+// Authentication Rate Limiter - layered IP & Account throttling (SEC-003)
+export class AuthRateLimiter {
+  private ipBuckets = new Map<string, RateLimitBucket>();
+  private accountBuckets = new Map<string, RateLimitBucket>();
+  private ipWindowMs: number;
+  private maxRequestsPerIp: number;
+  private accountWindowMs: number;
+  private maxFailedPerAccount: number;
+
+  constructor(options: {
+    ipWindowMs?: number;
+    maxRequestsPerIp?: number;
+    accountWindowMs?: number;
+    maxFailedPerAccount?: number;
+  } = {}) {
+    this.ipWindowMs = options.ipWindowMs || 60 * 1000; // 1 minute window
+    this.maxRequestsPerIp = options.maxRequestsPerIp || 20; // 20 requests / min per IP
+    this.accountWindowMs = options.accountWindowMs || 15 * 60 * 1000; // 15 minutes window
+    this.maxFailedPerAccount = options.maxFailedPerAccount || 5; // 5 failed attempts / 15 min per account
+  }
+
+  public checkIp(ip: string): { allowed: boolean; retryAfterSeconds: number } {
+    const now = Date.now();
+    let bucket = this.ipBuckets.get(ip);
+    if (!bucket || now > bucket.resetAt) {
+      bucket = { count: 0, resetAt: now + this.ipWindowMs };
+      this.ipBuckets.set(ip, bucket);
+    }
+    if (bucket.count >= this.maxRequestsPerIp) {
+      return {
+        allowed: false,
+        retryAfterSeconds: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)),
+      };
+    }
+    bucket.count++;
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+
+  public checkAccount(normalizedEmail: string): { allowed: boolean; retryAfterSeconds: number } {
+    const now = Date.now();
+    const bucket = this.accountBuckets.get(normalizedEmail);
+    if (!bucket) {
+      return { allowed: true, retryAfterSeconds: 0 };
+    }
+    if (now > bucket.resetAt) {
+      this.accountBuckets.delete(normalizedEmail);
+      return { allowed: true, retryAfterSeconds: 0 };
+    }
+    if (bucket.count >= this.maxFailedPerAccount) {
+      return {
+        allowed: false,
+        retryAfterSeconds: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)),
+      };
+    }
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+
+  public recordFailedAttempt(normalizedEmail: string): void {
+    const now = Date.now();
+    let bucket = this.accountBuckets.get(normalizedEmail);
+    if (!bucket || now > bucket.resetAt) {
+      bucket = { count: 0, resetAt: now + this.accountWindowMs };
+      this.accountBuckets.set(normalizedEmail, bucket);
+    }
+    bucket.count++;
+  }
+
+  public recordSuccessfulAttempt(normalizedEmail: string): void {
+    this.accountBuckets.delete(normalizedEmail);
+  }
+
+  public reset(): void {
+    this.ipBuckets.clear();
+    this.accountBuckets.clear();
+  }
+
+  public cleanupExpired(): void {
+    const now = Date.now();
+    for (const [key, bucket] of this.ipBuckets.entries()) {
+      if (now > bucket.resetAt) this.ipBuckets.delete(key);
+    }
+    for (const [key, bucket] of this.accountBuckets.entries()) {
+      if (now > bucket.resetAt) this.accountBuckets.delete(key);
+    }
+  }
+}
+
+export const authRateLimiter = new AuthRateLimiter();
+
 const rateLimitInvitations = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  const forwarded = req.headers['x-forwarded-for'];
-  const ip = (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : null) || req.socket.remoteAddress || '127.0.0.1';
+  const ip = getClientIp(req);
   const userId = req.user?.id;
 
   const result = invitationRateLimiter.check(ip, userId);
@@ -244,6 +340,11 @@ const rateLimitInvitations = (req: AuthenticatedRequest, res: Response, next: Ne
 if (!isProd) {
   app.post('/api/dev/reset-invitation-rate-limit', (_req, res) => {
     invitationRateLimiter.reset();
+    res.json({ reset: true });
+  });
+
+  app.post('/api/dev/reset-auth-rate-limit', (_req, res) => {
+    authRateLimiter.reset();
     res.json({ reset: true });
   });
 }
@@ -302,17 +403,66 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 app.post('/api/auth/login', async (req, res) => {
+  const ip = getClientIp(req);
+
+  // Layer A: IP-based rate limiting (20 requests / min)
+  const ipResult = authRateLimiter.checkIp(ip);
+  if (!ipResult.allowed) {
+    db.recordAuditLog({
+      action: 'AUTH_RATE_LIMIT_EXCEEDED',
+      entityType: 'security',
+      details: `Authentication rate limit exceeded for IP ${ip}.`,
+      performedBy: 'anonymous',
+      performedByEmail: 'anonymous',
+    }).catch(() => {});
+
+    res.setHeader('Retry-After', ipResult.retryAfterSeconds.toString());
+    res.status(429).json({
+      error: 'TOO_MANY_REQUESTS',
+      message: 'Too many authentication requests from this IP address. Please wait before trying again.',
+    });
+    return;
+  }
+
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
+    if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
       res.status(400).json({ error: 'BAD_REQUEST', message: 'Email and password are required.' });
       return;
     }
-    const user = await db.verifyUserCredentials({ email, password });
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Layer B: Account-identifier-based rate limiting (5 failed attempts / 15 min)
+    const accountResult = authRateLimiter.checkAccount(normalizedEmail);
+    if (!accountResult.allowed) {
+      db.recordAuditLog({
+        action: 'AUTH_RATE_LIMIT_EXCEEDED',
+        entityType: 'security',
+        details: `Account login rate limit exceeded for ${normalizedEmail} from IP ${ip}.`,
+        performedBy: 'anonymous',
+        performedByEmail: normalizedEmail,
+      }).catch(() => {});
+
+      res.setHeader('Retry-After', accountResult.retryAfterSeconds.toString());
+      res.status(429).json({
+        error: 'TOO_MANY_REQUESTS',
+        message: 'Too many failed login attempts. Please wait before trying again.',
+      });
+      return;
+    }
+
+    const user = await db.verifyUserCredentials({ email: normalizedEmail, password });
     if (!user) {
+      // Record failed attempt for this account key (uniform for existing and non-existing accounts)
+      authRateLimiter.recordFailedAttempt(normalizedEmail);
       res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid email or password.' });
       return;
     }
+
+    // Reset failed counter on successful authentication
+    authRateLimiter.recordSuccessfulAttempt(normalizedEmail);
+
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, user });
   } catch (err: any) {
@@ -353,12 +503,62 @@ app.post('/api/auth/google-sync', async (req, res) => {
 
 // Organization Login entrypoint: Validates credentials and verifies App Owner / Org Admin authorization
 app.post('/api/auth/organization-login', async (req, res) => {
+  const ip = getClientIp(req);
+
+  // Layer A: IP-based rate limiting
+  const ipResult = authRateLimiter.checkIp(ip);
+  if (!ipResult.allowed) {
+    db.recordAuditLog({
+      action: 'AUTH_RATE_LIMIT_EXCEEDED',
+      entityType: 'security',
+      details: `Authentication rate limit exceeded for organization login from IP ${ip}.`,
+      performedBy: 'anonymous',
+      performedByEmail: 'anonymous',
+    }).catch(() => {});
+
+    res.setHeader('Retry-After', ipResult.retryAfterSeconds.toString());
+    res.status(429).json({
+      error: 'TOO_MANY_REQUESTS',
+      message: 'Too many authentication requests from this IP address. Please wait before trying again.',
+    });
+    return;
+  }
+
   try {
     const { email, password, uid, displayName } = req.body;
     let user: UserProfile | null = null;
 
     if (email && password) {
-      user = await db.verifyUserCredentials({ email, password });
+      if (typeof email !== 'string' || typeof password !== 'string') {
+        res.status(400).json({ error: 'BAD_REQUEST', message: 'Email and password must be strings.' });
+        return;
+      }
+      const normalizedEmail = email.trim().toLowerCase();
+      const accountResult = authRateLimiter.checkAccount(normalizedEmail);
+      if (!accountResult.allowed) {
+        db.recordAuditLog({
+          action: 'AUTH_RATE_LIMIT_EXCEEDED',
+          entityType: 'security',
+          details: `Organization login rate limit exceeded for ${normalizedEmail} from IP ${ip}.`,
+          performedBy: 'anonymous',
+          performedByEmail: normalizedEmail,
+        }).catch(() => {});
+
+        res.setHeader('Retry-After', accountResult.retryAfterSeconds.toString());
+        res.status(429).json({
+          error: 'TOO_MANY_REQUESTS',
+          message: 'Too many failed login attempts. Please wait before trying again.',
+        });
+        return;
+      }
+
+      user = await db.verifyUserCredentials({ email: normalizedEmail, password });
+      if (!user) {
+        authRateLimiter.recordFailedAttempt(normalizedEmail);
+        res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid credentials.' });
+        return;
+      }
+      authRateLimiter.recordSuccessfulAttempt(normalizedEmail);
     } else if (uid && email) {
       user = await db.syncGoogleProfile({
         uid,
