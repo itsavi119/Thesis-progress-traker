@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'node:path';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
@@ -11,9 +12,10 @@ import {
   UnauthorizedGroupActionError,
   GroupNotFoundError,
   AccountSuspendedError,
+  ValidationError,
   StoredGroup,
 } from './src/server/db.js';
-import type { UserProfile } from './src/types/index.js';
+import type { UserProfile, CaseStatus } from './src/types/index.js';
 
 dotenv.config();
 
@@ -25,6 +27,138 @@ const JWT_SECRET = process.env.JWT_SECRET || 'thesis-tracker-secure-secret-token
 // SEC-006 & SEC-009: Disable technology disclosure
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
+
+// Extend Express Request type for request tracking and authenticated user (SEC-007)
+export interface RequestWithId extends Request {
+  id?: string;
+  user?: UserProfile;
+}
+
+// SEC-007: Request ID / Trace ID Middleware
+app.use((req: any, res: Response, next: NextFunction) => {
+  const incoming = req.headers['x-request-id'];
+  const requestId =
+    typeof incoming === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(incoming.trim())
+      ? incoming.trim()
+      : crypto.randomUUID();
+  req.id = requestId;
+  res.setHeader('X-Request-Id', requestId);
+  next();
+});
+
+// SEC-007: Server-side logging helper (Strictly excludes passwords, tokens, cookies, auth headers, and PHI)
+export function logServerError(err: any, req: RequestWithId, context?: string) {
+  const requestId = req.id || 'unknown';
+  const timestamp = new Date().toISOString();
+  const errorInfo = {
+    timestamp,
+    requestId,
+    method: req.method,
+    path: req.originalUrl || req.path,
+    context: context || 'Unhandled Server Error',
+    errorName: err?.name || 'Error',
+    errorMessage: err?.message || String(err),
+    stack: err?.stack || undefined,
+  };
+  console.error(`[SERVER_ERROR][${requestId}]`, JSON.stringify(errorInfo));
+}
+
+// SEC-007: Centralized safe error responder
+export function sendSafeErrorResponse(
+  err: any,
+  req: RequestWithId,
+  res: Response,
+  defaultAction = 'REQUEST_FAILED'
+) {
+  const requestId = req.id || crypto.randomUUID();
+
+  // 1. Expected validation error
+  if (err instanceof ValidationError) {
+    return res.status(400).json({
+      error: err.code || defaultAction || 'VALIDATION_ERROR',
+      message: err.message,
+    });
+  }
+
+  // 2. Duplicate case error
+  if (err instanceof DuplicateCaseError) {
+    return res.status(409).json({
+      error: 'DUPLICATE_CASE',
+      message: 'Record Already Registered',
+      case: err.existingCase,
+    });
+  }
+
+  // 3. Authorization / Access errors
+  if (err instanceof UnauthorizedGroupActionError) {
+    return res.status(403).json({
+      error: 'FORBIDDEN',
+      message: 'Access denied: You are not a member of this research study.',
+    });
+  }
+
+  if (err instanceof UnauthorizedCaseActionError) {
+    return res.status(403).json({
+      error: 'FORBIDDEN',
+      message: 'Unauthorized: You can only modify cases assigned to you.',
+    });
+  }
+
+  if (err instanceof AccountSuspendedError) {
+    return res.status(403).json({
+      error: 'ACCOUNT_SUSPENDED',
+      message: 'Your account has been deactivated. Please contact support.',
+    });
+  }
+
+  // 4. Resource Not Found
+  if (err instanceof GroupNotFoundError) {
+    return res.status(404).json({
+      error: 'NOT_FOUND',
+      message: 'Research study/group not found.',
+    });
+  }
+
+  // 5. Malformed JSON Body (Express SyntaxError from body-parser)
+  if (err instanceof SyntaxError && 'status' in err && (err as any).status === 400 && 'body' in err) {
+    return res.status(400).json({
+      error: 'INVALID_REQUEST',
+      message: 'Invalid request.',
+    });
+  }
+
+  // 6. Generic Controlled Bad Request / Validation check
+  // If the error has status 400 and is an intentional string message (not an internal JS runtime engine error)
+  const isInternalJsError =
+    err instanceof TypeError ||
+    err instanceof ReferenceError ||
+    err instanceof RangeError ||
+    err instanceof SyntaxError ||
+    (typeof err?.message === 'string' &&
+      (err.message.includes('is not a function') ||
+        err.message.includes('Cannot read properties') ||
+        err.message.includes('is undefined') ||
+        err.message.includes('is null') ||
+        err.message.includes('at ')));
+
+  if (!isInternalJsError && err?.isClientError && typeof err.message === 'string') {
+    return res.status(err.status || 400).json({
+      error: err.code || defaultAction,
+      message: err.message,
+    });
+  }
+
+  // 7. Unexpected Server / Database / Runtime Error:
+  // LOG TECHNICAL DETAILS SERVER-SIDE ONLY
+  logServerError(err, req, defaultAction);
+
+  // RETURN SAFE GENERIC RESPONSE TO CLIENT WITHOUT ANY INTERNAL DETAILS
+  return res.status(500).json({
+    error: 'SERVER_ERROR',
+    message: 'An unexpected error occurred.',
+    requestId,
+  });
+}
 
 // Cookie & Session Configuration (SEC-005)
 export const AUTH_COOKIE_NAME = 'thesis_tracker_session';
@@ -134,7 +268,7 @@ const csrfProtection = (req: Request, res: Response, next: NextFunction) => {
 app.use(csrfProtection);
 
 // Extend Express Request type for authenticated user
-export interface AuthenticatedRequest extends Request {
+export interface AuthenticatedRequest extends RequestWithId {
   user?: UserProfile;
 }
 
@@ -273,7 +407,7 @@ const requireGroupMembership = async (
       res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied: You are not a member of this research study.' });
       return;
     }
-    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred.' });
+    sendSafeErrorResponse(err, req, res, 'AUTH_ERROR');
   }
 };
 
@@ -514,9 +648,16 @@ app.get('/api/auth/team-capacity', async (req, res) => {
   });
 });
 
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', async (req: RequestWithId, res: Response) => {
   try {
-    const { email, password, displayName } = req.body;
+    const { email, password, displayName } = req.body || {};
+    if (typeof email !== 'string' || typeof password !== 'string' || typeof displayName !== 'string') {
+      res.status(400).json({
+        error: 'INVALID_REQUEST',
+        message: 'Invalid request: email, password, and display name must be valid strings.',
+      });
+      return;
+    }
     const user = await db.registerUser({ email, password, displayName });
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '24h' });
     res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
@@ -528,11 +669,11 @@ app.post('/api/auth/register', async (req, res) => {
       res.status(201).json({ token, user });
     }
   } catch (err: any) {
-    res.status(400).json({ error: 'REGISTRATION_FAILED', message: err.message });
+    sendSafeErrorResponse(err, req, res, 'REGISTRATION_FAILED');
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', async (req: RequestWithId, res: Response) => {
   const ip = getClientIp(req);
 
   // Layer A: IP-based rate limiting (20 requests / min)
@@ -555,9 +696,9 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
     if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'Email and password are required.' });
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Email and password are required strings.' });
       return;
     }
 
@@ -603,20 +744,19 @@ app.post('/api/auth/login', async (req, res) => {
       res.json({ token, user });
     }
   } catch (err: any) {
-    if (err instanceof AccountSuspendedError) {
-      res.status(403).json({ error: 'ACCOUNT_SUSPENDED', message: err.message });
-      return;
-    }
-    console.error('[Auth Error]:', err);
-    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+    sendSafeErrorResponse(err, req, res, 'LOGIN_FAILED');
   }
 });
 
-app.post('/api/auth/google-sync', async (req, res) => {
+app.post('/api/auth/google-sync', async (req: RequestWithId, res: Response) => {
   try {
-    const { uid, email, displayName } = req.body;
-    if (!uid || !email) {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'UID and email are required.' });
+    const { uid, email, displayName } = req.body || {};
+    if (!uid || !email || typeof uid !== 'string' || typeof email !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'UID and email are required as strings.' });
+      return;
+    }
+    if (displayName !== undefined && typeof displayName !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Display name must be a string.' });
       return;
     }
 
@@ -636,12 +776,7 @@ app.post('/api/auth/google-sync', async (req, res) => {
       res.json({ token, user });
     }
   } catch (err: any) {
-    if (err instanceof AccountSuspendedError) {
-      res.status(403).json({ error: 'ACCOUNT_SUSPENDED', message: err.message });
-      return;
-    }
-    console.error('[Google Sync Error]:', err);
-    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+    sendSafeErrorResponse(err, req, res, 'GOOGLE_SYNC_FAILED');
   }
 });
 
@@ -736,7 +871,7 @@ app.post('/api/auth/organization-login', async (req, res) => {
       res.status(403).json({ error: 'ACCOUNT_SUSPENDED', message: err.message });
       return;
     }
-    res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied.' });
+    sendSafeErrorResponse(err, req, res, 'LOGIN_FAILED');
   }
 });
 
@@ -765,22 +900,43 @@ app.get('/api/organizations', authenticateToken, async (req: AuthenticatedReques
     const organizations = await db.getUserOrganizations(req.user!.id);
     res.json({ organizations });
   } catch (err: any) {
-    console.error('[Get Orgs Error]:', err);
-    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
   }
 });
 
 app.post('/api/organizations', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
+    const { name, description, institution, contactEmail } = req.body || {};
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Organization name is required.' });
+      return;
+    }
+    if (description !== undefined && typeof description !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Description must be a string.' });
+      return;
+    }
+    if (institution !== undefined && typeof institution !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Institution must be a string.' });
+      return;
+    }
+    if (contactEmail !== undefined && typeof contactEmail !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Contact email must be a string.' });
+      return;
+    }
+
     const organization = await db.createOrganization(req.user!.id, req.body);
     res.status(201).json({ organization });
   } catch (err: any) {
-    res.status(400).json({ error: 'CREATE_ORG_FAILED', message: err.message });
+    sendSafeErrorResponse(err, req, res, 'CREATE_ORG_FAILED');
   }
 });
 
 app.get('/api/organizations/:id', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
+    if (!req.params.id || typeof req.params.id !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Organization ID is required.' });
+      return;
+    }
     const organization = await db.getOrganizationById(req.params.id);
     if (!organization) {
       res.status(404).json({ error: 'NOT_FOUND', message: 'Organization not found.' });
@@ -788,7 +944,7 @@ app.get('/api/organizations/:id', authenticateToken, async (req: AuthenticatedRe
     }
     res.json({ organization });
   } catch (err: any) {
-    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
   }
 });
 
@@ -800,8 +956,7 @@ app.get('/api/groups', authenticateToken, async (req: AuthenticatedRequest, res)
     const groups = await db.getUserGroups(req.user!.id);
     res.json({ groups });
   } catch (err: any) {
-    console.error('[Get Groups Error]:', err);
-    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
   }
 });
 
@@ -818,7 +973,32 @@ app.post('/api/groups', authenticateToken, async (req: AuthenticatedRequest, res
       institution,
       organizationId,
       customFields,
-    } = req.body;
+    } = req.body || {};
+
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Research study / group name is required.' });
+      return;
+    }
+    if (!studyTitle || typeof studyTitle !== 'string' || !studyTitle.trim()) {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Study / Thesis title is required.' });
+      return;
+    }
+    if (description !== undefined && typeof description !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Description must be a string.' });
+      return;
+    }
+    if (institution !== undefined && typeof institution !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Institution must be a string.' });
+      return;
+    }
+    if (organizationId !== undefined && typeof organizationId !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Organization ID must be a string.' });
+      return;
+    }
+    if (customFields !== undefined && !Array.isArray(customFields)) {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Custom fields must be an array.' });
+      return;
+    }
 
     const group = await db.createGroup(req.user!.id, {
       name,
@@ -833,7 +1013,7 @@ app.post('/api/groups', authenticateToken, async (req: AuthenticatedRequest, res
     });
     res.status(201).json({ group });
   } catch (err: any) {
-    res.status(400).json({ error: 'CREATE_GROUP_FAILED', message: err.message });
+    sendSafeErrorResponse(err, req, res, 'CREATE_GROUP_FAILED');
   }
 });
 
@@ -843,48 +1023,62 @@ app.get('/api/groups/:groupId', authenticateToken, async (req: AuthenticatedRequ
     const group = await db.getGroupById(req.params.groupId, req.user!.id);
     res.json({ group });
   } catch (err: any) {
-    if (err instanceof GroupNotFoundError) {
-      res.status(404).json({ error: 'NOT_FOUND', message: err.message });
-      return;
-    }
-    if (err instanceof UnauthorizedGroupActionError) {
-      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
-      return;
-    }
-    console.error('[Get Group Error]:', err);
-    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
   }
 });
 
 // Update group settings (Owner only)
 app.patch('/api/groups/:groupId/settings', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
-    const group = await db.updateGroupSettings(req.params.groupId, req.user!.id, req.body);
-    res.json({ group });
-  } catch (err: any) {
-    if (err instanceof UnauthorizedGroupActionError) {
-      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
+    const { name, studyTitle, description, institution, organizationId, customFields } = req.body || {};
+    if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Study name must be a non-empty string.' });
       return;
     }
-    res.status(400).json({ error: 'UPDATE_FAILED', message: err.message });
+    if (studyTitle !== undefined && (typeof studyTitle !== 'string' || !studyTitle.trim())) {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Study title must be a non-empty string.' });
+      return;
+    }
+    if (description !== undefined && typeof description !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Description must be a string.' });
+      return;
+    }
+    if (institution !== undefined && typeof institution !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Institution must be a string.' });
+      return;
+    }
+    if (organizationId !== undefined && typeof organizationId !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Organization ID must be a string.' });
+      return;
+    }
+    if (customFields !== undefined && !Array.isArray(customFields)) {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Custom fields must be an array.' });
+      return;
+    }
+
+    const group = await db.updateGroupSettings(req.params.groupId, req.user!.id, req.body || {});
+    res.json({ group });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'UPDATE_FAILED');
   }
 });
 
 // Generate an invitation for a group (Owner only)
 app.post('/api/groups/:groupId/invitations', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
+    const { intendedEmail } = req.body || {};
+    if (intendedEmail !== undefined && typeof intendedEmail !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Intended email must be a string.' });
+      return;
+    }
     const invitation = await db.createInvitation(
       req.params.groupId,
       req.user!.id,
-      req.body.intendedEmail
+      intendedEmail
     );
     res.status(201).json({ invitation });
   } catch (err: any) {
-    if (err instanceof UnauthorizedGroupActionError) {
-      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
-      return;
-    }
-    res.status(400).json({ error: 'INVITATION_FAILED', message: err.message });
+    sendSafeErrorResponse(err, req, res, 'INVITATION_FAILED');
   }
 });
 
@@ -939,11 +1133,7 @@ app.delete('/api/groups/:groupId/members/:targetUserId', authenticateToken, asyn
     const group = await db.removeMember(req.params.groupId, req.user!.id, req.params.targetUserId);
     res.json({ success: true, group });
   } catch (err: any) {
-    if (err instanceof UnauthorizedGroupActionError) {
-      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
-      return;
-    }
-    res.status(400).json({ error: 'REMOVE_FAILED', message: err.message });
+    sendSafeErrorResponse(err, req, res, 'REMOVE_FAILED');
   }
 });
 
@@ -954,37 +1144,33 @@ app.get('/api/groups/:groupId/files', authenticateToken, async (req: Authenticat
     const files = await db.getGroupFiles(req.params.groupId, req.user!.id);
     res.json({ files });
   } catch (err: any) {
-    if (err instanceof UnauthorizedGroupActionError) {
-      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
-      return;
-    }
-    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
   }
 });
 
 app.post('/api/groups/:groupId/files', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
-    const { name, size, mimeType, category, fileData } = req.body;
-    if (!name) {
+    const { name, size, mimeType, category, fileData } = req.body || {};
+    if (!name || typeof name !== 'string' || !name.trim()) {
       res.status(400).json({ error: 'BAD_REQUEST', message: 'File name is required.' });
+      return;
+    }
+    if (mimeType !== undefined && typeof mimeType !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'MIME type must be a string.' });
       return;
     }
     const file = await db.uploadGroupFile({
       groupId: req.params.groupId,
       userId: req.user!.id,
       name,
-      size: size || 0,
+      size: typeof size === 'number' ? size : 0,
       mimeType: mimeType || 'application/octet-stream',
       category,
       fileData,
     });
     res.status(201).json({ file });
   } catch (err: any) {
-    if (err instanceof UnauthorizedGroupActionError) {
-      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
-      return;
-    }
-    res.status(400).json({ error: 'UPLOAD_FAILED', message: err.message });
+    sendSafeErrorResponse(err, req, res, 'UPLOAD_FAILED');
   }
 });
 
@@ -993,11 +1179,7 @@ app.delete('/api/groups/:groupId/files/:fileId', authenticateToken, async (req: 
     const result = await db.deleteGroupFile(req.params.groupId, req.params.fileId, req.user!.id);
     res.json(result);
   } catch (err: any) {
-    if (err instanceof UnauthorizedGroupActionError) {
-      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
-      return;
-    }
-    res.status(400).json({ error: 'DELETE_FILE_FAILED', message: err.message });
+    sendSafeErrorResponse(err, req, res, 'DELETE_FILE_FAILED');
   }
 });
 
@@ -1012,14 +1194,16 @@ app.get('/api/cases/check/:patientId', authenticateToken, async (req: Authentica
       return;
     }
 
-    const result = await db.checkPatientId(groupId, req.params.patientId, req.user!.id);
-    res.json(result);
-  } catch (err: any) {
-    if (err instanceof UnauthorizedGroupActionError) {
-      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
+    const patientId = req.params.patientId;
+    if (!patientId || typeof patientId !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Patient ID is required.' });
       return;
     }
-    res.status(400).json({ error: 'VALIDATION_ERROR', message: err.message });
+
+    const result = await db.checkPatientId(groupId, patientId, req.user!.id);
+    res.json(result);
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'VALIDATION_ERROR');
   }
 });
 
@@ -1032,9 +1216,25 @@ app.post('/api/cases/register', authenticateToken, async (req: AuthenticatedRequ
       return;
     }
 
-    const { patientId, patientName, diagnosis, drugNames, customValues } = req.body;
-    if (!patientId) {
+    const { patientId, patientName, diagnosis, drugNames, customValues } = req.body || {};
+    if (!patientId || typeof patientId !== 'string' || !patientId.trim()) {
       res.status(400).json({ error: 'BAD_REQUEST', message: 'Participant / Patient ID is required.' });
+      return;
+    }
+    if (patientName !== undefined && typeof patientName !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Participant name must be a string.' });
+      return;
+    }
+    if (diagnosis !== undefined && typeof diagnosis !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Condition / diagnosis must be a string.' });
+      return;
+    }
+    if (drugNames !== undefined && typeof drugNames !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Medication / intervention details must be a string.' });
+      return;
+    }
+    if (customValues !== undefined && (typeof customValues !== 'object' || customValues === null || Array.isArray(customValues))) {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Custom field values must be an object.' });
       return;
     }
 
@@ -1050,19 +1250,7 @@ app.post('/api/cases/register', authenticateToken, async (req: AuthenticatedRequ
 
     res.status(201).json({ success: true, case: newCase });
   } catch (err: any) {
-    if (err instanceof DuplicateCaseError) {
-      res.status(409).json({
-        error: 'DUPLICATE_CASE',
-        message: 'Record Already Registered',
-        case: err.existingCase,
-      });
-      return;
-    }
-    if (err instanceof UnauthorizedGroupActionError) {
-      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
-      return;
-    }
-    res.status(400).json({ error: 'REGISTRATION_ERROR', message: err.message });
+    sendSafeErrorResponse(err, req, res, 'REGISTRATION_ERROR');
   }
 });
 
@@ -1081,15 +1269,14 @@ app.get('/api/cases', authenticateToken, async (req: AuthenticatedRequest, res) 
       status?: string;
     };
 
-    const cases = await db.getAllCases(groupId, req.user!.id, { search, memberId, status });
+    const cases = await db.getAllCases(groupId, req.user!.id, {
+      search: typeof search === 'string' ? search : undefined,
+      memberId: typeof memberId === 'string' ? memberId : undefined,
+      status: typeof status === 'string' ? status : undefined,
+    });
     res.json({ cases });
   } catch (err: any) {
-    if (err instanceof UnauthorizedGroupActionError) {
-      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
-      return;
-    }
-    console.error('[Get Cases Error]:', err);
-    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
   }
 });
 
@@ -1157,12 +1344,7 @@ app.get('/api/cases/export/csv', authenticateToken, async (req: AuthenticatedReq
     );
     res.send(csvContent);
   } catch (err: any) {
-    if (err instanceof UnauthorizedGroupActionError) {
-      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
-      return;
-    }
-    console.error('[Export CSV Error]:', err);
-    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
   }
 });
 
@@ -1179,12 +1361,7 @@ app.get('/api/cases/my', authenticateToken, async (req: AuthenticatedRequest, re
     const cases = await db.getMyCases(groupId, req.user!.id, search);
     res.json({ cases });
   } catch (err: any) {
-    if (err instanceof UnauthorizedGroupActionError) {
-      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
-      return;
-    }
-    console.error('[My Cases Error]:', err);
-    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
   }
 });
 
@@ -1197,9 +1374,9 @@ app.patch('/api/cases/:id/status', authenticateToken, async (req: AuthenticatedR
       return;
     }
 
-    const { status } = req.body;
-    if (!status) {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'Status is required.' });
+    const { status } = req.body || {};
+    if (!status || typeof status !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Status is required as a string.' });
       return;
     }
 
@@ -1207,16 +1384,12 @@ app.patch('/api/cases/:id/status', authenticateToken, async (req: AuthenticatedR
       groupId,
       caseId: req.params.id,
       userId: req.user!.id,
-      newStatus: status,
+      newStatus: status as CaseStatus,
     });
 
     res.json({ success: true, case: updated });
   } catch (err: any) {
-    if (err instanceof UnauthorizedCaseActionError || err instanceof UnauthorizedGroupActionError) {
-      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
-      return;
-    }
-    res.status(400).json({ error: 'UPDATE_ERROR', message: err.message });
+    sendSafeErrorResponse(err, req, res, 'UPDATE_ERROR');
   }
 });
 
@@ -1229,7 +1402,24 @@ app.patch('/api/cases/:id/details', authenticateToken, async (req: Authenticated
       return;
     }
 
-    const { patientName, diagnosis, drugNames, customValues } = req.body;
+    const { patientName, diagnosis, drugNames, customValues } = req.body || {};
+    if (patientName !== undefined && typeof patientName !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Participant name must be a string.' });
+      return;
+    }
+    if (diagnosis !== undefined && typeof diagnosis !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Condition / diagnosis must be a string.' });
+      return;
+    }
+    if (drugNames !== undefined && typeof drugNames !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Medication / intervention details must be a string.' });
+      return;
+    }
+    if (customValues !== undefined && (typeof customValues !== 'object' || customValues === null || Array.isArray(customValues))) {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Custom field values must be an object.' });
+      return;
+    }
+
     const updated = await db.updateCaseDetails({
       groupId,
       caseId: req.params.id,
@@ -1242,11 +1432,7 @@ app.patch('/api/cases/:id/details', authenticateToken, async (req: Authenticated
 
     res.json({ success: true, case: updated });
   } catch (err: any) {
-    if (err instanceof UnauthorizedCaseActionError || err instanceof UnauthorizedGroupActionError) {
-      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
-      return;
-    }
-    res.status(400).json({ error: 'UPDATE_ERROR', message: err.message });
+    sendSafeErrorResponse(err, req, res, 'UPDATE_ERROR');
   }
 });
 
@@ -1267,11 +1453,7 @@ app.delete('/api/cases/:id', authenticateToken, async (req: AuthenticatedRequest
 
     res.json({ success: true, message: `Record ID ${result.patientId} removed successfully.`, result });
   } catch (err: any) {
-    if (err instanceof UnauthorizedCaseActionError || err instanceof UnauthorizedGroupActionError) {
-      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
-      return;
-    }
-    res.status(400).json({ error: 'DELETE_ERROR', message: err.message });
+    sendSafeErrorResponse(err, req, res, 'DELETE_ERROR');
   }
 });
 
@@ -1287,12 +1469,7 @@ app.get('/api/cases/stats', authenticateToken, async (req: AuthenticatedRequest,
     const stats = await db.getDashboardStats(groupId, req.user!.id);
     res.json({ stats });
   } catch (err: any) {
-    if (err instanceof UnauthorizedGroupActionError) {
-      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
-      return;
-    }
-    console.error('[Dashboard Stats Error]:', err);
-    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
   }
 });
 
@@ -1308,12 +1485,7 @@ app.get('/api/cases/team-summary', authenticateToken, async (req: AuthenticatedR
     const summary = await db.getTeamSummary(groupId, req.user!.id);
     res.json({ summary });
   } catch (err: any) {
-    if (err instanceof UnauthorizedGroupActionError) {
-      res.status(403).json({ error: 'FORBIDDEN', message: err.message });
-      return;
-    }
-    console.error('[Team Summary Error]:', err);
-    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
   }
 });
 
@@ -1328,8 +1500,7 @@ app.get('/api/app-owner/overview', authenticateAppOwner, async (req: Authenticat
     const stats = await db.getAppOwnerOverview();
     res.json({ stats });
   } catch (err: any) {
-    console.error('[App Owner Overview Error]:', err);
-    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
   }
 });
 
@@ -1339,8 +1510,7 @@ app.get('/api/app-owner/organizations', authenticateAppOwner, async (req: Authen
     const organizations = await db.getAppOwnerOrganizations();
     res.json({ organizations });
   } catch (err: any) {
-    console.error('[App Owner Orgs Error]:', err);
-    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
   }
 });
 
@@ -1348,27 +1518,29 @@ app.get('/api/app-owner/organizations', authenticateAppOwner, async (req: Authen
 app.get('/api/app-owner/users', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
   try {
     const { search, status } = req.query as { search?: string; status?: string };
-    const users = await db.getAppOwnerUsers({ search, status });
+    const users = await db.getAppOwnerUsers({
+      search: typeof search === 'string' ? search : undefined,
+      status: typeof status === 'string' ? status : undefined,
+    });
     res.json({ users });
   } catch (err: any) {
-    console.error('[App Owner Users Error]:', err);
-    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
   }
 });
 
 // 4. User status management (suspend / reactivate)
 app.patch('/api/app-owner/users/:id/status', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
   try {
-    const { status } = req.body;
-    if (!status || !['active', 'suspended'].includes(status)) {
+    const { status } = req.body || {};
+    if (!status || typeof status !== 'string' || !['active', 'suspended'].includes(status)) {
       res.status(400).json({ error: 'BAD_REQUEST', message: 'Valid status ("active" or "suspended") is required.' });
       return;
     }
 
-    const updated = await db.setAppOwnerUserStatus(req.params.id, status, req.user!.email);
+    const updated = await db.setAppOwnerUserStatus(req.params.id, status as any, req.user!.email);
     res.json({ success: true, user: updated });
   } catch (err: any) {
-    res.status(400).json({ error: 'ACTION_FAILED', message: err.message });
+    sendSafeErrorResponse(err, req, res, 'ACTION_FAILED');
   }
 });
 
@@ -1376,27 +1548,29 @@ app.patch('/api/app-owner/users/:id/status', authenticateAppOwner, async (req: A
 app.get('/api/app-owner/groups', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
   try {
     const { search, status } = req.query as { search?: string; status?: string };
-    const groups = await db.getAppOwnerGroups({ search, status });
+    const groups = await db.getAppOwnerGroups({
+      search: typeof search === 'string' ? search : undefined,
+      status: typeof status === 'string' ? status : undefined,
+    });
     res.json({ groups });
   } catch (err: any) {
-    console.error('[App Owner Groups Error]:', err);
-    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
   }
 });
 
 // 6. Group status management
 app.patch('/api/app-owner/groups/:id/status', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
   try {
-    const { status } = req.body;
-    if (!status || !['active', 'archived', 'suspended'].includes(status)) {
+    const { status } = req.body || {};
+    if (!status || typeof status !== 'string' || !['active', 'archived', 'suspended'].includes(status)) {
       res.status(400).json({ error: 'BAD_REQUEST', message: 'Valid status ("active", "archived", or "suspended") is required.' });
       return;
     }
 
-    const updated = await db.setAppOwnerGroupStatus(req.params.id, status, req.user!.email);
+    const updated = await db.setAppOwnerGroupStatus(req.params.id, status as any, req.user!.email);
     res.json({ success: true, group: updated });
   } catch (err: any) {
-    res.status(400).json({ error: 'ACTION_FAILED', message: err.message });
+    sendSafeErrorResponse(err, req, res, 'ACTION_FAILED');
   }
 });
 
@@ -1406,7 +1580,7 @@ app.delete('/api/app-owner/groups/:id', authenticateAppOwner, async (req: Authen
     const result = await db.deleteAppOwnerGroup(req.params.id, req.user!.email);
     res.json(result);
   } catch (err: any) {
-    res.status(400).json({ error: 'DELETE_FAILED', message: err.message });
+    sendSafeErrorResponse(err, req, res, 'DELETE_FAILED');
   }
 });
 
@@ -1415,14 +1589,13 @@ app.get('/api/app-owner/audit-logs', authenticateAppOwner, async (req: Authentic
   try {
     const { limit, action, entityType } = req.query as { limit?: string; action?: string; entityType?: string };
     const logs = db.getAuditLogs({
-      limit: limit ? parseInt(limit, 10) : 100,
-      action,
-      entityType,
+      limit: limit && !isNaN(parseInt(limit, 10)) ? parseInt(limit, 10) : 100,
+      action: typeof action === 'string' ? action : undefined,
+      entityType: typeof entityType === 'string' ? entityType : undefined,
     });
     res.json({ logs });
   } catch (err: any) {
-    console.error('[Audit Logs Error]:', err);
-    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
   }
 });
 
@@ -1432,33 +1605,32 @@ app.get('/api/app-owner/settings', authenticateAppOwner, (req: AuthenticatedRequ
     const settings = db.getAppSettings();
     res.json({ settings });
   } catch (err: any) {
-    console.error('[App Settings Error]:', err);
-    res.status(500).json({ error: 'SERVER_ERROR', message: 'An internal error occurred. Please try again.' });
+    sendSafeErrorResponse(err, req, res, 'SERVER_ERROR');
   }
 });
 
 app.patch('/api/app-owner/settings', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
   try {
-    const updated = await db.updateAppSettings(req.body, req.user!.email);
+    const updated = await db.updateAppSettings(req.body || {}, req.user!.email);
     res.json({ settings: updated });
   } catch (err: any) {
-    res.status(400).json({ error: 'UPDATE_FAILED', message: err.message });
+    sendSafeErrorResponse(err, req, res, 'UPDATE_FAILED');
   }
 });
 
 // 10. Legal Policy update (App Owner)
 app.patch('/api/app-owner/legal-policies/:id', authenticateAppOwner, async (req: AuthenticatedRequest, res) => {
   try {
-    const { content } = req.body;
+    const { content } = req.body || {};
     if (!content || typeof content !== 'string') {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'Policy content is required.' });
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Policy content is required as a string.' });
       return;
     }
 
     const updated = await db.updateLegalPolicy(req.params.id, content, req.user!.email);
     res.json({ policy: updated });
   } catch (err: any) {
-    res.status(400).json({ error: 'UPDATE_FAILED', message: err.message });
+    sendSafeErrorResponse(err, req, res, 'UPDATE_FAILED');
   }
 });
 
@@ -1483,14 +1655,22 @@ app.get(
 
     // Subscribe to events strictly scoped to this authorized research study
     const unsubscribe = db.subscribe((event, eventGroupId, payload) => {
-      if (eventGroupId === targetGroupId) {
-        res.write(`data: ${JSON.stringify({ type: event, groupId: eventGroupId, payload })}\n\n`);
+      try {
+        if (eventGroupId === targetGroupId) {
+          res.write(`data: ${JSON.stringify({ type: event, groupId: eventGroupId, payload })}\n\n`);
+        }
+      } catch (sseErr) {
+        logServerError(sseErr, req as any, 'SSE Event Dispatch Error');
       }
     });
 
     const heartbeat = setInterval(() => {
-      if (!res.writableEnded) {
-        res.write(': heartbeat\n\n');
+      try {
+        if (!res.writableEnded) {
+          res.write(': heartbeat\n\n');
+        }
+      } catch (hbErr) {
+        logServerError(hbErr, req as any, 'SSE Heartbeat Error');
       }
     }, 20000);
 
@@ -1500,6 +1680,26 @@ app.get(
     });
   }
 );
+
+// Dev Test Endpoints for Controlled Error Verification (SEC-007)
+if (!isProd) {
+  app.get('/api/dev/force-error', (req: RequestWithId, _res: Response) => {
+    throw new Error('Controlled test server error for SEC-007 verification');
+  });
+
+  app.get('/api/dev/force-type-error', (_req: RequestWithId, _res: Response) => {
+    const obj: any = undefined;
+    return obj.trim();
+  });
+}
+
+// Centralized Express Error Handling Middleware (SEC-007 Final Safety Boundary)
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+  sendSafeErrorResponse(err, req as RequestWithId, res);
+});
 
 // Frontend Serving
 async function startServer() {

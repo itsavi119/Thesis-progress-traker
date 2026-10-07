@@ -645,6 +645,7 @@ export class RelationalDatabase {
   }
 
   public async findProfileByEmail(email: string): Promise<StoredProfile | null> {
+    if (typeof email !== 'string') return null;
     const normalizedEmail = email.trim().toLowerCase();
     const profile = this.data.profiles.find((p) => p.email.toLowerCase() === normalizedEmail);
     return profile || null;
@@ -663,7 +664,7 @@ export class RelationalDatabase {
   }): Promise<UserProfile> {
     return this.mutex.runExclusive(async () => {
       if (this.data.app_settings && !this.data.app_settings.allow_registration) {
-        throw new Error('New researcher registration is temporarily paused by the organization administrator.');
+        throw new ValidationError('New researcher registration is temporarily paused by the organization administrator.');
       }
 
       if (
@@ -719,6 +720,9 @@ export class RelationalDatabase {
     displayName: string;
   }): Promise<UserProfile> {
     return this.mutex.runExclusive(async () => {
+      if (!params || typeof params.uid !== 'string' || typeof params.email !== 'string') {
+        throw new ValidationError('UID and email must be valid strings.');
+      }
       const email = params.email.trim().toLowerCase();
       let profile = this.data.profiles.find((p) => p.id === params.uid || p.email.toLowerCase() === email);
 
@@ -726,14 +730,14 @@ export class RelationalDatabase {
         if (profile.status === 'suspended') {
           throw new AccountSuspendedError();
         }
-        profile.display_name = params.displayName || profile.display_name;
+        profile.display_name = (typeof params.displayName === 'string' && params.displayName.trim()) ? params.displayName.trim() : profile.display_name;
         profile.updated_at = new Date().toISOString();
         await this.persist();
         return this.resolveUserProfile(profile);
       }
 
       if (this.data.app_settings && !this.data.app_settings.allow_registration) {
-        throw new Error('New researcher registration is temporarily paused by the organization administrator.');
+        throw new ValidationError('New researcher registration is temporarily paused by the organization administrator.');
       }
 
       const now = new Date().toISOString();
@@ -741,7 +745,7 @@ export class RelationalDatabase {
         id: params.uid,
         email,
         password_hash: '',
-        display_name: params.displayName || email.split('@')[0],
+        display_name: (typeof params.displayName === 'string' && params.displayName.trim()) ? params.displayName.trim() : email.split('@')[0],
         role: 'member',
         status: 'active',
         created_at: now,
@@ -759,6 +763,9 @@ export class RelationalDatabase {
     email: string;
     password: string;
   }): Promise<UserProfile | null> {
+    if (!params || typeof params.email !== 'string' || typeof params.password !== 'string') {
+      return null;
+    }
     const email = params.email.trim().toLowerCase();
     const profile = this.data.profiles.find((p) => p.email.toLowerCase() === email);
     if (!profile) return null;
@@ -825,9 +832,9 @@ export class RelationalDatabase {
       const newOrg: StoredOrganization = {
         id: crypto.randomUUID(),
         name,
-        description: params.description?.trim() || undefined,
-        institution: params.institution?.trim() || undefined,
-        contact_email: params.contactEmail?.trim() || undefined,
+        description: typeof params.description === 'string' && params.description.trim() ? params.description.trim() : undefined,
+        institution: typeof params.institution === 'string' && params.institution.trim() ? params.institution.trim() : undefined,
+        contact_email: typeof params.contactEmail === 'string' && params.contactEmail.trim() ? params.contactEmail.trim() : undefined,
         owner_id: userId,
         created_at: now,
         updated_at: now,
@@ -946,15 +953,15 @@ export class RelationalDatabase {
 
       const newGroup: StoredGroup = {
         id: newGroupId,
-        organization_id: params.organizationId?.trim() || undefined,
+        organization_id: typeof params.organizationId === 'string' && params.organizationId.trim() ? params.organizationId.trim() : undefined,
         name,
         study_title: studyTitle,
         study_type: params.studyType || 'Clinical Pharmacy',
         subject_terminology: params.subjectTerminology || 'Patient',
         target_sample_size: targetSampleSize,
-        description: params.description?.trim() || undefined,
-        institution: params.institution?.trim() || undefined,
-        custom_fields: params.customFields || [],
+        description: typeof params.description === 'string' && params.description.trim() ? params.description.trim() : undefined,
+        institution: typeof params.institution === 'string' && params.institution.trim() ? params.institution.trim() : undefined,
+        custom_fields: Array.isArray(params.customFields) ? params.customFields : [],
         owner_id: user.id,
         status: 'active',
         members: [ownerMember],
@@ -994,13 +1001,15 @@ export class RelationalDatabase {
       }
 
       if (updates.name !== undefined) {
+        if (typeof updates.name !== 'string') throw new ValidationError('Study name must be a string.');
         const trimmed = updates.name.trim();
-        if (!trimmed) throw new Error('Study name cannot be empty.');
+        if (!trimmed) throw new ValidationError('Study name cannot be empty.');
         group.name = trimmed;
       }
       if (updates.studyTitle !== undefined) {
+        if (typeof updates.studyTitle !== 'string') throw new ValidationError('Study title must be a string.');
         const trimmed = updates.studyTitle.trim();
-        if (!trimmed) throw new Error('Study title cannot be empty.');
+        if (!trimmed) throw new ValidationError('Study title cannot be empty.');
         group.study_title = trimmed;
       }
       if (updates.studyType !== undefined) {
@@ -1011,19 +1020,23 @@ export class RelationalDatabase {
       }
       if (updates.targetSampleSize !== undefined) {
         const size = Number(updates.targetSampleSize);
-        if (isNaN(size) || size <= 0) throw new Error('Target sample size must be a positive number.');
+        if (isNaN(size) || size <= 0) throw new ValidationError('Target sample size must be a positive number.');
         group.target_sample_size = size;
       }
       if (updates.description !== undefined) {
+        if (typeof updates.description !== 'string') throw new ValidationError('Description must be a string.');
         group.description = updates.description.trim() || undefined;
       }
       if (updates.institution !== undefined) {
+        if (typeof updates.institution !== 'string') throw new ValidationError('Institution must be a string.');
         group.institution = updates.institution.trim() || undefined;
       }
       if (updates.organizationId !== undefined) {
+        if (typeof updates.organizationId !== 'string') throw new ValidationError('Organization ID must be a string.');
         group.organization_id = updates.organizationId.trim() || undefined;
       }
       if (updates.customFields !== undefined) {
+        if (!Array.isArray(updates.customFields)) throw new ValidationError('Custom fields must be an array.');
         group.custom_fields = updates.customFields;
       }
 
@@ -1068,6 +1081,9 @@ export class RelationalDatabase {
   }): Promise<ResearchFile> {
     return this.mutex.runExclusive(async () => {
       this.verifyUserGroupMembership(params.groupId, params.userId);
+      if (!params || typeof params.name !== 'string' || !params.name.trim()) {
+        throw new ValidationError('File name is required.');
+      }
       const user = this.data.profiles.find((p) => p.id === params.userId);
 
       if (!this.data.files) this.data.files = [];
@@ -1075,8 +1091,8 @@ export class RelationalDatabase {
         id: crypto.randomUUID(),
         group_id: params.groupId,
         name: params.name.trim(),
-        size: params.size,
-        mime_type: params.mimeType,
+        size: typeof params.size === 'number' ? params.size : 0,
+        mime_type: typeof params.mimeType === 'string' ? params.mimeType : 'application/octet-stream',
         category: params.category || 'other',
         uploaded_by: params.userId,
         uploaded_by_name: user ? user.display_name : 'Researcher',
@@ -1113,7 +1129,7 @@ export class RelationalDatabase {
 
       const idx = this.data.files.findIndex((f) => f.id === fileId && f.group_id === groupId);
       if (idx === -1) {
-        throw new Error('File not found in this research group.');
+        throw new ValidationError('File not found in this research group.');
       }
 
       const target = this.data.files[idx];
@@ -1165,7 +1181,7 @@ export class RelationalDatabase {
         created_at: now.toISOString(),
         expires_at: expiresAt,
         status: 'pending',
-        intended_email: intendedEmail?.trim().toLowerCase() || undefined,
+        intended_email: typeof intendedEmail === 'string' && intendedEmail.trim() ? intendedEmail.trim().toLowerCase() : undefined,
       };
 
       this.data.invitations.push(invite);
@@ -1196,7 +1212,7 @@ export class RelationalDatabase {
     };
   }> {
     if (!rawToken || typeof rawToken !== 'string') {
-      throw new Error('Invalid or expired invitation code.');
+      throw new ValidationError('Invalid or expired invitation code.');
     }
 
     const trimmed = rawToken.trim();
@@ -1210,24 +1226,24 @@ export class RelationalDatabase {
         (i.code && i.code.toUpperCase() === trimmed.toUpperCase())
     );
     if (!invite) {
-      throw new Error('Invalid or expired invitation code.');
+      throw new ValidationError('Invalid or expired invitation code.');
     }
 
     // Expiration validation
     if (invite.status === 'pending' && new Date(invite.expires_at) < new Date()) {
       invite.status = 'expired';
       await this.persist();
-      throw new Error('Invalid or expired invitation code.');
+      throw new ValidationError('Invalid or expired invitation code.');
     }
 
     // Single-use / status validation
     if (invite.status !== 'pending') {
-      throw new Error('Invalid or expired invitation code.');
+      throw new ValidationError('Invalid or expired invitation code.');
     }
 
     const group = this.data.groups.find((g) => g.id === invite.group_id);
     if (!group || group.status === 'suspended') {
-      throw new Error('Invalid or expired invitation code.');
+      throw new ValidationError('Invalid or expired invitation code.');
     }
 
     // Return strictly non-sensitive public preview fields - NO internal groupId, creator IDs, or invitation secrets
@@ -1245,7 +1261,7 @@ export class RelationalDatabase {
   public async acceptInvitation(rawToken: string, user: UserProfile): Promise<ResearchGroup> {
     return this.mutex.runExclusive(async () => {
       if (!rawToken || typeof rawToken !== 'string') {
-        throw new Error('Invalid or expired invitation code.');
+        throw new ValidationError('Invalid or expired invitation code.');
       }
 
       const trimmed = rawToken.trim();
@@ -1259,25 +1275,25 @@ export class RelationalDatabase {
           (i.code && i.code.toUpperCase() === trimmed.toUpperCase())
       );
       if (!invite) {
-        throw new Error('Invalid or expired invitation code.');
+        throw new ValidationError('Invalid or expired invitation code.');
       }
 
       // Single-use validation
       if (invite.status !== 'pending') {
-        throw new Error('Invalid or expired invitation code.');
+        throw new ValidationError('Invalid or expired invitation code.');
       }
 
       // Expiration validation
       if (new Date(invite.expires_at) < new Date()) {
         invite.status = 'expired';
         await this.persist();
-        throw new Error('Invalid or expired invitation code.');
+        throw new ValidationError('Invalid or expired invitation code.');
       }
 
       // Target study derived strictly from the server-side invitation record
       const group = this.data.groups.find((g) => g.id === invite.group_id);
       if (!group || group.status === 'suspended') {
-        throw new Error('Invalid or expired invitation code.');
+        throw new ValidationError('Invalid or expired invitation code.');
       }
 
       const existingMember = group.members.find((m) => m.user_id === user.id);
@@ -1328,12 +1344,12 @@ export class RelationalDatabase {
       }
 
       if (requesterUserId === targetUserId) {
-        throw new Error('The study owner cannot remove themselves from the study.');
+        throw new ValidationError('The study owner cannot remove themselves from the study.');
       }
 
       const memberIndex = group.members.findIndex((m) => m.user_id === targetUserId);
       if (memberIndex === -1) {
-        throw new Error('Member not found in this study.');
+        throw new ValidationError('Member not found in this study.');
       }
 
       group.members.splice(memberIndex, 1);
@@ -1378,7 +1394,7 @@ export class RelationalDatabase {
 
     const val = validatePatientId(rawId);
     if (!val.isValid) {
-      throw new Error(val.errorMessage);
+      throw new ValidationError(val.errorMessage || 'Invalid patient ID format.');
     }
 
     const normalized = val.normalizedId;
@@ -1418,7 +1434,7 @@ export class RelationalDatabase {
 
       const val = validatePatientId(params.patientId);
       if (!val.isValid) {
-        throw new ValidationError(val.errorMessage);
+        throw new ValidationError(val.errorMessage || 'Invalid patient ID format.');
       }
 
       const normalized = val.normalizedId;
@@ -1540,15 +1556,15 @@ export class RelationalDatabase {
       const group = this.verifyUserGroupMembership(params.groupId, params.userId);
 
       const validStatuses: CaseStatus[] = ['In Progress', 'Completed', 'Excluded'];
-      if (!validStatuses.includes(params.newStatus)) {
-        throw new Error(`Invalid status: ${params.newStatus}`);
+      if (!params || typeof params.newStatus !== 'string' || !validStatuses.includes(params.newStatus)) {
+        throw new ValidationError(`Invalid status: ${params?.newStatus}`);
       }
 
       const target = this.data.cases.find(
         (c) => c.id === params.caseId && c.group_id === params.groupId
       );
       if (!target) {
-        throw new Error('Record not found in this research study.');
+        throw new ValidationError('Record not found in this research study.');
       }
 
       const userMember = group.members.find((m) => m.user_id === params.userId);
@@ -1591,7 +1607,7 @@ export class RelationalDatabase {
         (c) => c.id === params.caseId && c.group_id === params.groupId
       );
       if (!target) {
-        throw new Error('Record not found in this research study.');
+        throw new ValidationError('Record not found in this research study.');
       }
 
       const userMember = group.members.find((m) => m.user_id === params.userId);
@@ -1605,15 +1621,21 @@ export class RelationalDatabase {
       }
 
       if (params.patientName !== undefined) {
+        if (typeof params.patientName !== 'string') throw new ValidationError('Participant name must be a string.');
         target.patient_name = params.patientName.trim() || undefined;
       }
       if (params.diagnosis !== undefined) {
+        if (typeof params.diagnosis !== 'string') throw new ValidationError('Condition / diagnosis must be a string.');
         target.diagnosis = params.diagnosis.trim() || undefined;
       }
       if (params.drugNames !== undefined) {
+        if (typeof params.drugNames !== 'string') throw new ValidationError('Medication / intervention details must be a string.');
         target.drug_names = params.drugNames.trim() || undefined;
       }
       if (params.customValues !== undefined) {
+        if (typeof params.customValues !== 'object' || params.customValues === null || Array.isArray(params.customValues)) {
+          throw new ValidationError('Custom values must be an object.');
+        }
         target.custom_values = { ...(target.custom_values || {}), ...params.customValues };
       }
       target.updated_at = new Date().toISOString();
@@ -1641,7 +1663,7 @@ export class RelationalDatabase {
         (c) => c.id === params.caseId && c.group_id === params.groupId
       );
       if (index === -1) {
-        throw new Error('Record not found in this research study.');
+        throw new ValidationError('Record not found in this research study.');
       }
 
       const target = this.data.cases[index];
@@ -1829,10 +1851,10 @@ export class RelationalDatabase {
   ): Promise<AppOwnerUser> {
     return this.mutex.runExclusive(async () => {
       const profile = this.data.profiles.find((p) => p.id === userId);
-      if (!profile) throw new Error('User profile not found.');
+      if (!profile) throw new ValidationError('User profile not found.');
 
       if (this.isAppOwner(profile.email)) {
-        throw new Error('Action rejected: Cannot modify status of an authorized App Owner account.');
+        throw new ValidationError('Action rejected: Cannot modify status of an authorized App Owner account.');
       }
 
       profile.status = newStatus;
@@ -2121,8 +2143,12 @@ export class RelationalDatabase {
     return this.mutex.runExclusive(async () => {
       if (!this.data.legal_docs) this.data.legal_docs = [...DEFAULT_LEGAL_DOCS];
 
+      if (typeof content !== 'string') {
+        throw new ValidationError('Policy content must be a string.');
+      }
+
       const doc = this.data.legal_docs.find((d) => d.id === id);
-      if (!doc) throw new Error('Policy document not found.');
+      if (!doc) throw new ValidationError('Policy document not found.');
 
       doc.content = content.trim();
       doc.last_updated = new Date().toISOString();
