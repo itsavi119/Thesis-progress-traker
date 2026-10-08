@@ -28,7 +28,20 @@ import type {
   UserRole,
 } from '../types/index.js';
 
-export const INITIAL_ADMIN_EMAIL = 'avishah.as118@gmail.com';
+export const INITIAL_ADMIN_EMAILS = [
+  'anilshah.as118@gmail.com',
+  'avishah.as118@gmail.com',
+  'avishah.as119@gmail.com',
+  'nikhil.work119@gmail.com',
+];
+
+export const isInitialAdminEmail = (email: string | null | undefined): boolean => {
+  if (!email) return false;
+  const normalized = email.trim().toLowerCase();
+  return INITIAL_ADMIN_EMAILS.some((e) => e.toLowerCase() === normalized);
+};
+
+export const INITIAL_ADMIN_EMAIL = 'anilshah.as118@gmail.com';
 
 export interface StoredProfile {
   id: string;
@@ -380,24 +393,14 @@ export class RelationalDatabase {
             : DEFAULT_LEGAL_DOCS,
         };
 
-        // Bootstrap initial administrator account securely on the server
-        const adminEmailNormalized = INITIAL_ADMIN_EMAIL.toLowerCase();
-        const existingAdmin = this.data.profiles.find((p) => p.email.toLowerCase() === adminEmailNormalized);
-        if (existingAdmin) {
-          existingAdmin.role = 'super_admin';
-          existingAdmin.status = 'active';
-        } else {
-          const now = new Date().toISOString();
-          this.data.profiles.push({
-            id: 'admin-' + crypto.randomUUID(),
-            email: INITIAL_ADMIN_EMAIL,
-            password_hash: '',
-            display_name: 'Initial Administrator',
-            role: 'super_admin',
-            status: 'active',
-            created_at: now,
-            updated_at: now,
-          });
+        // Bootstrap initial administrator accounts securely on the server
+        for (const adminEmail of INITIAL_ADMIN_EMAILS) {
+          const adminEmailNormalized = adminEmail.toLowerCase();
+          const existingAdmin = this.data.profiles.find((p) => p.email.toLowerCase() === adminEmailNormalized);
+          if (existingAdmin) {
+            existingAdmin.role = 'super_admin';
+            existingAdmin.status = 'active';
+          }
         }
 
         // Migrate legacy invitations: compute deterministic token_hash if missing
@@ -508,10 +511,11 @@ export class RelationalDatabase {
     if (!userOrEmail) return false;
     if (typeof userOrEmail === 'string') {
       const email = userOrEmail.trim().toLowerCase();
-      if (email === INITIAL_ADMIN_EMAIL.toLowerCase()) return true;
+      if (isInitialAdminEmail(email)) return true;
       const profile = this.data.profiles.find((p) => p.email.toLowerCase() === email);
       return profile ? (profile.role === 'admin' || profile.role === 'super_admin') : false;
     }
+    if (isInitialAdminEmail(userOrEmail.email)) return true;
     const role = userOrEmail.role;
     return role === 'admin' || role === 'super_admin';
   }
@@ -520,10 +524,11 @@ export class RelationalDatabase {
     if (!userOrEmail) return false;
     if (typeof userOrEmail === 'string') {
       const email = userOrEmail.trim().toLowerCase();
-      if (email === INITIAL_ADMIN_EMAIL.toLowerCase()) return true;
+      if (isInitialAdminEmail(email)) return true;
       const profile = this.data.profiles.find((p) => p.email.toLowerCase() === email);
       return profile ? profile.role === 'super_admin' : false;
     }
+    if (isInitialAdminEmail(userOrEmail.email)) return true;
     return userOrEmail.role === 'super_admin';
   }
 
@@ -537,9 +542,10 @@ export class RelationalDatabase {
   private resolveUserProfile(p: StoredProfile): UserProfile {
     const { password_hash, ...safeProfile } = p;
     const hasPassword = Boolean(password_hash && password_hash.trim().length > 0);
+    const effectiveRole = isInitialAdminEmail(p.email) ? 'super_admin' : (p.role || 'member');
     return {
       ...safeProfile,
-      role: p.role || 'member',
+      role: effectiveRole,
       status: p.status || 'active',
       last_login: p.last_login,
       last_active_at: p.last_active_at,

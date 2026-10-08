@@ -208,6 +208,7 @@ const MainApp: React.FC = () => {
           navigateTo('admin', true);
         }}
         onNavigateHome={() => navigateTo('home')}
+        onNavigateResearcherLogin={() => navigateTo('login')}
       />
     );
   }
@@ -260,6 +261,7 @@ const MainApp: React.FC = () => {
           initialMode={authMode}
           onNavigateHome={() => navigateTo('home')}
           onSwitchMode={(mode) => navigateTo(mode)}
+          onNavigateAdmin={() => navigateTo('admin-login')}
           onSuccessfulLogin={() => {
             navigateTo('my-groups', true);
           }}
@@ -298,7 +300,11 @@ const MainApp: React.FC = () => {
     : 'my-groups';
 
   return (
-    <Layout activeTab={activeTab} setActiveTab={(tab) => navigateTo(tab)}>
+    <Layout
+      activeTab={activeTab}
+      setActiveTab={(tab) => navigateTo(tab)}
+      onNavigateAdmin={() => navigateTo('admin')}
+    >
       <div key={activeTab} className="animate-in fade-in duration-150 ease-out">
         {activeTab === 'my-groups' && (
           <MyGroups

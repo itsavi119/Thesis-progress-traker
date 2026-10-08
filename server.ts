@@ -1521,7 +1521,7 @@ const requireAdmin = async (
       return;
     }
 
-    if (user.role !== 'admin' && user.role !== 'super_admin') {
+    if (user.role !== 'admin' && user.role !== 'super_admin' && !db.isAdmin(user.email)) {
       const ip = getClientIp(req);
       db.recordAuditLog({
         action: 'UNAUTHORIZED_ADMIN_API_ACCESS_ATTEMPT',
@@ -1540,8 +1540,9 @@ const requireAdmin = async (
     }
 
     req.user = user;
-    req.adminRole = user.role as 'admin' | 'super_admin';
-    req.isSuperAdmin = user.role === 'super_admin';
+    const effectiveRole = db.isSuperAdmin(user.email) ? 'super_admin' : (user.role as 'admin' | 'super_admin');
+    req.adminRole = effectiveRole;
+    req.isSuperAdmin = effectiveRole === 'super_admin';
     next();
   } catch {
     res.status(401).json({ error: 'UNAUTHORIZED', message: 'Invalid or expired administrative session.' });
@@ -1631,7 +1632,7 @@ app.post('/api/admin/auth/login', async (req: RequestWithId, res: Response) => {
       return;
     }
 
-    if (user.role !== 'admin' && user.role !== 'super_admin') {
+    if (user.role !== 'admin' && user.role !== 'super_admin' && !db.isAdmin(user.email)) {
       authRateLimiter.recordFailedAttempt(normalizedEmail);
       await db.recordAuditLog({
         action: 'UNAUTHORIZED_ADMIN_LOGIN_ATTEMPT',
@@ -1646,8 +1647,9 @@ app.post('/api/admin/auth/login', async (req: RequestWithId, res: Response) => {
     }
 
     authRateLimiter.recordSuccessfulAttempt(normalizedEmail);
+    const effectiveRole = db.isSuperAdmin(user.email) ? 'super_admin' : (user.role as 'admin' | 'super_admin');
     const token = jwt.sign(
-      { userId: user.id, role: user.role, isAdmin: true },
+      { userId: user.id, role: effectiveRole, isAdmin: true },
       JWT_SECRET,
       { expiresIn: '8h' }
     );
@@ -1686,7 +1688,7 @@ app.post('/api/admin/auth/google-sync', async (req: RequestWithId, res: Response
       displayName: displayName || email.split('@')[0],
     });
 
-    if (user.role !== 'admin' && user.role !== 'super_admin') {
+    if (user.role !== 'admin' && user.role !== 'super_admin' && !db.isAdmin(user.email)) {
       await db.recordAuditLog({
         action: 'UNAUTHORIZED_ADMIN_GOOGLE_LOGIN_ATTEMPT',
         entityType: 'security',
@@ -1699,8 +1701,9 @@ app.post('/api/admin/auth/google-sync', async (req: RequestWithId, res: Response
       return;
     }
 
+    const effectiveRole = db.isSuperAdmin(user.email) ? 'super_admin' : (user.role as 'admin' | 'super_admin');
     const token = jwt.sign(
-      { userId: user.id, role: user.role, isAdmin: true },
+      { userId: user.id, role: effectiveRole, isAdmin: true },
       JWT_SECRET,
       { expiresIn: '8h' }
     );

@@ -9,9 +9,14 @@ import type { UserProfile } from '../../types/index.js';
 interface AdminLoginProps {
   onLoginSuccess: (user: UserProfile) => void;
   onNavigateHome: () => void;
+  onNavigateResearcherLogin?: () => void;
 }
 
-export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onNavigateHome }) => {
+export const AdminLogin: React.FC<AdminLoginProps> = ({
+  onLoginSuccess,
+  onNavigateHome,
+  onNavigateResearcherLogin,
+}) => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
@@ -269,14 +274,28 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onNaviga
           </button>
 
           <div className="mt-8 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-            <button
-              type="button"
-              onClick={onNavigateHome}
-              className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to App</span>
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={onNavigateHome}
+                className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Home</span>
+              </button>
+              {onNavigateResearcherLogin && (
+                <>
+                  <span className="text-slate-600">•</span>
+                  <button
+                    type="button"
+                    onClick={onNavigateResearcherLogin}
+                    className="text-slate-400 hover:text-blue-400 transition-colors cursor-pointer"
+                  >
+                    Researcher Sign In
+                  </button>
+                </>
+              )}
+            </div>
             <div className="flex items-center gap-1 text-slate-500">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
               <span>Audit Logging Active</span>
