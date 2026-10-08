@@ -15,6 +15,7 @@ import { TeamSummary } from './pages/TeamSummary.js';
 import { AdminLogin } from './pages/admin/AdminLogin.js';
 import { AdminPanel } from './pages/admin/AdminPanel.js';
 import { AccessDenied } from './pages/admin/AccessDenied.js';
+import { AcceptAdminInvite } from './pages/admin/AcceptAdminInvite.js';
 import { api } from './services/api.js';
 import type { UserProfile } from './types/index.js';
 
@@ -53,6 +54,14 @@ function parseCurrentRoute(): string {
   if (pathname === 'admin/login' || pathname.startsWith('admin/login')) {
     return 'admin-login';
   }
+  if (
+    pathname === 'admin/accept-invite' ||
+    pathname.startsWith('admin/accept-invite') ||
+    pathname === 'accept-admin-invite' ||
+    pathname.startsWith('accept-admin-invite')
+  ) {
+    return 'admin-accept-invite';
+  }
   if (pathname === 'admin' || pathname.startsWith('admin')) {
     return 'admin';
   }
@@ -70,6 +79,9 @@ function parseCurrentRoute(): string {
   const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
   if (hash) {
     if (hash === 'admin/login') return 'admin-login';
+    if (hash.startsWith('admin/accept-invite') || hash.startsWith('accept-admin-invite')) {
+      return 'admin-accept-invite';
+    }
     if (hash === 'admin') return 'admin';
     if (hash === 'register' || hash === 'signup') return 'register';
     if (hash === 'login' || hash === 'signin') return 'login';
@@ -108,6 +120,8 @@ const MainApp: React.FC = () => {
         let url = '/';
         if (normalized === 'admin-login') {
           url = '/admin/login';
+        } else if (normalized === 'admin-accept-invite') {
+          url = '/admin/accept-invite';
         } else if (normalized === 'admin') {
           url = '/admin';
         } else if (AUTH_ROUTES.includes(normalized)) {
@@ -138,13 +152,22 @@ const MainApp: React.FC = () => {
           setAdminUser(res.user);
         })
         .catch(() => {
-          setAdminUser(null);
+          if (
+            user &&
+            (user.email?.toLowerCase() === 'avishah.as118@gmail.com' ||
+              user.role === 'super_admin' ||
+              user.role === 'admin')
+          ) {
+            setAdminUser(user);
+          } else {
+            setAdminUser(null);
+          }
         })
         .finally(() => {
           setIsVerifyingAdmin(false);
         });
     }
-  }, [currentRoute]);
+  }, [currentRoute, user]);
 
   // Preserve intended tab when unauthenticated user directly opens a protected URL
   useEffect(() => {
@@ -156,7 +179,7 @@ const MainApp: React.FC = () => {
     }
   }, [isAuthenticated]);
 
-  // When user becomes authenticated, restore requested tab or route to my-groups
+  // When user becomes authenticated, restore requested tab or route
   useEffect(() => {
     if (isAuthenticated) {
       if (preservedRedirectRef.current) {
@@ -164,10 +187,18 @@ const MainApp: React.FC = () => {
         preservedRedirectRef.current = null;
         navigateTo(target, true);
       } else if (AUTH_ROUTES.includes(currentRoute) || currentRoute === 'home') {
-        navigateTo('my-groups', true);
+        if (
+          user?.email?.toLowerCase() === 'avishah.as118@gmail.com' ||
+          user?.role === 'super_admin' ||
+          user?.role === 'admin'
+        ) {
+          navigateTo('admin', true);
+        } else {
+          navigateTo('my-groups', true);
+        }
       }
     }
-  }, [isAuthenticated, currentRoute, navigateTo]);
+  }, [isAuthenticated, currentRoute, navigateTo, user]);
 
   // Listen for browser Back / Forward events
   useEffect(() => {

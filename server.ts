@@ -1913,6 +1913,126 @@ app.patch('/api/admin/settings', requireAdmin, async (req: AdminRequest, res: Re
   }
 });
 
+// Admin Invitations: List all invitations
+app.get('/api/admin/invitations', requireAdmin, async (req: AdminRequest, res: Response) => {
+  try {
+    const invitations = await db.getAdminInvitations();
+    res.json({ invitations });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'GET_ADMIN_INVITES_FAILED');
+  }
+});
+
+// Admin Invitations: Create & dispatch new administrator invitation
+app.post('/api/admin/invitations', requireAdmin, async (req: AdminRequest, res: Response) => {
+  try {
+    const { email, role, note } = req.body || {};
+    if (!email || typeof email !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Recipient administrator email is required.' });
+      return;
+    }
+
+    if (role === 'super_admin' && !req.isSuperAdmin) {
+      res.status(403).json({
+        error: 'FORBIDDEN',
+        message: 'Only the Super Administrator (avishah.as118@gmail.com) can invite another Super Administrator.',
+      });
+      return;
+    }
+
+    const result = await db.createAdminInvitation({
+      invitedBy: req.user!,
+      email,
+      role: role === 'super_admin' ? 'super_admin' : 'admin',
+      note: typeof note === 'string' ? note : undefined,
+    });
+
+    res.status(201).json(result);
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'CREATE_ADMIN_INVITE_FAILED');
+  }
+});
+
+// Admin Invitations: Revoke invitation
+app.delete('/api/admin/invitations/:id', requireAdmin, async (req: AdminRequest, res: Response) => {
+  try {
+    await db.revokeAdminInvitation(req.params.id, req.user!.email);
+    res.json({ success: true, message: 'Administrator invitation revoked.' });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'REVOKE_ADMIN_INVITE_FAILED');
+  }
+});
+
+// Admin Invitations: Renew and resend invitation
+app.post('/api/admin/invitations/:id/resend', requireAdmin, async (req: AdminRequest, res: Response) => {
+  try {
+    const result = await db.resendAdminInvitation(req.params.id, req.user!.email);
+    res.json(result);
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'RESEND_ADMIN_INVITE_FAILED');
+  }
+});
+
+// Admin Invitations: Verify invitation token (Public)
+app.get('/api/admin/invitations/verify/:token', async (req: RequestWithId, res: Response) => {
+  try {
+    const token = req.params.token;
+    const result = await db.verifyAdminInvitationToken(token);
+    if (!result.valid) {
+      res.status(400).json({ error: 'INVALID_TOKEN', message: result.reason || 'Invalid invitation.' });
+      return;
+    }
+    res.json(result);
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'VERIFY_ADMIN_INVITE_FAILED');
+  }
+});
+
+// Admin Invitations: Accept invitation and grant admin access (Public)
+app.post('/api/admin/invitations/accept', async (req: RequestWithId, res: Response) => {
+  const ip = getClientIp(req);
+  try {
+    const { token, displayName, password } = req.body || {};
+    if (!token || typeof token !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Invitation token is required.' });
+      return;
+    }
+
+    const { user } = await db.acceptAdminInvitation({
+      token,
+      displayName: typeof displayName === 'string' ? displayName : undefined,
+      password: typeof password === 'string' ? password : undefined,
+    });
+
+    const effectiveRole = user.role as 'admin' | 'super_admin';
+    const authToken = jwt.sign(
+      { userId: user.id, role: effectiveRole, isAdmin: true },
+      JWT_SECRET,
+      { expiresIn: '8h' }
+    );
+
+    res.cookie(ADMIN_AUTH_COOKIE_NAME, authToken, getAuthCookieOptions());
+
+    await db.recordAuditLog({
+      action: 'ADMIN_INVITE_SESSION_ESTABLISHED',
+      entityType: 'security',
+      entityId: user.id,
+      details: `Administrator "${user.email}" authenticated into the admin portal after accepting invitation from IP ${ip}.`,
+      performedBy: user.id,
+      performedByEmail: user.email,
+    });
+
+    res.json({
+      success: true,
+      token: authToken,
+      user,
+      message: 'Administrator privileges granted successfully.',
+    });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'ADMIN_INVITE_ACCEPT_FAILED');
+  }
+});
+
 // SEC-010: Unknown API Routes 404 Handler
 // Any unmatched request under /api (regardless of HTTP method) returns a strict JSON 404.
 // This prevents nonexistent API routes from falling through to the frontend SPA HTML shell.

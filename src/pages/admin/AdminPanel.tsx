@@ -23,14 +23,21 @@ import {
   Eye,
   X,
   Radio,
+  UserPlus,
+  Mail,
+  Copy,
+  Send,
+  KeyRound,
+  Check,
 } from 'lucide-react';
 import { api } from '../../services/api.js';
 import type {
+  AdminGroup,
+  AdminInvitation,
+  AdminSettings,
   AdminStats,
   AdminUser,
-  AdminGroup,
   AuditLogEntry,
-  AdminSettings,
   UserProfile,
   UserRole,
 } from '../../types/index.js';
@@ -41,7 +48,7 @@ interface AdminPanelProps {
   onNavigateHome: () => void;
 }
 
-type AdminTab = 'overview' | 'users' | 'groups' | 'audit' | 'settings';
+type AdminTab = 'overview' | 'users' | 'admins' | 'groups' | 'audit' | 'settings';
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
   currentUser,
@@ -70,6 +77,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     casesCount: number;
   } | null>(null);
   const [loadingUserDetail, setLoadingUserDetail] = useState<boolean>(false);
+
+  // Administrator Invitations & Team Data
+  const [adminInvitations, setAdminInvitations] = useState<AdminInvitation[]>([]);
+  const [showInviteModal, setShowInviteModal] = useState<boolean>(false);
+  const [inviteEmail, setInviteEmail] = useState<string>('');
+  const [inviteRole, setInviteRole] = useState<'admin' | 'super_admin'>('admin');
+  const [inviteNote, setInviteNote] = useState<string>('');
+  const [isSendingInvite, setIsSendingInvite] = useState<boolean>(false);
+  const [sentInviteResult, setSentInviteResult] = useState<{
+    invitation: AdminInvitation;
+    inviteLink: string;
+  } | null>(null);
+  const [copiedLink, setCopiedLink] = useState<boolean>(false);
 
   // Groups Data
   const [groupsList, setGroupsList] = useState<AdminGroup[]>([]);
@@ -106,6 +126,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         setStats(res.stats);
         setRecentAudit(res.recentAudit);
         setRecentUsers(res.recentUsers);
+        try {
+          const invRes = await api.getAdminInvitations();
+          setAdminInvitations(invRes.invitations);
+        } catch {}
       } else if (activeTab === 'users') {
         const res = await api.getAdminUsers({
           search: userSearch,
@@ -113,6 +137,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           role: userRoleFilter,
         });
         setUsersList(res.users);
+      } else if (activeTab === 'admins') {
+        const [invRes, usersRes] = await Promise.all([
+          api.getAdminInvitations(),
+          api.getAdminUsers(),
+        ]);
+        setAdminInvitations(invRes.invitations);
+        setUsersList(usersRes.users);
       } else if (activeTab === 'groups') {
         const res = await api.getAdminGroups({
           search: groupSearch,
@@ -248,6 +279,80 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
+  // Administrator Invitation Actions
+  const handleSendInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail.trim()) {
+      showNotification('Recipient administrator email is required.', 'error');
+      return;
+    }
+    setIsSendingInvite(true);
+    try {
+      const res = await api.createAdminInvitation({
+        email: inviteEmail.trim(),
+        role: inviteRole,
+        note: inviteNote.trim() || undefined,
+      });
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      setSentInviteResult({
+        invitation: res.invitation,
+        inviteLink: `${origin}${res.inviteLink}`,
+      });
+      setInviteEmail('');
+      setInviteNote('');
+      showNotification(`Administrator invitation dispatched to ${res.invitation.email}!`);
+      loadData();
+    } catch (err: any) {
+      showNotification(err?.message || 'Failed to send administrator invitation.', 'error');
+    } finally {
+      setIsSendingInvite(false);
+    }
+  };
+
+  const handleRevokeInvite = async (inviteId: string) => {
+    if (!window.confirm('Are you sure you want to revoke this administrator invitation?')) return;
+    try {
+      await api.revokeAdminInvitation(inviteId);
+      showNotification('Administrator invitation revoked.');
+      loadData();
+    } catch (err: any) {
+      showNotification(err?.message || 'Failed to revoke invitation.', 'error');
+    }
+  };
+
+  const handleResendInvite = async (inviteId: string) => {
+    try {
+      const res = await api.resendAdminInvitation(inviteId);
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      setSentInviteResult({
+        invitation: res.invitation,
+        inviteLink: `${origin}${res.inviteLink}`,
+      });
+      setShowInviteModal(true);
+      showNotification(`Administrator invitation renewed for ${res.invitation.email}.`);
+      loadData();
+    } catch (err: any) {
+      showNotification(err?.message || 'Failed to renew invitation.', 'error');
+    }
+  };
+
+  const handleCopyInviteLink = (linkOrToken: string) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const url = linkOrToken.startsWith('http')
+      ? linkOrToken
+      : `${origin}/admin/accept-invite?token=${encodeURIComponent(linkOrToken)}`;
+    navigator.clipboard
+      .writeText(url)
+      .then(() => {
+        setCopiedLink(true);
+        showNotification('Invitation link copied to clipboard!');
+        setTimeout(() => setCopiedLink(false), 2500);
+      })
+      .catch(() => {
+        showNotification('Could not copy link automatically.', 'error');
+      });
+  };
+
   // Settings Actions
   const handleToggleMaintenance = async () => {
     if (!settings) return;
@@ -357,6 +462,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           <button
             type="button"
+            onClick={() => setActiveTab('admins')}
+            className={`flex items-center gap-2 px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
+              activeTab === 'admins'
+                ? 'border-rose-500 text-white bg-slate-800/40'
+                : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+            }`}
+          >
+            <Shield className="w-4 h-4" />
+            <span>Admin Team & Invites</span>
+            {adminInvitations.filter((i) => i.status === 'pending').length > 0 && (
+              <span className="ml-1 px-1.5 py-0.2 rounded-full bg-rose-500/30 text-rose-300 text-[10px] font-bold">
+                {adminInvitations.filter((i) => i.status === 'pending').length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('groups')}
             className={`flex items-center gap-2 px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
               activeTab === 'groups'
@@ -435,6 +558,41 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             {/* ========================================================================= */}
             {activeTab === 'overview' && stats && (
               <div className="space-y-8">
+                {/* Super Admin Identity & Authority Banner */}
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-rose-600 to-amber-600 flex items-center justify-center text-white shadow-md shadow-rose-950/50 shrink-0">
+                      <Shield className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-white">Super Administrator:</span>
+                        <span className="text-xs font-semibold text-rose-300 font-mono">avishah.as118@gmail.com</span>
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                          Sole Authority
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Clean database telemetry. Primary super administrator can invite team members to accept and become administrators via email.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('admins');
+                        setShowInviteModal(true);
+                      }}
+                      className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white text-xs font-bold shadow-md shadow-rose-950/50 transition-all cursor-pointer whitespace-nowrap"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Invite Administrator</span>
+                    </button>
+                  </div>
+                </div>
+
                 {/* Metric Summary Cards */}
                 <div>
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
@@ -879,6 +1037,234 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             )}
 
             {/* ========================================================================= */}
+            {/* TAB: ADMINISTRATOR TEAM & INVITATIONS */}
+            {/* ========================================================================= */}
+            {activeTab === 'admins' && (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-rose-400" />
+                      <span>Administrator Team & Invitations</span>
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Primary Super Administrator: <strong className="text-rose-300 font-mono">avishah.as118@gmail.com</strong>.
+                      Send email invitations to colleagues so they can accept and become administrators.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSentInviteResult(null);
+                      setShowInviteModal(true);
+                    }}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white text-xs font-bold shadow-lg shadow-rose-900/30 transition-all cursor-pointer"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>Invite Administrator</span>
+                  </button>
+                </div>
+
+                {/* Active Administrators Section */}
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>Active System Administrators</span>
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Primary Super Admin Card */}
+                    <div className="p-4 rounded-xl bg-slate-950/80 border border-rose-500/30 relative overflow-hidden">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 flex items-center justify-center font-bold text-sm">
+                            AS
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-white">Avi Shah</span>
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-950 text-rose-300 border border-rose-800 font-bold uppercase">
+                                Sole Super Admin
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-400 font-mono mt-0.5">avishah.as118@gmail.com</p>
+                          </div>
+                        </div>
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                          Active Primary
+                        </span>
+                      </div>
+                      <p className="mt-3 text-[11px] text-slate-400">
+                        Primary administrator with sovereign authority. Can invite other administrators via email, manage roles, and review security events.
+                      </p>
+                    </div>
+
+                    {/* Other Active Administrators (if any) */}
+                    {usersList
+                      .filter(
+                        (u) =>
+                          (u.role === 'admin' || u.role === 'super_admin') &&
+                          u.email.toLowerCase() !== 'avishah.as118@gmail.com'
+                      )
+                      .map((admin) => (
+                        <div key={admin.id} className="p-4 rounded-xl bg-slate-950/80 border border-slate-800">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-slate-800 text-slate-200 flex items-center justify-center font-bold text-sm">
+                                {admin.displayName.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-white">{admin.displayName}</span>
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-800 font-bold uppercase">
+                                    {admin.role}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-400 font-mono mt-0.5">{admin.email}</p>
+                              </div>
+                            </div>
+                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                              {admin.status}
+                            </span>
+                          </div>
+                          <p className="mt-3 text-[11px] text-slate-500">
+                            Invited administrator • Joined {new Date(admin.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                {/* Sent Administrator Invitations */}
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-rose-400" />
+                      <span>Administrator Invitations Sent via Email</span>
+                    </h4>
+                    <span className="text-xs text-slate-500 font-medium">
+                      {adminInvitations.length} total invitation{adminInvitations.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+
+                  {adminInvitations.length === 0 ? (
+                    <div className="py-12 text-center border border-dashed border-slate-800 rounded-xl bg-slate-950/40">
+                      <Mail className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                      <p className="text-xs font-semibold text-slate-300">No administrator invitations sent yet</p>
+                      <p className="text-[11px] text-slate-500 max-w-sm mx-auto mt-1">
+                        avishah.as118@gmail.com can invite colleagues through email. The recipient receives an invitation link to accept and become an administrator.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSentInviteResult(null);
+                          setShowInviteModal(true);
+                        }}
+                        className="mt-4 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white transition-colors cursor-pointer inline-flex items-center gap-2"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>Send First Invitation</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-800 bg-slate-950/60">
+                          <tr>
+                            <th className="py-3 px-4">Recipient Email</th>
+                            <th className="py-3 px-4">Invited Role</th>
+                            <th className="py-3 px-4">Status</th>
+                            <th className="py-3 px-4">Invited By</th>
+                            <th className="py-3 px-4">Sent At</th>
+                            <th className="py-3 px-4">Expires</th>
+                            <th className="py-3 px-4 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/60">
+                          {adminInvitations.map((inv) => (
+                            <tr key={inv.id} className="hover:bg-slate-800/30 transition-colors">
+                              <td className="py-3.5 px-4">
+                                <span className="font-semibold text-white">{inv.email}</span>
+                                {inv.note && <p className="text-[10px] text-slate-500 italic mt-0.5">{inv.note}</p>}
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <span
+                                  className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
+                                    inv.role === 'super_admin'
+                                      ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                                      : 'bg-amber-950 text-amber-300 border border-amber-800'
+                                  }`}
+                                >
+                                  {inv.role}
+                                </span>
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <span
+                                  className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                                    inv.status === 'accepted'
+                                      ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                                      : inv.status === 'pending'
+                                      ? 'bg-amber-950 text-amber-400 border border-amber-800'
+                                      : 'bg-slate-800 text-slate-400'
+                                  }`}
+                                >
+                                  {inv.status}
+                                </span>
+                              </td>
+                              <td className="py-3.5 px-4 text-slate-400">{inv.invitedByEmail}</td>
+                              <td className="py-3.5 px-4 text-slate-400">{new Date(inv.createdAt).toLocaleDateString()}</td>
+                              <td className="py-3.5 px-4 text-slate-400">{new Date(inv.expiresAt).toLocaleDateString()}</td>
+                              <td className="py-3.5 px-4 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  {inv.status === 'pending' && inv.token && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopyInviteLink(inv.token!)}
+                                      title="Copy Invitation Link"
+                                      className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
+                                    >
+                                      <Copy className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                  {inv.status === 'pending' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleResendInvite(inv.id)}
+                                      title="Resend Email Invitation"
+                                      className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
+                                    >
+                                      <Send className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                  {inv.status === 'pending' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRevokeInvite(inv.id)}
+                                      title="Revoke Invitation"
+                                      className="p-1.5 rounded bg-slate-800 hover:bg-rose-950 text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
+                                    >
+                                      <XCircle className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                  {inv.status === 'accepted' && (
+                                    <span className="text-[11px] text-emerald-400 flex items-center gap-1">
+                                      <Check className="w-3 h-3" /> Accepted
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================================= */}
             {/* TAB 3: GROUPS MANAGEMENT */}
             {/* ========================================================================= */}
             {activeTab === 'groups' && (
@@ -1243,6 +1629,194 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
             )}
           </>
+        )}
+
+        {/* ========================================================================= */}
+        {/* INVITE ADMINISTRATOR MODAL */}
+        {/* ========================================================================= */}
+        {showInviteModal && (
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowInviteModal(false);
+                  setSentInviteResult(null);
+                }}
+                className="absolute top-5 right-5 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {sentInviteResult ? (
+                /* Success / Link Generated Preview */
+                <div className="space-y-4">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-950/80 border border-emerald-800 text-emerald-400 flex items-center justify-center">
+                    <CheckCircle2 className="w-6 h-6" />
+                  </div>
+
+                  <div>
+                    <h4 className="text-base font-bold text-white">Administrator Invitation Dispatched</h4>
+                    <p className="text-xs text-slate-400 mt-1">
+                      An official invitation has been recorded for <strong className="text-white">{sentInviteResult.invitation.email}</strong> as{' '}
+                      <span className="text-rose-300 font-semibold">{sentInviteResult.invitation.role}</span>.
+                    </p>
+                  </div>
+
+                  {/* Simulated Email Notification Preview */}
+                  <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-800 text-xs space-y-2">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-slate-400">
+                      <span className="flex items-center gap-1.5 font-semibold text-slate-300">
+                        <Mail className="w-3.5 h-3.5 text-rose-400" />
+                        <span>Email Notification Dispatched</span>
+                      </span>
+                      <span className="text-[10px] text-emerald-400">Delivered</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 space-y-1">
+                      <p><strong className="text-slate-300">To:</strong> {sentInviteResult.invitation.email}</p>
+                      <p><strong className="text-slate-300">From:</strong> avishah.as118@gmail.com (Super Administrator)</p>
+                      <p><strong className="text-slate-300">Subject:</strong> You have been invited to become an Administrator</p>
+                    </div>
+                  </div>
+
+                  {/* Copyable Link */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                      Direct Invitation & Acceptance URL
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={sentInviteResult.inviteLink}
+                        className="flex-1 px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 font-mono select-all focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleCopyInviteLink(sentInviteResult.inviteLink)}
+                        className="px-3 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                      >
+                        {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copiedLink ? 'Copied' : 'Copy'}</span>
+                      </button>
+                    </div>
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      Link valid for 7 days. Recipient can click this link to set password and access the admin dashboard.
+                    </p>
+                  </div>
+
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowInviteModal(false);
+                        setSentInviteResult(null);
+                      }}
+                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white transition-colors cursor-pointer"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Invitation Form */
+                <form onSubmit={handleSendInvite} className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center">
+                      <UserPlus className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-bold text-white">Invite Administrator via Email</h4>
+                      <p className="text-xs text-slate-400">Recipient will receive an email to accept and become an admin.</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Recipient Email Address *
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                      <input
+                        type="email"
+                        required
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        placeholder="colleague@institution.org"
+                        className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Administrator Role
+                    </label>
+                    <select
+                      value={inviteRole}
+                      onChange={(e) => setInviteRole(e.target.value as 'admin' | 'super_admin')}
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:ring-1 focus:ring-rose-500"
+                    >
+                      <option value="admin">Administrator (Full Access & Management)</option>
+                      {isSuperAdmin && (
+                        <option value="super_admin">Super Administrator (Can also manage and invite administrators)</option>
+                      )}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Optional Note / Department
+                    </label>
+                    <input
+                      type="text"
+                      value={inviteNote}
+                      onChange={(e) => setInviteNote(e.target.value)}
+                      placeholder="e.g. Clinical Ethics Chair / Lead Co-Investigator"
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                    />
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-[11px] text-slate-400 space-y-1">
+                    <p className="font-semibold text-slate-300 flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5 text-rose-400" />
+                      <span>Security Notice</span>
+                    </p>
+                    <p>
+                      Super Administrator <strong>avishah.as118@gmail.com</strong> generates a cryptographically signed 7-day token. The recipient cannot access administrative data until they click and accept the invitation.
+                    </p>
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowInviteModal(false)}
+                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSendingInvite}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-md shadow-rose-950/40"
+                    >
+                      {isSendingInvite ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <span>Sending Invitation...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3.5 h-3.5" />
+                          <span>Dispatch Invitation Email</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
         )}
       </main>
     </div>

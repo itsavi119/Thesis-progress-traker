@@ -1,5 +1,6 @@
 import type {
   AdminGroup,
+  AdminInvitation,
   AdminSettings,
   AdminStats,
   AdminUser,
@@ -832,6 +833,65 @@ class ApiService {
       method: 'PATCH',
       body: JSON.stringify(params),
     });
+  }
+
+  // Admin Invitations
+  public async getAdminInvitations(): Promise<{ invitations: AdminInvitation[] }> {
+    return this.request<{ invitations: AdminInvitation[] }>('/api/admin/invitations');
+  }
+
+  public async createAdminInvitation(params: {
+    email: string;
+    role?: 'admin' | 'super_admin';
+    note?: string;
+  }): Promise<{ invitation: AdminInvitation; inviteLink: string; rawToken: string }> {
+    return this.request<{ invitation: AdminInvitation; inviteLink: string; rawToken: string }>(
+      '/api/admin/invitations',
+      {
+        method: 'POST',
+        body: JSON.stringify(params),
+      }
+    );
+  }
+
+  public async revokeAdminInvitation(inviteId: string): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/api/admin/invitations/${inviteId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  public async resendAdminInvitation(
+    inviteId: string
+  ): Promise<{ invitation: AdminInvitation; inviteLink: string }> {
+    return this.request<{ invitation: AdminInvitation; inviteLink: string }>(
+      `/api/admin/invitations/${inviteId}/resend`,
+      {
+        method: 'POST',
+      }
+    );
+  }
+
+  public async verifyAdminInvitation(
+    token: string
+  ): Promise<{ valid: boolean; invitation: AdminInvitation }> {
+    return this.request<{ valid: boolean; invitation: AdminInvitation }>(
+      `/api/admin/invitations/verify/${encodeURIComponent(token)}`
+    );
+  }
+
+  public async acceptAdminInvitation(params: {
+    token: string;
+    displayName?: string;
+    password?: string;
+  }): Promise<AuthResponse> {
+    const data = await this.request<AuthResponse>('/api/admin/invitations/accept', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    if (data.token) {
+      this.setAdminToken(data.token);
+    }
+    return data;
   }
 }
 

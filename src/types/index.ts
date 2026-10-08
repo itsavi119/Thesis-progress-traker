@@ -238,3 +238,20 @@ export interface LegalPolicyDoc {
   content: string;
   lastUpdated: string;
 }
+
+export interface AdminInvitation {
+  id: string;
+  email: string;
+  role: 'admin' | 'super_admin';
+  token?: string;
+  tokenHash?: string;
+  invitedBy: string;
+  invitedByEmail: string;
+  invitedByName: string;
+  createdAt: string;
+  expiresAt: string;
+  status: 'pending' | 'accepted' | 'revoked' | 'expired';
+  acceptedBy?: string;
+  acceptedAt?: string;
+  note?: string;
+}

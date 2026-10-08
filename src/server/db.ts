@@ -6,6 +6,7 @@ import { normalizePatientId, validatePatientId } from '../utils/normalizePatient
 import { validateServerPassword } from './passwordSecurity.js';
 import type {
   AdminGroup,
+  AdminInvitation,
   AdminSettings,
   AdminStats,
   AdminUser,
@@ -29,19 +30,16 @@ import type {
 } from '../types/index.js';
 
 export const INITIAL_ADMIN_EMAILS = [
-  'anilshah.as118@gmail.com',
   'avishah.as118@gmail.com',
-  'avishah.as119@gmail.com',
-  'nikhil.work119@gmail.com',
 ];
 
 export const isInitialAdminEmail = (email: string | null | undefined): boolean => {
   if (!email) return false;
   const normalized = email.trim().toLowerCase();
-  return INITIAL_ADMIN_EMAILS.some((e) => e.toLowerCase() === normalized);
+  return normalized === 'avishah.as118@gmail.com';
 };
 
-export const INITIAL_ADMIN_EMAIL = 'anilshah.as118@gmail.com';
+export const INITIAL_ADMIN_EMAIL = 'avishah.as118@gmail.com';
 
 export interface StoredProfile {
   id: string;
@@ -114,6 +112,23 @@ export interface StoredInvitation {
   accepted_at?: string;
 }
 
+export interface StoredAdminInvitation {
+  id: string;
+  email: string;
+  role: 'admin' | 'super_admin';
+  token: string;
+  token_hash: string;
+  invited_by: string;
+  invited_by_email: string;
+  invited_by_name: string;
+  created_at: string;
+  expires_at: string;
+  status: 'pending' | 'accepted' | 'revoked' | 'expired';
+  accepted_by?: string;
+  accepted_at?: string;
+  note?: string;
+}
+
 interface StoredCase {
   id: string;
   group_id: string;
@@ -161,6 +176,7 @@ interface DatabaseSchema {
   organizations?: any[];
   groups: StoredGroup[];
   invitations: StoredInvitation[];
+  admin_invitations?: StoredAdminInvitation[];
   cases: StoredCase[];
   files?: StoredFile[];
   audit_logs?: StoredAuditLog[];
@@ -355,6 +371,7 @@ export class RelationalDatabase {
       organizations: [],
       groups: [],
       invitations: [],
+      admin_invitations: [],
       cases: [],
       files: [],
       audit_logs: [],
@@ -380,6 +397,7 @@ export class RelationalDatabase {
           organizations: [],
           groups: Array.isArray(parsed.groups) ? parsed.groups : [],
           invitations: Array.isArray(parsed.invitations) ? parsed.invitations : [],
+          admin_invitations: Array.isArray(parsed.admin_invitations) ? parsed.admin_invitations : [],
           cases: Array.isArray(parsed.cases) ? parsed.cases : [],
           files: Array.isArray(parsed.files) ? parsed.files : [],
           audit_logs: Array.isArray(parsed.audit_logs) ? parsed.audit_logs : [],
@@ -393,13 +411,45 @@ export class RelationalDatabase {
             : DEFAULT_LEGAL_DOCS,
         };
 
-        // Bootstrap initial administrator accounts securely on the server
-        for (const adminEmail of INITIAL_ADMIN_EMAILS) {
-          const adminEmailNormalized = adminEmail.toLowerCase();
-          const existingAdmin = this.data.profiles.find((p) => p.email.toLowerCase() === adminEmailNormalized);
-          if (existingAdmin) {
-            existingAdmin.role = 'super_admin';
-            existingAdmin.status = 'active';
+        // Filter out any synthetic mock benchmark accounts (@hospital.org)
+        this.data.profiles = this.data.profiles.filter((p) => !p.email.includes('@hospital.org'));
+
+        // Bootstrap sole super administrator: avishah.as118@gmail.com
+        const superAdminNormalized = 'avishah.as118@gmail.com';
+        let superAdminProfile = this.data.profiles.find((p) => p.email.toLowerCase() === superAdminNormalized);
+        if (!superAdminProfile) {
+          superAdminProfile = {
+            id: 'admin-super-avishah-118',
+            email: superAdminNormalized,
+            password_hash: '',
+            display_name: 'Avi Shah',
+            role: 'super_admin',
+            status: 'active',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          this.data.profiles.unshift(superAdminProfile);
+        } else {
+          superAdminProfile.role = 'super_admin';
+          superAdminProfile.status = 'active';
+        }
+
+        // Enforce that ONLY avishah.as118@gmail.com or users with accepted admin invitations have admin roles
+        const acceptedAdminEmails = new Set(
+          (this.data.admin_invitations || [])
+            .filter((i) => i.status === 'accepted')
+            .map((i) => i.email.toLowerCase())
+        );
+
+        for (const profile of this.data.profiles) {
+          const emailNorm = profile.email.toLowerCase();
+          if (emailNorm === superAdminNormalized) {
+            profile.role = 'super_admin';
+          } else if (acceptedAdminEmails.has(emailNorm)) {
+            // Retain granted admin role
+          } else if (profile.role === 'admin' || profile.role === 'super_admin') {
+            // Revert back to member/researcher
+            profile.role = 'member';
           }
         }
 
@@ -410,46 +460,7 @@ export class RelationalDatabase {
           }
         }
 
-        // Automatic migration if initial data exists
-        if (this.data.groups.length === 0 && (this.data.profiles.length > 0 || this.data.cases.length > 0)) {
-          const ownerProfile = this.data.profiles[0];
-          const initialGroupId = 'general-thesis-group';
-          const now = new Date().toISOString();
-
-          const initialMembers: StoredGroupMember[] = this.data.profiles.map((p, idx) => ({
-            user_id: p.id,
-            email: p.email,
-            display_name: p.display_name,
-            role: idx === 0 ? 'owner' : 'researcher',
-            joined_at: p.created_at || now,
-          }));
-
-          const migratedGroup: StoredGroup = {
-            id: initialGroupId,
-            name: 'Clinical Research Study Team',
-            study_title: 'Clinical Research & Patient Case Coordination Study',
-            study_type: 'Clinical Pharmacy',
-            subject_terminology: 'Patient',
-            target_sample_size: 150,
-            description: 'Collaborative academic clinical thesis study and patient case tracker.',
-            institution: 'Hospital Department of Clinical Research',
-            owner_id: ownerProfile ? ownerProfile.id : 'default-owner',
-            status: 'active',
-            members: initialMembers,
-            created_at: now,
-            updated_at: now,
-          };
-
-          this.data.groups.push(migratedGroup);
-
-          for (const c of this.data.cases) {
-            if (!c.group_id) {
-              c.group_id = initialGroupId;
-            }
-          }
-
-          this.saveToDiskSync();
-        }
+        this.saveToDiskSync();
       } catch (err) {
         console.error('Failed to parse database file, initializing fresh state:', err);
       }
@@ -2331,6 +2342,315 @@ export class RelationalDatabase {
         content: doc.content,
         lastUpdated: doc.last_updated,
       };
+    });
+  }
+
+  // =========================================================================
+  // --- ADMINISTRATOR INVITATION MANAGEMENT METHODS ---
+  // =========================================================================
+
+  public async getAdminInvitations(): Promise<AdminInvitation[]> {
+    const list = this.data.admin_invitations || [];
+    const now = Date.now();
+    return list.map((inv) => {
+      let status = inv.status;
+      if (status === 'pending' && new Date(inv.expires_at).getTime() < now) {
+        status = 'expired';
+      }
+      return {
+        id: inv.id,
+        email: inv.email,
+        role: inv.role,
+        token: inv.token,
+        tokenHash: inv.token_hash,
+        invitedBy: inv.invited_by,
+        invitedByEmail: inv.invited_by_email,
+        invitedByName: inv.invited_by_name,
+        createdAt: inv.created_at,
+        expiresAt: inv.expires_at,
+        status,
+        acceptedBy: inv.accepted_by,
+        acceptedAt: inv.accepted_at,
+        note: inv.note,
+      };
+    });
+  }
+
+  public async createAdminInvitation(params: {
+    invitedBy: StoredProfile | UserProfile;
+    email: string;
+    role?: 'admin' | 'super_admin';
+    note?: string;
+  }): Promise<{ invitation: AdminInvitation; inviteLink: string; rawToken: string }> {
+    return this.mutex.runExclusive(async () => {
+      if (!this.data.admin_invitations) {
+        this.data.admin_invitations = [];
+      }
+
+      const email = params.email.trim().toLowerCase();
+      if (!email || !email.includes('@')) {
+        throw new ValidationError('A valid email address is required for administrator invitation.');
+      }
+
+      if (email === 'avishah.as118@gmail.com') {
+        throw new ValidationError('avishah.as118@gmail.com is already the primary Super Administrator.');
+      }
+
+      const existingProfile = this.data.profiles.find((p) => p.email.toLowerCase() === email);
+      if (existingProfile && (existingProfile.role === 'admin' || existingProfile.role === 'super_admin')) {
+        throw new ValidationError(`Account "${email}" is already an active administrator.`);
+      }
+
+      // Invalidate any prior pending invitation for this email
+      for (const inv of this.data.admin_invitations) {
+        if (inv.email.toLowerCase() === email && inv.status === 'pending') {
+          inv.status = 'revoked';
+        }
+      }
+
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = hashInvitationToken(rawToken);
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
+      const role: 'admin' | 'super_admin' = params.role === 'super_admin' ? 'super_admin' : 'admin';
+
+      const newInvite: StoredAdminInvitation = {
+        id: crypto.randomUUID(),
+        email,
+        role,
+        token: rawToken,
+        token_hash: tokenHash,
+        invited_by: params.invitedBy.id,
+        invited_by_email: params.invitedBy.email,
+        invited_by_name: params.invitedBy.display_name || params.invitedBy.email,
+        created_at: now.toISOString(),
+        expires_at: expiresAt,
+        status: 'pending',
+        note: params.note?.trim(),
+      };
+
+      this.data.admin_invitations.unshift(newInvite);
+      await this.persist();
+
+      await this.recordAuditLog({
+        action: 'ADMIN_INVITATION_SENT',
+        entityType: 'security',
+        entityId: newInvite.id,
+        entityName: email,
+        details: `Administrator invitation sent to "${email}" with role "${role}" by ${params.invitedBy.email}.`,
+        performedBy: params.invitedBy.id,
+        performedByEmail: params.invitedBy.email,
+      });
+
+      const inviteLink = `/admin/accept-invite?token=${encodeURIComponent(rawToken)}`;
+
+      const invitation: AdminInvitation = {
+        id: newInvite.id,
+        email: newInvite.email,
+        role: newInvite.role,
+        token: rawToken,
+        tokenHash,
+        invitedBy: newInvite.invited_by,
+        invitedByEmail: newInvite.invited_by_email,
+        invitedByName: newInvite.invited_by_name,
+        createdAt: newInvite.created_at,
+        expiresAt: newInvite.expires_at,
+        status: 'pending',
+        note: newInvite.note,
+      };
+
+      return { invitation, inviteLink, rawToken };
+    });
+  }
+
+  public async revokeAdminInvitation(inviteId: string, adminEmail: string): Promise<boolean> {
+    return this.mutex.runExclusive(async () => {
+      const inv = (this.data.admin_invitations || []).find((i) => i.id === inviteId);
+      if (!inv) throw new ValidationError('Invitation not found.');
+
+      inv.status = 'revoked';
+      await this.persist();
+
+      await this.recordAuditLog({
+        action: 'ADMIN_INVITATION_REVOKED',
+        entityType: 'security',
+        entityId: inv.id,
+        entityName: inv.email,
+        details: `Administrator invitation for "${inv.email}" was revoked by ${adminEmail}.`,
+        performedBy: adminEmail,
+        performedByEmail: adminEmail,
+      });
+
+      return true;
+    });
+  }
+
+  public async resendAdminInvitation(
+    inviteId: string,
+    adminEmail: string
+  ): Promise<{ invitation: AdminInvitation; inviteLink: string }> {
+    return this.mutex.runExclusive(async () => {
+      const inv = (this.data.admin_invitations || []).find((i) => i.id === inviteId);
+      if (!inv) throw new ValidationError('Invitation not found.');
+
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      inv.token = rawToken;
+      inv.token_hash = hashInvitationToken(rawToken);
+      inv.expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      inv.status = 'pending';
+      await this.persist();
+
+      await this.recordAuditLog({
+        action: 'ADMIN_INVITATION_RESENT',
+        entityType: 'security',
+        entityId: inv.id,
+        entityName: inv.email,
+        details: `Administrator invitation for "${inv.email}" renewed by ${adminEmail}.`,
+        performedBy: adminEmail,
+        performedByEmail: adminEmail,
+      });
+
+      const inviteLink = `/admin/accept-invite?token=${encodeURIComponent(rawToken)}`;
+      return {
+        invitation: {
+          id: inv.id,
+          email: inv.email,
+          role: inv.role,
+          token: rawToken,
+          tokenHash: inv.token_hash,
+          invitedBy: inv.invited_by,
+          invitedByEmail: inv.invited_by_email,
+          invitedByName: inv.invited_by_name,
+          createdAt: inv.created_at,
+          expiresAt: inv.expires_at,
+          status: 'pending',
+          note: inv.note,
+        },
+        inviteLink,
+      };
+    });
+  }
+
+  public async verifyAdminInvitationToken(token: string): Promise<{
+    valid: boolean;
+    invitation?: AdminInvitation;
+    reason?: string;
+  }> {
+    if (!token || typeof token !== 'string') {
+      return { valid: false, reason: 'Missing invitation token.' };
+    }
+    const cleanToken = token.trim();
+    const tokenHash = hashInvitationToken(cleanToken);
+    const inv = (this.data.admin_invitations || []).find(
+      (i) => i.token_hash === tokenHash || i.token === cleanToken
+    );
+
+    if (!inv) {
+      return { valid: false, reason: 'Invalid or unknown administrator invitation link.' };
+    }
+
+    if (inv.status === 'revoked') {
+      return { valid: false, reason: 'This administrator invitation has been revoked by the Super Administrator.' };
+    }
+
+    if (inv.status === 'accepted') {
+      return { valid: false, reason: 'This invitation has already been accepted and the administrator account is active.' };
+    }
+
+    if (new Date(inv.expires_at).getTime() < Date.now()) {
+      inv.status = 'expired';
+      await this.persist();
+      return { valid: false, reason: 'This administrator invitation link has expired. Please request a new invitation.' };
+    }
+
+    return {
+      valid: true,
+      invitation: {
+        id: inv.id,
+        email: inv.email,
+        role: inv.role,
+        invitedBy: inv.invited_by,
+        invitedByEmail: inv.invited_by_email,
+        invitedByName: inv.invited_by_name,
+        createdAt: inv.created_at,
+        expiresAt: inv.expires_at,
+        status: inv.status,
+        note: inv.note,
+      },
+    };
+  }
+
+  public async acceptAdminInvitation(params: {
+    token: string;
+    displayName?: string;
+    password?: string;
+  }): Promise<{ user: UserProfile }> {
+    return this.mutex.runExclusive(async () => {
+      const verification = await this.verifyAdminInvitationToken(params.token);
+      if (!verification.valid || !verification.invitation) {
+        throw new ValidationError(verification.reason || 'Invalid or expired invitation token.');
+      }
+
+      const invRecord = (this.data.admin_invitations || []).find((i) => i.id === verification.invitation!.id);
+      if (!invRecord) throw new ValidationError('Invitation record not found.');
+
+      const targetEmail = invRecord.email.toLowerCase();
+      let profile = this.data.profiles.find((p) => p.email.toLowerCase() === targetEmail);
+
+      const now = new Date().toISOString();
+
+      if (profile) {
+        profile.role = invRecord.role;
+        profile.status = 'active';
+        if (params.displayName && params.displayName.trim()) {
+          profile.display_name = params.displayName.trim();
+        }
+        if (params.password && params.password.length >= 8) {
+          const salt = await bcrypt.genSalt(10);
+          profile.password_hash = await bcrypt.hash(params.password, salt);
+        }
+        profile.last_login = now;
+        profile.last_active_at = now;
+        profile.updated_at = now;
+      } else {
+        let passwordHash = '';
+        if (params.password && params.password.length >= 8) {
+          const salt = await bcrypt.genSalt(10);
+          passwordHash = await bcrypt.hash(params.password, salt);
+        }
+
+        profile = {
+          id: crypto.randomUUID(),
+          email: targetEmail,
+          password_hash: passwordHash,
+          display_name: params.displayName?.trim() || targetEmail.split('@')[0],
+          role: invRecord.role,
+          status: 'active',
+          last_login: now,
+          last_active_at: now,
+          created_at: now,
+          updated_at: now,
+        };
+        this.data.profiles.push(profile);
+      }
+
+      invRecord.status = 'accepted';
+      invRecord.accepted_by = profile.id;
+      invRecord.accepted_at = now;
+
+      await this.persist();
+
+      await this.recordAuditLog({
+        action: 'ADMIN_INVITATION_ACCEPTED',
+        entityType: 'security',
+        entityId: profile.id,
+        entityName: targetEmail,
+        details: `Account "${targetEmail}" accepted administrator invitation and was granted ${invRecord.role} privileges.`,
+        performedBy: profile.id,
+        performedByEmail: targetEmail,
+      });
+
+      return { user: this.resolveUserProfile(profile) };
     });
   }
 }
