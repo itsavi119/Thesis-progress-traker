@@ -193,6 +193,8 @@ class ApiService {
     uid: string;
     email: string;
     displayName: string;
+    idToken?: string;
+    accessToken?: string;
   }): Promise<AuthResponse> {
     const data = await this.request<AuthResponse>('/api/auth/google-sync', {
       method: 'POST',
@@ -217,6 +219,15 @@ class ApiService {
     isFull: boolean;
   }> {
     return this.request('/api/auth/team-capacity');
+  }
+
+  public async forgotPassword(params: {
+    email: string;
+  }): Promise<{ success: boolean; message: string; devResetToken?: string }> {
+    return this.request('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
   }
 
   public async changePassword(params: {
@@ -349,6 +360,9 @@ class ApiService {
       mimeType: string;
       category?: string;
       fileData?: string;
+      driveFileId?: string;
+      driveLink?: string;
+      isDriveDirect?: boolean;
     }
   ): Promise<{ file: ResearchFile }> {
     return this.request<{ file: ResearchFile }>(`/api/groups/${groupId}/files`, {
@@ -567,6 +581,11 @@ class ApiService {
     onEvent: (event: string, payload: any) => void,
     onStatusChange?: (connected: boolean) => void
   ): () => void {
+    if (!groupId) {
+      onStatusChange?.(true);
+      return () => {};
+    }
+
     let isClosed = false;
     let es: EventSource | null = null;
     let reconnectTimeout: any = null;
@@ -618,7 +637,6 @@ class ApiService {
       isClosed = true;
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       es?.close();
-      onStatusChange?.(false);
     };
   }
 }

@@ -67,8 +67,12 @@ export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, childre
 
   // SSE subscription scoped to current group
   useEffect(() => {
+    if (!currentGroup?.id) {
+      setIsLiveConnected(true);
+      return;
+    }
     const unsubscribe = api.subscribeToRealtime(
-      currentGroup?.id || null,
+      currentGroup.id,
       () => {},
       (connected) => setIsLiveConnected(connected)
     );
@@ -185,14 +189,18 @@ export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, childre
           </div>
 
           {/* Realtime Live Sync Indicator */}
-          <div className="mt-3 flex items-center justify-between px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-            <span className="text-slate-600 flex items-center gap-2">
+          <div className="mt-3 flex items-center justify-between px-3 py-2 bg-slate-50/90 rounded-xl border border-slate-200/90 text-xs shadow-2xs transition-colors">
+            <span className="text-slate-700 font-medium flex items-center gap-2">
               <span
-                className={`w-2 h-2 rounded-full ${
-                  isLiveConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                className={`w-2 h-2 rounded-full transition-all ${
+                  isLiveConnected
+                    ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.55)] animate-pulse'
+                    : 'bg-amber-500 animate-ping'
                 }`}
               />
-              {isLiveConnected ? 'Live Cloud Sync' : 'Connecting...'}
+              <span className="text-[11px] font-semibold text-slate-700">
+                {currentGroup ? (isLiveConnected ? 'Live Cloud Sync' : 'Connecting...') : 'Cloud Synced'}
+              </span>
             </span>
             <Radio className={`w-3.5 h-3.5 ${isLiveConnected ? 'text-emerald-600' : 'text-amber-500'}`} />
           </div>
@@ -258,7 +266,8 @@ export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, childre
               <p className="text-xs font-bold text-slate-900 truncate">{user?.display_name}</p>
               <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
               {user?.auth_provider === 'google' || user?.has_password === false ? (
-                <span className="inline-block mt-0.5 text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-semibold tracking-wide text-emerald-700 bg-emerald-50/90 px-2 py-0.5 rounded-md border border-emerald-200/80 shadow-2xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                   Google SSO
                 </span>
               ) : null}

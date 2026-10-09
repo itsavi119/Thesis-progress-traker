@@ -18,7 +18,7 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Admin authorization: Never rely on unverified client claims.
+    // Admin authorization: Never rely on client claims.
     // Bootstrapped admin email avishah.as118@gmail.com with verified email or admin collection lookup
     function isAdmin() {
       return isSignedIn() && (

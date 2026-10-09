@@ -115,11 +115,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   }
                   const info = await userInfoRes.json();
 
-                  // Synchronize server session token
+                  // Synchronize server session token with verified Google access token
                   const syncRes = await api.syncGoogleUser({
                     uid: info.sub,
                     email: info.email,
                     displayName: info.name || info.email.split('@')[0],
+                    accessToken: tokenResponse.access_token,
                   });
 
                   // Sync with Firestore profile non-blocking
@@ -177,11 +178,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Firestore profile sync skipped or offline:', fsErr);
       }
 
-      // 2. Synchronize server session token
+      // 2. Synchronize server session token with verified Firebase ID token
+      const idToken = await credential.user.getIdToken();
       const res = await api.syncGoogleUser({
         uid: credential.user.uid,
         email: credential.user.email || '',
         displayName: credential.user.displayName || credential.user.email?.split('@')[0] || 'Researcher',
+        idToken,
       });
 
       setUser(res.user);

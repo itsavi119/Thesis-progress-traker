@@ -3,6 +3,7 @@ import { Lock, Mail, User, AlertCircle, ArrowLeft, CheckCircle2, X } from 'lucid
 import { sendPasswordResetEmail } from 'firebase/auth';
 
 import { auth } from '../firebase/config.js';
+import { api } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.js';
 import { Logo } from '../components/Logo.js';
 import {
@@ -164,7 +165,10 @@ export const Login: React.FC<LoginProps> = ({
 
     setForgotStatus('submitting');
     try {
-      await sendPasswordResetEmail(auth, forgotEmail.trim());
+      await Promise.allSettled([
+        sendPasswordResetEmail(auth, forgotEmail.trim()),
+        api.forgotPassword({ email: forgotEmail.trim() }),
+      ]);
       setForgotStatus('success');
     } catch (err: any) {
       console.warn('Password reset notice:', err);

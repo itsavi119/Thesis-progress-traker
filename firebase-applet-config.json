@@ -1,12 +1,11 @@
 {
-  "projectId": "hypnic-concord-qlxdt",
-  "appId": "1:405708269619:web:715e2ab76e66ddb7111b46",
-  "apiKey": "AIzaSyBDeM0jFDYP0DplzRXJ_kiDMEvSRgTyjpk",
-  "authDomain": "hypnic-concord-qlxdt.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-thesiscasetracke-1ee9f88e-cd39-4734-a458-39de644dc92a",
-  "storageBucket": "hypnic-concord-qlxdt.firebasestorage.app",
-  "messagingSenderId": "405708269619",
+  "projectId": "gen-lang-client-0713900396",
+  "appId": "1:134142429530:web:9c3d41c5592053d5670b63",
+  "apiKey": "AIzaSyCQ6OAVGdQfFHqCnfEv-WHekOjQDs2dwgc",
+  "authDomain": "gen-lang-client-0713900396.firebaseapp.com",
+  "storageBucket": "gen-lang-client-0713900396.firebasestorage.app",
+  "messagingSenderId": "134142429530",
   "measurementId": "",
-  "oAuthClientId": "405708269619-h677aih6n7ru1h6itok5l6dcc1vt0fpf.apps.googleusercontent.com",
+  "oAuthClientId": "134142429530-ue0j29rknr7vus8g2baq3arna17a7ovj.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

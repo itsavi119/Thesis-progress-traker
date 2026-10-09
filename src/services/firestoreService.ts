@@ -3,7 +3,7 @@ import {
   doc,
   setDoc,
   getDoc,
-  getDocs,
+  getDocFromServer,
   updateDoc,
   deleteDoc,
   query,
@@ -11,7 +11,7 @@ import {
   orderBy,
   onSnapshot,
 } from 'firebase/firestore';
-import { db } from '../firebase/config.js';
+import { db, auth } from '../firebase/config.js';
 import type { CaseRecord, ResearchGroup, UserProfile } from '../types/index.js';
 
 export function normalizePatientId(rawId: string): string {
@@ -21,6 +21,66 @@ export function normalizePatientId(rawId: string): string {
     .toUpperCase()
     .replace(/\s+/g, '');
 }
+
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo:
+        auth.currentUser?.providerData?.map((provider) => ({
+          providerId: provider.providerId,
+          email: provider.email,
+        })) || [],
+    },
+    operationType,
+    path,
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+// Connection test on boot per Firebase skill guidelines
+async function testConnection() {
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.warn('Firebase client offline check notice:', error.message);
+    }
+  }
+}
+testConnection();
 
 export interface FirestoreCaseDoc {
   id: string;
@@ -56,8 +116,14 @@ export const firestoreService = {
     displayName: string | null;
     photoURL?: string | null;
   }): Promise<UserProfile> {
+    const userPath = `users/${user.uid}`;
     const userRef = doc(db, 'users', user.uid);
-    const snap = await getDoc(userRef);
+    let snap;
+    try {
+      snap = await getDoc(userRef);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, userPath);
+    }
 
     const now = new Date().toISOString();
     if (snap.exists()) {
@@ -70,12 +136,16 @@ export const firestoreService = {
         created_at: data.created_at || now,
         updated_at: now,
       };
-      await updateDoc(userRef, {
-        display_name: updatedProfile.display_name,
-        email: updatedProfile.email,
-        updated_at: now,
-        ...(user.photoURL ? { photo_url: user.photoURL } : {}),
-      });
+      try {
+        await updateDoc(userRef, {
+          display_name: updatedProfile.display_name,
+          email: updatedProfile.email,
+          updated_at: now,
+          ...(user.photoURL ? { photo_url: user.photoURL } : {}),
+        });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.UPDATE, userPath);
+      }
       return updatedProfile;
     }
 
@@ -88,21 +158,26 @@ export const firestoreService = {
       updated_at: now,
     };
 
-    await setDoc(userRef, {
-      ...newProfile,
-      ...(user.photoURL ? { photo_url: user.photoURL } : {}),
-    });
+    try {
+      await setDoc(userRef, {
+        ...newProfile,
+        ...(user.photoURL ? { photo_url: user.photoURL } : {}),
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, userPath);
+    }
 
     return newProfile;
   },
 
   // --- RESEARCH GROUPS ---
   async syncGroup(group: ResearchGroup): Promise<void> {
+    const groupPath = `groups/${group.id}`;
     try {
       const groupRef = doc(db, 'groups', group.id);
       await setDoc(groupRef, group, { merge: true });
-    } catch (err: any) {
-      console.warn('Firestore syncGroup notice:', err?.message);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, groupPath);
     }
   },
 
@@ -125,26 +200,28 @@ export const firestoreService = {
         callback(cases);
       },
       (error) => {
-        console.warn('Firestore cases subscription notice:', error.message);
+        handleFirestoreError(error, OperationType.LIST, 'cases');
       }
     );
   },
 
   async syncCase(caseRecord: CaseRecord): Promise<void> {
+    const casePath = `cases/${caseRecord.id}`;
     try {
       const caseRef = doc(db, 'cases', caseRecord.id);
       await setDoc(caseRef, caseRecord, { merge: true });
-    } catch (err: any) {
-      console.warn('Firestore syncCase notice:', err?.message);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, casePath);
     }
   },
 
   async deleteCase(caseId: string): Promise<void> {
+    const casePath = `cases/${caseId}`;
     try {
       const caseRef = doc(db, 'cases', caseId);
       await deleteDoc(caseRef);
-    } catch (err: any) {
-      console.warn('Firestore deleteCase notice:', err?.message);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, casePath);
     }
   },
 };

@@ -33,6 +33,8 @@ export interface StoredProfile {
   status?: 'active' | 'suspended';
   last_login?: string;
   last_active_at?: string;
+  reset_token_hash?: string | null;
+  reset_token_expires_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -73,6 +75,9 @@ interface StoredFile {
   uploaded_by: string;
   uploaded_by_name: string;
   file_data?: string;
+  drive_file_id?: string;
+  drive_link?: string;
+  is_drive_direct?: boolean;
   created_at: string;
 }
 
@@ -788,19 +793,78 @@ export class RelationalDatabase {
     });
   }
 
+  public async generatePasswordResetToken(email: string): Promise<{ token: string; expiresAt: string } | null> {
+    return this.mutex.runExclusive(async () => {
+      if (typeof email !== 'string') return null;
+      const normalizedEmail = email.trim().toLowerCase();
+      const profile = this.data.profiles.find((p) => p.email.toLowerCase() === normalizedEmail);
+      if (!profile) return null;
+
+      // Cryptographically secure token
+      const token = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 minutes validity
+
+      profile.reset_token_hash = tokenHash;
+      profile.reset_token_expires_at = expiresAt;
+      profile.updated_at = new Date().toISOString();
+      await this.persist();
+
+      await this.recordAuditLog({
+        action: 'PASSWORD_RESET_TOKEN_GENERATED',
+        entityType: 'user',
+        entityId: profile.id,
+        details: `Password reset token generated for user ${profile.email}.`,
+        performedBy: 'system',
+        performedByEmail: profile.email,
+      });
+
+      return { token, expiresAt };
+    });
+  }
+
   public async resetPasswordWithToken(params: {
     email: string;
     resetToken: string;
     newPassword: string;
   }): Promise<void> {
     return this.mutex.runExclusive(async () => {
-      if (typeof params.email !== 'string' || typeof params.newPassword !== 'string') {
-        throw new ValidationError('Email and new password must be valid strings.');
+      if (
+        typeof params.email !== 'string' ||
+        typeof params.resetToken !== 'string' ||
+        typeof params.newPassword !== 'string'
+      ) {
+        throw new ValidationError('Email, reset token, and new password must be valid strings.');
+      }
+      const token = params.resetToken.trim();
+      if (!token || token.length < 16) {
+        throw new ValidationError('Invalid or malformed reset token.');
       }
       const email = params.email.trim().toLowerCase();
       const profile = this.data.profiles.find((p) => p.email.toLowerCase() === email);
       if (!profile) {
-        throw new ValidationError('User account not found.');
+        throw new ValidationError('Invalid or expired password reset token.');
+      }
+
+      if (!profile.reset_token_hash || !profile.reset_token_expires_at) {
+        throw new ValidationError('No active password reset request found for this account.');
+      }
+
+      if (new Date(profile.reset_token_expires_at).getTime() < Date.now()) {
+        profile.reset_token_hash = null;
+        profile.reset_token_expires_at = null;
+        await this.persist();
+        throw new ValidationError('Password reset token has expired. Please request a new one.');
+      }
+
+      const providedHash = crypto.createHash('sha256').update(token).digest('hex');
+      const expectedBuffer = Buffer.from(profile.reset_token_hash, 'hex');
+      const providedBuffer = Buffer.from(providedHash, 'hex');
+      if (
+        expectedBuffer.length !== providedBuffer.length ||
+        !crypto.timingSafeEqual(expectedBuffer, providedBuffer)
+      ) {
+        throw new ValidationError('Invalid or expired password reset token.');
       }
 
       const passwordCheck = await validateServerPassword(params.newPassword);
@@ -813,6 +877,9 @@ export class RelationalDatabase {
 
       const salt = await bcrypt.genSalt(10);
       profile.password_hash = await bcrypt.hash(params.newPassword, salt);
+      // Immediately invalidate the token upon successful use (single-use token)
+      profile.reset_token_hash = null;
+      profile.reset_token_expires_at = null;
       profile.updated_at = new Date().toISOString();
       await this.persist();
 
@@ -820,7 +887,7 @@ export class RelationalDatabase {
         action: 'PASSWORD_RESET',
         entityType: 'user',
         entityId: profile.id,
-        details: `Password reset with token for user ${profile.email}.`,
+        details: `Password reset successfully completed for user ${profile.email}.`,
         performedBy: profile.id,
         performedByEmail: profile.email,
       });
@@ -1006,6 +1073,9 @@ export class RelationalDatabase {
         uploadedByName: f.uploaded_by_name,
         uploadedAt: f.created_at,
         fileData: f.file_data,
+        driveFileId: f.drive_file_id,
+        driveLink: f.drive_link,
+        isDriveDirect: f.is_drive_direct,
       }));
   }
 
@@ -1017,25 +1087,51 @@ export class RelationalDatabase {
     mimeType: string;
     category?: 'protocol' | 'approval' | 'questionnaire' | 'data' | 'other';
     fileData?: string;
+    driveFileId?: string;
+    driveLink?: string;
+    isDriveDirect?: boolean;
   }): Promise<ResearchFile> {
     return this.mutex.runExclusive(async () => {
       this.verifyUserGroupMembership(params.groupId, params.userId);
       if (!params || typeof params.name !== 'string' || !params.name.trim()) {
         throw new ValidationError('File name is required.');
       }
+
+      // Sanitize file name to prevent path traversal and script injection
+      const baseName = path.basename(params.name.trim()).replace(/[^\w\.\-\s]/g, '_');
+      if (!baseName || baseName === '.' || baseName === '..') {
+        throw new ValidationError('Invalid file name.');
+      }
+
+      // Disallow dangerous executable or script extensions
+      const dangerousExts = ['.exe', '.bat', '.cmd', '.sh', '.bash', '.php', '.phtml', '.py', '.js', '.mjs', '.vbs', '.scr', '.jar', '.com'];
+      const fileExt = path.extname(baseName).toLowerCase();
+      if (dangerousExts.includes(fileExt)) {
+        throw new ValidationError('Executable or script file extensions are not permitted.');
+      }
+
+      // Enforce file size limit (15MB max)
+      const fileSize = typeof params.size === 'number' ? params.size : 0;
+      if (fileSize > 15 * 1024 * 1024) {
+        throw new ValidationError('File exceeds the maximum allowable size of 15MB.');
+      }
+
       const user = this.data.profiles.find((p) => p.id === params.userId);
 
       if (!this.data.files) this.data.files = [];
       const newFile: StoredFile = {
         id: crypto.randomUUID(),
         group_id: params.groupId,
-        name: params.name.trim(),
-        size: typeof params.size === 'number' ? params.size : 0,
+        name: baseName,
+        size: fileSize,
         mime_type: typeof params.mimeType === 'string' ? params.mimeType : 'application/octet-stream',
         category: params.category || 'other',
         uploaded_by: params.userId,
         uploaded_by_name: user ? user.display_name : 'Researcher',
         file_data: params.fileData,
+        drive_file_id: params.driveFileId,
+        drive_link: params.driveLink,
+        is_drive_direct: !!params.isDriveDirect,
         created_at: new Date().toISOString(),
       };
 
@@ -1053,6 +1149,9 @@ export class RelationalDatabase {
         uploadedByName: newFile.uploaded_by_name,
         uploadedAt: newFile.created_at,
         fileData: newFile.file_data,
+        driveFileId: newFile.drive_file_id,
+        driveLink: newFile.drive_link,
+        isDriveDirect: newFile.is_drive_direct,
       };
     });
   }

@@ -23,7 +23,13 @@ dotenv.config();
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const isProd = process.env.NODE_ENV === 'production';
-const JWT_SECRET = process.env.JWT_SECRET || 'thesis-tracker-secure-secret-token-key-2026';
+const JWT_SECRET: string = process.env.JWT_SECRET || (() => {
+  const g = globalThis as any;
+  if (!g.__runtimeJwtSecret) {
+    g.__runtimeJwtSecret = crypto.randomBytes(48).toString('hex');
+  }
+  return g.__runtimeJwtSecret;
+})();
 
 // SEC-006 & SEC-009: Disable technology disclosure
 app.disable('x-powered-by');
@@ -294,13 +300,11 @@ const authenticateToken = async (req: AuthenticatedRequest, res: Response, next:
   // 1. Primary: Extract from secure HttpOnly cookie
   let token = req.cookies?.[AUTH_COOKIE_NAME];
 
-  // 2. Controlled legacy fallback: Authorization header or SSE query parameter
+  // 2. Controlled fallback: Authorization Bearer header
   if (!token) {
     const authHeader = req.headers['authorization'];
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.split(' ')[1];
-    } else if (typeof req.query.token === 'string' && req.query.token.trim()) {
-      token = req.query.token.trim();
     }
   }
 
@@ -606,13 +610,22 @@ const rateLimitInvitations = (req: AuthenticatedRequest, res: Response, next: Ne
   next();
 };
 
-if (!isProd) {
-  app.post('/api/dev/reset-invitation-rate-limit', (_req, res) => {
+// Rate limiter reset endpoints: strictly restricted to dev and requiring authenticated admin
+if (!isProd && process.env.ENABLE_DEV_ENDPOINTS === 'true') {
+  app.post('/api/dev/reset-invitation-rate-limit', authenticateToken, (req: AuthenticatedRequest, res) => {
+    if (req.user?.email !== (process.env.ADMIN_EMAIL || 'avishah.as118@gmail.com')) {
+      res.status(403).json({ error: 'FORBIDDEN', message: 'Admin access required.' });
+      return;
+    }
     invitationRateLimiter.reset();
     res.json({ reset: true });
   });
 
-  app.post('/api/dev/reset-auth-rate-limit', (_req, res) => {
+  app.post('/api/dev/reset-auth-rate-limit', authenticateToken, (req: AuthenticatedRequest, res) => {
+    if (req.user?.email !== (process.env.ADMIN_EMAIL || 'avishah.as118@gmail.com')) {
+      res.status(403).json({ error: 'FORBIDDEN', message: 'Admin access required.' });
+      return;
+    }
     authRateLimiter.reset();
     res.json({ reset: true });
   });
@@ -742,7 +755,7 @@ app.post('/api/auth/login', async (req: RequestWithId, res: Response) => {
 
 app.post('/api/auth/google-sync', async (req: RequestWithId, res: Response) => {
   try {
-    const { uid, email, displayName } = req.body || {};
+    const { uid, email, displayName, idToken, accessToken } = req.body || {};
     if (!uid || !email || typeof uid !== 'string' || typeof email !== 'string') {
       res.status(400).json({ error: 'BAD_REQUEST', message: 'UID and email are required as strings.' });
       return;
@@ -752,10 +765,57 @@ app.post('/api/auth/google-sync', async (req: RequestWithId, res: Response) => {
       return;
     }
 
+    // Cryptographic validation of Google identity
+    let verifiedEmail: string | null = null;
+    let verifiedUid: string | null = null;
+
+    if (typeof idToken === 'string' && idToken.trim()) {
+      try {
+        const verifyRes = await fetch(
+          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken.trim())}`
+        );
+        if (verifyRes.ok) {
+          const info = await verifyRes.json();
+          if (info.email && (info.email_verified === 'true' || info.email_verified === true)) {
+            verifiedEmail = info.email.toLowerCase();
+            verifiedUid = info.sub;
+          }
+        }
+      } catch (tokenErr) {
+        console.warn('Google id_token verification notice:', tokenErr);
+      }
+    }
+
+    if (!verifiedEmail && typeof accessToken === 'string' && accessToken.trim()) {
+      try {
+        const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${accessToken.trim()}` },
+        });
+        if (userInfoRes.ok) {
+          const info = await userInfoRes.json();
+          if (info.email && (info.email_verified === true || info.email_verified === 'true')) {
+            verifiedEmail = info.email.toLowerCase();
+            verifiedUid = info.sub;
+          }
+        }
+      } catch (userinfoErr) {
+        console.warn('Google accessToken userinfo notice:', userinfoErr);
+      }
+    }
+
+    // Strict validation: Require verified token from Google
+    if (!verifiedEmail || verifiedEmail !== email.trim().toLowerCase()) {
+      res.status(401).json({
+        error: 'UNAUTHORIZED',
+        message: 'Google identity verification failed. A valid, verified Google OAuth or ID token is required.',
+      });
+      return;
+    }
+
     const user = await db.syncGoogleProfile({
-      uid,
-      email,
-      displayName: displayName || email.split('@')[0],
+      uid: verifiedUid || uid,
+      email: verifiedEmail,
+      displayName: displayName || verifiedEmail.split('@')[0],
     });
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '24h' });
@@ -811,7 +871,39 @@ app.post('/api/auth/change-password', authenticateToken, async (req: Authenticat
   }
 });
 
-// SEC-008: Password reset flow with verification token
+// SEC-008: Password reset request flow (initiates secure reset token)
+app.post('/api/auth/forgot-password', async (req: RequestWithId, res: Response) => {
+  const ip = getClientIp(req);
+  const ipResult = authRateLimiter.checkIp(ip);
+  if (!ipResult.allowed) {
+    res.setHeader('Retry-After', ipResult.retryAfterSeconds.toString());
+    res.status(429).json({
+      error: 'TOO_MANY_REQUESTS',
+      message: 'Too many requests. Please wait before trying again.',
+    });
+    return;
+  }
+
+  try {
+    const { email } = req.body || {};
+    if (!email || typeof email !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Email is required as a string.' });
+      return;
+    }
+
+    const result = await db.generatePasswordResetToken(email);
+    // Generic uniform response prevents account enumeration
+    res.json({
+      success: true,
+      message: 'If an account exists with that email address, password reset instructions have been generated.',
+      ...((!isProd && result) ? { devResetToken: result.token } : {}),
+    });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'FORGOT_PASSWORD_FAILED');
+  }
+});
+
+// SEC-008: Password reset execution flow with cryptographic verification token
 app.post('/api/auth/reset-password', async (req: RequestWithId, res: Response) => {
   try {
     const { email, resetToken, newPassword, confirmPassword } = req.body || {};
@@ -1045,7 +1137,7 @@ app.get('/api/groups/:groupId/files', authenticateToken, async (req: Authenticat
 
 app.post('/api/groups/:groupId/files', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
-    const { name, size, mimeType, category, fileData } = req.body || {};
+    const { name, size, mimeType, category, fileData, driveFileId, driveLink, isDriveDirect } = req.body || {};
     if (!name || typeof name !== 'string' || !name.trim()) {
       res.status(400).json({ error: 'BAD_REQUEST', message: 'File name is required.' });
       return;
@@ -1062,6 +1154,9 @@ app.post('/api/groups/:groupId/files', authenticateToken, async (req: Authentica
       mimeType: mimeType || 'application/octet-stream',
       category,
       fileData,
+      driveFileId: typeof driveFileId === 'string' ? driveFileId : undefined,
+      driveLink: typeof driveLink === 'string' ? driveLink : undefined,
+      isDriveDirect: !!isDriveDirect,
     });
     res.status(201).json({ file });
   } catch (err: any) {
@@ -1431,13 +1526,21 @@ app.get(
   }
 );
 
-// Dev Test Endpoints for Controlled Error Verification (SEC-007)
-if (!isProd) {
-  app.get('/api/dev/force-error', (req: RequestWithId, _res: Response) => {
+// Dev Test Endpoints - strictly omitted in production and test environments
+if (!isProd && process.env.ENABLE_DEV_ENDPOINTS === 'true') {
+  app.get('/api/dev/force-error', authenticateToken, (req: AuthenticatedRequest, _res: Response) => {
+    if (req.user?.email !== (process.env.ADMIN_EMAIL || 'avishah.as118@gmail.com')) {
+      _res.status(403).json({ error: 'FORBIDDEN' });
+      return;
+    }
     throw new Error('Controlled test server error for SEC-007 verification');
   });
 
-  app.get('/api/dev/force-type-error', (_req: RequestWithId, _res: Response) => {
+  app.get('/api/dev/force-type-error', authenticateToken, (req: AuthenticatedRequest, _res: Response) => {
+    if (req.user?.email !== (process.env.ADMIN_EMAIL || 'avishah.as118@gmail.com')) {
+      _res.status(403).json({ error: 'FORBIDDEN' });
+      return;
+    }
     const obj: any = undefined;
     return obj.trim();
   });

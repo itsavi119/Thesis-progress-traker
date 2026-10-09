@@ -4,19 +4,19 @@ import {
   Upload,
   Download,
   Trash2,
-  HardDrive,
   RefreshCw,
   FolderOpen,
   AlertCircle,
   CheckCircle2,
-  FileCheck,
-  Shield,
-  HelpCircle,
+  HardDrive,
   ExternalLink,
+  Cloud,
+  Check,
 } from 'lucide-react';
 import { api } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.js';
 import { useGroup } from '../context/GroupContext.js';
+import { googleDriveService } from '../services/googleDriveService.js';
 import { PrivacyNotice } from '../components/PrivacyNotice.js';
 import type { ResearchFile } from '../types/index.js';
 
@@ -29,23 +29,25 @@ export const StudyFiles: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
+  // Google Drive state
+  const [isDriveConnected, setIsDriveConnected] = useState<boolean>(googleDriveService.isConnected());
+  const [driveFolderLink, setDriveFolderLink] = useState<string | null>(null);
+  const [isConnectingDrive, setIsConnectingDrive] = useState(false);
+
   // Upload modal state
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileCategory, setFileCategory] = useState<'protocol' | 'approval' | 'questionnaire' | 'data' | 'other'>('protocol');
+  const [uploadDirectToDrive, setUploadDirectToDrive] = useState<boolean>(true);
   const [isUploading, setIsUploading] = useState(false);
 
   // Delete modal state
   const [fileToDelete, setFileToDelete] = useState<ResearchFile | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Google Drive state
-  const [driveConnected, setDriveConnected] = useState<boolean>(false);
-  const [isSyncingDrive, setIsSyncingDrive] = useState(false);
-
   const showToast = (msg: string) => {
     setSuccessToast(msg);
-    setTimeout(() => setSuccessToast(null), 3500);
+    setTimeout(() => setSuccessToast(null), 4000);
   };
 
   const loadFiles = useCallback(async () => {
@@ -70,6 +72,40 @@ export const StudyFiles: React.FC = () => {
     loadFiles();
   }, [loadFiles]);
 
+  // Check Drive folder link if connected
+  useEffect(() => {
+    if (isDriveConnected && currentGroup) {
+      googleDriveService
+        .getOrCreateStudyFolder(currentGroup.name)
+        .then((f) => setDriveFolderLink(f.studyFolderLink))
+        .catch(() => {});
+    }
+  }, [isDriveConnected, currentGroup]);
+
+  const handleConnectDrive = async () => {
+    if (!currentGroup) return;
+    try {
+      setIsConnectingDrive(true);
+      setError(null);
+      await googleDriveService.connectDrive();
+      const folder = await googleDriveService.getOrCreateStudyFolder(currentGroup.name);
+      setIsDriveConnected(true);
+      setDriveFolderLink(folder.studyFolderLink);
+      showToast('Personal Google Drive connected! Files will upload directly to your Drive.');
+    } catch (err: any) {
+      setError(err.message || 'Failed to connect Google Drive.');
+    } finally {
+      setIsConnectingDrive(false);
+    }
+  };
+
+  const handleDisconnectDrive = () => {
+    googleDriveService.disconnect();
+    setIsDriveConnected(false);
+    setDriveFolderLink(null);
+    showToast('Google Drive disconnected.');
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setSelectedFile(e.target.files[0]);
@@ -84,7 +120,34 @@ export const StudyFiles: React.FC = () => {
       setIsUploading(true);
       setError(null);
 
-      // Convert small files to data URL for storage
+      // Path A: Direct upload from user's browser straight to Google Drive (Zero server storage)
+      if (isDriveConnected && uploadDirectToDrive) {
+        const driveResult = await googleDriveService.uploadFileDirectToDrive({
+          studyName: currentGroup.name,
+          file: selectedFile,
+          fileName: selectedFile.name,
+          mimeType: selectedFile.type || 'application/octet-stream',
+        });
+
+        // Register document metadata in study repository (file bytes stay 100% in user's Drive)
+        await api.uploadGroupFile(currentGroup.id, {
+          name: selectedFile.name,
+          size: selectedFile.size,
+          mimeType: selectedFile.type || 'application/octet-stream',
+          category: fileCategory,
+          driveFileId: driveResult.fileId,
+          driveLink: driveResult.webViewLink,
+          isDriveDirect: true,
+        });
+
+        showToast(`"${selectedFile.name}" saved directly to your Google Drive (0 bytes on server).`);
+        setSelectedFile(null);
+        setUploadModalOpen(false);
+        await loadFiles();
+        return;
+      }
+
+      // Path B: Standard repository storage
       const reader = new FileReader();
       reader.onload = async () => {
         try {
@@ -125,6 +188,16 @@ export const StudyFiles: React.FC = () => {
     try {
       setIsDeleting(true);
       setError(null);
+
+      // If stored directly in Google Drive, remove from Drive as well
+      if (fileToDelete.driveFileId && isDriveConnected) {
+        try {
+          await googleDriveService.deleteFile(fileToDelete.driveFileId);
+        } catch (driveErr) {
+          console.warn('Google Drive file delete warning:', driveErr);
+        }
+      }
+
       await api.deleteGroupFile(currentGroup.id, fileToDelete.id);
       showToast(`Document "${fileToDelete.name}" removed.`);
       setFileToDelete(null);
@@ -137,6 +210,11 @@ export const StudyFiles: React.FC = () => {
   };
 
   const handleDownload = (file: ResearchFile) => {
+    if (file.driveLink) {
+      window.open(file.driveLink, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
     if (file.fileData) {
       const link = document.createElement('a');
       link.href = file.fileData;
@@ -209,6 +287,75 @@ export const StudyFiles: React.FC = () => {
         </div>
       </div>
 
+      {/* Direct-to-User Google Drive Card */}
+      <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-5">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200/60 flex items-center justify-center shrink-0">
+            <HardDrive className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-900">Direct Personal Google Drive Storage</h3>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  isDriveConnected ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {isDriveConnected ? 'Connected directly to your Drive' : 'Zero Server Storage Available'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 max-w-xl leading-relaxed">
+              {isDriveConnected ? (
+                <>
+                  Files upload directly from your browser to your Google Drive in folder:{' '}
+                  <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px] font-mono text-slate-700">
+                    Thesis Progress Tracker / {currentGroup.name}
+                  </code>
+                  . The app server stores 0 bytes of your files.
+                </>
+              ) : (
+                <>
+                  Connect your Google Drive so files and exported study ledgers go directly to your own storage quota, completely bypassing server file storage.
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+          {isDriveConnected ? (
+            <>
+              {driveFolderLink && (
+                <a
+                  href={driveFolderLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition-all"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Open Study Folder in Drive</span>
+                </a>
+              )}
+              <button
+                onClick={handleDisconnectDrive}
+                className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                Disconnect
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={handleConnectDrive}
+              disabled={isConnectingDrive}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50"
+            >
+              <Cloud className="w-3.5 h-3.5" />
+              <span>{isConnectingDrive ? 'Connecting...' : 'Connect Personal Google Drive'}</span>
+            </button>
+          )}
+        </div>
+      </div>
+
       {successToast && (
         <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2.5 font-bold shadow-xs animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -222,46 +369,6 @@ export const StudyFiles: React.FC = () => {
           <span className="font-medium">{error}</span>
         </div>
       )}
-
-      {/* Google Drive Integration Card */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-5">
-        <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200/60 flex items-center justify-center shrink-0">
-            <HardDrive className="w-6 h-6" />
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold text-slate-900">Google Drive Cloud Storage</h3>
-              <span
-                className={`text-[10px] font-bold px-2 py-0.2 rounded-full ${
-                  driveConnected ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
-                }`}
-              >
-                {driveConnected ? 'Connected' : 'Optional Integration'}
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 max-w-xl leading-relaxed">
-              Maintain an isolated folder structure: <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px] font-mono text-slate-700">Thesis Progress Tracker / {currentGroup.name} / Documents & Exports</code>. Narrow scopes protect your unrelated personal drive files.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2.5 shrink-0">
-          <button
-            onClick={() => {
-              setDriveConnected(!driveConnected);
-              showToast(driveConnected ? 'Google Drive disconnected.' : 'Google Drive integrated for this study.');
-            }}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              driveConnected
-                ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
-                : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 shadow-2xs'
-            }`}
-          >
-            {driveConnected ? 'Disconnect Drive' : 'Connect Google Drive'}
-          </button>
-        </div>
-      </div>
 
       {/* Files Grid / List */}
       <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-xs">
@@ -301,7 +408,15 @@ export const StudyFiles: React.FC = () => {
                       <FileText className="w-5 h-5" />
                     </div>
                     <div className="min-w-0 space-y-0.5">
-                      <p className="text-sm font-bold text-slate-900 truncate">{file.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-slate-900 truncate">{file.name}</p>
+                        {file.driveLink && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            <HardDrive className="w-2.5 h-2.5" />
+                            <span>Google Drive</span>
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 text-[11px] text-slate-400 flex-wrap">
                         <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-semibold uppercase">
                           {file.category}
@@ -317,13 +432,25 @@ export const StudyFiles: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2 self-end sm:self-center">
-                    <button
-                      onClick={() => handleDownload(file)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Download</span>
-                    </button>
+                    {file.driveLink ? (
+                      <a
+                        href={file.driveLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-xl text-xs font-bold transition-colors"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Open in Drive</span>
+                      </a>
+                    ) : (
+                      <button
+                        onClick={() => handleDownload(file)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Download</span>
+                      </button>
+                    )}
 
                     {canDelete && (
                       <button
@@ -388,6 +515,43 @@ export const StudyFiles: React.FC = () => {
                 </select>
               </div>
 
+              {/* Storage Destination Option */}
+              {isDriveConnected ? (
+                <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-200/80 space-y-1.5">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={uploadDirectToDrive}
+                      onChange={(e) => setUploadDirectToDrive(e.target.checked)}
+                      className="mt-0.5 rounded text-amber-600 focus:ring-amber-500"
+                    />
+                    <div className="text-xs">
+                      <span className="font-bold text-amber-950">
+                        Upload directly to my personal Google Drive
+                      </span>
+                      <p className="text-[11px] text-amber-800/80 mt-0.5">
+                        Zero file bytes will be held on the server. File goes directly into your{' '}
+                        <code>Thesis Progress Tracker / {currentGroup.name}</code> Drive folder.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              ) : (
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-600 flex items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <span className="font-semibold text-slate-800">Want zero server storage?</span>
+                    <p className="text-[11px] text-slate-500">Connect Google Drive to upload directly to your own storage.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleConnectDrive}
+                    className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold shrink-0 cursor-pointer"
+                  >
+                    Connect Drive
+                  </button>
+                </div>
+              )}
+
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
@@ -409,7 +573,7 @@ export const StudyFiles: React.FC = () => {
         </div>
       )}
 
-      {/* Delete File Modal Confirmation (Confirms TEST 18) */}
+      {/* Delete File Modal Confirmation with Mandatory Workspace Safety */}
       {fileToDelete && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-sm shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
@@ -420,7 +584,8 @@ export const StudyFiles: React.FC = () => {
             <div className="text-center space-y-1">
               <h4 className="text-base font-bold text-slate-900">Delete Research File?</h4>
               <p className="text-xs text-slate-500">
-                Delete <strong>{fileToDelete.name}</strong> from the study repository?
+                Are you sure you want to delete <strong>{fileToDelete.name}</strong>?
+                {fileToDelete.driveLink && ' This file will also be removed from your Google Drive.'}
               </p>
             </div>
 

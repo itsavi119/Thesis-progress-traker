@@ -14,8 +14,9 @@ googleProvider.setCustomParameters({
 });
 
 // Initialize Cloud Firestore using the configured database ID
+const dbId = (firebaseConfig as any).firestoreDatabaseId;
 export const db =
-  firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
-    ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+  dbId && dbId !== '(default)'
+    ? getFirestore(app, dbId)
     : getFirestore(app);
 
