@@ -10,16 +10,13 @@ import {
   Pill,
   CheckCircle2,
   Download,
-  HardDrive,
-  ExternalLink,
   X,
 } from 'lucide-react';
 import { api } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.js';
 import { useGroup } from '../context/GroupContext.js';
 import { PrivacyNotice } from '../components/PrivacyNotice.js';
-import { downloadCasesCsv, generateCsvContent } from '../utils/exportCsv.js';
-import { googleDriveService } from '../services/googleDriveService.js';
+import { downloadCasesCsv } from '../utils/exportCsv.js';
 import type { CaseRecord, UserProfile } from '../types/index.js';
 
 export const AllCases: React.FC = () => {
@@ -37,33 +34,6 @@ export const AllCases: React.FC = () => {
   // Delete modal state
   const [caseToDelete, setCaseToDelete] = useState<CaseRecord | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
-
-  // Google Drive export state
-  const [isSavingToDrive, setIsSavingToDrive] = useState<boolean>(false);
-  const [savedDriveLink, setSavedDriveLink] = useState<string | null>(null);
-
-  const handleSaveToDrive = async () => {
-    if (!currentGroup || cases.length === 0) return;
-    try {
-      setIsSavingToDrive(true);
-      setError(null);
-      const csvData = generateCsvContent(cases);
-      const fileName = `${exportFileName}_${new Date().toISOString().split('T')[0]}.csv`;
-      const result = await googleDriveService.saveCsvExportToDrive({
-        studyName: currentGroup.name,
-        csvContent: csvData,
-        fileName,
-      });
-
-      setSavedDriveLink(result.webViewLink);
-      setSuccessToast(`Case roster exported directly to your Google Drive (${result.name})!`);
-      setTimeout(() => setSuccessToast(null), 6000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to save CSV to Google Drive.');
-    } finally {
-      setIsSavingToDrive(false);
-    }
-  };
 
   const loadData = useCallback(async () => {
     if (!currentGroup) {
@@ -180,16 +150,6 @@ export const AllCases: React.FC = () => {
           </button>
 
           <button
-            onClick={handleSaveToDrive}
-            disabled={cases.length === 0 || isSavingToDrive}
-            title="Save CSV roster directly to your personal Google Drive (0 bytes on server)"
-            className="flex items-center gap-2 px-3.5 py-2 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-xl text-xs font-semibold cursor-pointer transition-colors shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <HardDrive className={`w-3.5 h-3.5 text-amber-700 ${isSavingToDrive ? 'animate-bounce' : ''}`} />
-            <span>{isSavingToDrive ? 'Saving to Drive...' : 'Save to Drive'}</span>
-          </button>
-
-          <button
             onClick={loadData}
             disabled={isLoading}
             className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
@@ -206,17 +166,6 @@ export const AllCases: React.FC = () => {
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{successToast}</span>
           </div>
-          {savedDriveLink && (
-            <a
-              href={savedDriveLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100 rounded-lg text-xs font-bold transition-colors"
-            >
-              <ExternalLink className="w-3 h-3" />
-              <span>Open in Drive</span>
-            </a>
-          )}
         </div>
       )}
 

@@ -76,9 +76,6 @@ export interface ResearchFile {
   uploadedByName: string;
   uploadedAt: string;
   fileData?: string;
-  driveFileId?: string;
-  driveLink?: string;
-  isDriveDirect?: boolean;
 }
 
 export interface GroupInvitation {

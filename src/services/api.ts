@@ -360,9 +360,6 @@ class ApiService {
       mimeType: string;
       category?: string;
       fileData?: string;
-      driveFileId?: string;
-      driveLink?: string;
-      isDriveDirect?: boolean;
     }
   ): Promise<{ file: ResearchFile }> {
     return this.request<{ file: ResearchFile }>(`/api/groups/${groupId}/files`, {

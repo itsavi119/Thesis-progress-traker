@@ -1137,7 +1137,7 @@ app.get('/api/groups/:groupId/files', authenticateToken, async (req: Authenticat
 
 app.post('/api/groups/:groupId/files', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
-    const { name, size, mimeType, category, fileData, driveFileId, driveLink, isDriveDirect } = req.body || {};
+    const { name, size, mimeType, category, fileData } = req.body || {};
     if (!name || typeof name !== 'string' || !name.trim()) {
       res.status(400).json({ error: 'BAD_REQUEST', message: 'File name is required.' });
       return;
@@ -1154,9 +1154,6 @@ app.post('/api/groups/:groupId/files', authenticateToken, async (req: Authentica
       mimeType: mimeType || 'application/octet-stream',
       category,
       fileData,
-      driveFileId: typeof driveFileId === 'string' ? driveFileId : undefined,
-      driveLink: typeof driveLink === 'string' ? driveLink : undefined,
-      isDriveDirect: !!isDriveDirect,
     });
     res.status(201).json({ file });
   } catch (err: any) {

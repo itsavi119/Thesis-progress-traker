@@ -21,6 +21,18 @@
       "updated_at": "2026-10-08T12:51:40.621Z",
       "last_login": "2026-10-08T12:51:52.512Z",
       "last_active_at": "2026-10-08T12:51:52.512Z"
+    },
+    {
+      "id": "111821679993921920771",
+      "email": "avishah.as118@gmail.com",
+      "password_hash": "",
+      "display_name": "Avi Shah",
+      "role": "member",
+      "status": "active",
+      "last_login": "2026-10-09T07:46:14.354Z",
+      "last_active_at": "2026-10-09T07:46:14.354Z",
+      "created_at": "2026-10-09T07:46:14.354Z",
+      "updated_at": "2026-10-09T07:46:14.354Z"
     }
   ],
   "organizations": [],

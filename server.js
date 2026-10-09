@@ -224,7 +224,6 @@ async function validateServerPassword(password) {
 }
 
 // src/server/db.ts
-var PRIMARY_APP_OWNER = "avishah.as118@gmail.com";
 function hashInvitationToken(token) {
   return crypto2.createHash("sha256").update(token.trim()).digest("hex");
 }
@@ -409,7 +408,6 @@ var RelationalDatabase = class {
       files: [],
       audit_logs: [],
       app_settings: {
-        authorized_app_owners: [PRIMARY_APP_OWNER],
         maintenance_mode: false,
         allow_registration: true,
         updated_at: (/* @__PURE__ */ new Date()).toISOString()
@@ -426,65 +424,29 @@ var RelationalDatabase = class {
         this.data = {
           version: parsed.version || 3,
           profiles: Array.isArray(parsed.profiles) ? parsed.profiles : [],
-          organizations: Array.isArray(parsed.organizations) ? parsed.organizations : [],
+          organizations: [],
           groups: Array.isArray(parsed.groups) ? parsed.groups : [],
           invitations: Array.isArray(parsed.invitations) ? parsed.invitations : [],
           cases: Array.isArray(parsed.cases) ? parsed.cases : [],
           files: Array.isArray(parsed.files) ? parsed.files : [],
           audit_logs: Array.isArray(parsed.audit_logs) ? parsed.audit_logs : [],
-          app_settings: parsed.app_settings || {
-            authorized_app_owners: [PRIMARY_APP_OWNER],
-            maintenance_mode: false,
-            allow_registration: true,
-            updated_at: (/* @__PURE__ */ new Date()).toISOString()
+          app_settings: {
+            maintenance_mode: parsed.app_settings?.maintenance_mode ?? false,
+            allow_registration: parsed.app_settings?.allow_registration ?? true,
+            updated_at: parsed.app_settings?.updated_at || (/* @__PURE__ */ new Date()).toISOString()
           },
           legal_docs: Array.isArray(parsed.legal_docs) && parsed.legal_docs.length > 0 ? parsed.legal_docs : DEFAULT_LEGAL_DOCS
         };
-        const bootstrapOwners = [PRIMARY_APP_OWNER, "nikhil.work119@gmail.com"];
-        for (const bo of bootstrapOwners) {
-          if (!this.data.app_settings.authorized_app_owners.map((e) => e.toLowerCase()).includes(bo.toLowerCase())) {
-            this.data.app_settings.authorized_app_owners.push(bo);
-          }
+        this.data.profiles = this.data.profiles.filter((p) => !p.email.includes("@hospital.org"));
+        for (const profile of this.data.profiles) {
+          profile.role = "member";
         }
         for (const inv of this.data.invitations) {
           if (!inv.token_hash && inv.code) {
             inv.token_hash = hashInvitationToken(inv.code.trim().toUpperCase());
           }
         }
-        if (this.data.groups.length === 0 && (this.data.profiles.length > 0 || this.data.cases.length > 0)) {
-          const ownerProfile = this.data.profiles[0];
-          const initialGroupId = "general-thesis-group";
-          const now = (/* @__PURE__ */ new Date()).toISOString();
-          const initialMembers = this.data.profiles.map((p, idx) => ({
-            user_id: p.id,
-            email: p.email,
-            display_name: p.display_name,
-            role: idx === 0 ? "owner" : "researcher",
-            joined_at: p.created_at || now
-          }));
-          const migratedGroup = {
-            id: initialGroupId,
-            name: "Clinical Research Study Team",
-            study_title: "Clinical Research & Patient Case Coordination Study",
-            study_type: "Clinical Pharmacy",
-            subject_terminology: "Patient",
-            target_sample_size: 150,
-            description: "Collaborative academic clinical thesis study and patient case tracker.",
-            institution: "Hospital Department of Clinical Research",
-            owner_id: ownerProfile ? ownerProfile.id : "default-owner",
-            status: "active",
-            members: initialMembers,
-            created_at: now,
-            updated_at: now
-          };
-          this.data.groups.push(migratedGroup);
-          for (const c of this.data.cases) {
-            if (!c.group_id) {
-              c.group_id = initialGroupId;
-            }
-          }
-          this.saveToDiskSync();
-        }
+        this.saveToDiskSync();
       } catch (err) {
         console.error("Failed to parse database file, initializing fresh state:", err);
       }
@@ -529,28 +491,15 @@ var RelationalDatabase = class {
       }
     }
   }
-  // --- APP OWNER AUTHORIZATION ---
-  isAppOwner(email) {
-    if (!email) return false;
-    const normalized = email.trim().toLowerCase();
-    if (normalized === PRIMARY_APP_OWNER.toLowerCase() || normalized === "avishah.as118@gmail.com" || normalized === "avishah.as119@gmail.com" || normalized === "nikhil.work119@gmail.com") {
-      return true;
-    }
-    const authorized = this.data.app_settings?.authorized_app_owners || [
-      PRIMARY_APP_OWNER,
-      "avishah.as118@gmail.com",
-      "avishah.as119@gmail.com",
-      "nikhil.work119@gmail.com"
-    ];
-    return authorized.map((e) => e.toLowerCase()).includes(normalized);
-  }
   resolveUserProfile(p) {
     const { password_hash, ...safeProfile } = p;
     const hasPassword = Boolean(password_hash && password_hash.trim().length > 0);
     return {
       ...safeProfile,
+      role: p.role || "member",
       status: p.status || "active",
-      is_app_owner: this.isAppOwner(p.email),
+      last_login: p.last_login,
+      last_active_at: p.last_active_at,
       has_password: hasPassword,
       auth_provider: hasPassword ? "password" : "google"
     };
@@ -575,15 +524,8 @@ var RelationalDatabase = class {
     };
   }
   mapGroupToPublic(g) {
-    let orgName;
-    if (g.organization_id && this.data.organizations) {
-      const org = this.data.organizations.find((o) => o.id === g.organization_id);
-      if (org) orgName = org.name;
-    }
     return {
       id: g.id,
-      organizationId: g.organization_id,
-      organizationName: orgName,
       name: g.name,
       studyTitle: g.study_title,
       studyType: g.study_type || "Clinical Pharmacy",
@@ -675,7 +617,7 @@ var RelationalDatabase = class {
   async registerUser(params) {
     return this.mutex.runExclusive(async () => {
       if (this.data.app_settings && !this.data.app_settings.allow_registration) {
-        throw new ValidationError("New researcher registration is temporarily paused by the organization administrator.");
+        throw new ValidationError("New researcher registration is temporarily paused.");
       }
       if (!params || typeof params.email !== "string" || typeof params.password !== "string" || typeof params.displayName !== "string") {
         throw new ValidationError("Email, password, and display name must be valid strings.");
@@ -733,13 +675,15 @@ var RelationalDatabase = class {
         if (profile.status === "suspended") {
           throw new AccountSuspendedError();
         }
+        profile.last_login = (/* @__PURE__ */ new Date()).toISOString();
+        profile.last_active_at = profile.last_login;
         profile.display_name = typeof params.displayName === "string" && params.displayName.trim() ? params.displayName.trim() : profile.display_name;
         profile.updated_at = (/* @__PURE__ */ new Date()).toISOString();
         await this.persist();
         return this.resolveUserProfile(profile);
       }
       if (this.data.app_settings && !this.data.app_settings.allow_registration) {
-        throw new ValidationError("New researcher registration is temporarily paused by the organization administrator.");
+        throw new ValidationError("New researcher registration is temporarily paused.");
       }
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const newProfile = {
@@ -749,6 +693,8 @@ var RelationalDatabase = class {
         display_name: typeof params.displayName === "string" && params.displayName.trim() ? params.displayName.trim() : email.split("@")[0],
         role: "member",
         status: "active",
+        last_login: now,
+        last_active_at: now,
         created_at: now,
         updated_at: now
       };
@@ -758,17 +704,23 @@ var RelationalDatabase = class {
     });
   }
   async verifyUserCredentials(params) {
-    if (!params || typeof params.email !== "string" || typeof params.password !== "string") {
+    if (!params || typeof params.password !== "string" || typeof params.email !== "string") {
       return null;
     }
-    const email = params.email.trim().toLowerCase();
-    const profile = this.data.profiles.find((p) => p.email.toLowerCase() === email);
+    const identifier = params.email.trim().toLowerCase();
+    if (!identifier) return null;
+    const profile = this.data.profiles.find(
+      (p) => p.email.toLowerCase() === identifier
+    );
     if (!profile) return null;
     if (profile.status === "suspended") {
       throw new AccountSuspendedError();
     }
     const matches = await bcrypt.compare(params.password, profile.password_hash);
     if (!matches) return null;
+    profile.last_login = (/* @__PURE__ */ new Date()).toISOString();
+    profile.last_active_at = profile.last_login;
+    await this.persist();
     return this.resolveUserProfile(profile);
   }
   async updateUserPassword(params) {
@@ -805,46 +757,58 @@ var RelationalDatabase = class {
       });
     });
   }
-  async adminResetUserPassword(params) {
+  async generatePasswordResetToken(email) {
     return this.mutex.runExclusive(async () => {
-      const admin = this.data.profiles.find((p) => p.id === params.adminUserId);
-      if (!admin || !this.isAppOwner(admin.email)) {
-        throw new UnauthorizedGroupActionError("Access denied: Administrator authorization required.");
-      }
-      const target = this.data.profiles.find((p) => p.id === params.targetUserId);
-      if (!target) {
-        throw new ValidationError("Target user account not found.");
-      }
-      const passwordCheck = await validateServerPassword(params.newPassword);
-      if (!passwordCheck.isValid) {
-        if (passwordCheck.errorCode === "WEAK_PASSWORD") {
-          throw new WeakPasswordError(passwordCheck.message);
-        }
-        throw new ValidationError(passwordCheck.message || "Password does not meet the security requirements.");
-      }
-      const salt = await bcrypt.genSalt(10);
-      target.password_hash = await bcrypt.hash(params.newPassword, salt);
-      target.updated_at = (/* @__PURE__ */ new Date()).toISOString();
+      if (typeof email !== "string") return null;
+      const normalizedEmail = email.trim().toLowerCase();
+      const profile = this.data.profiles.find((p) => p.email.toLowerCase() === normalizedEmail);
+      if (!profile) return null;
+      const token = crypto2.randomBytes(32).toString("hex");
+      const tokenHash = crypto2.createHash("sha256").update(token).digest("hex");
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1e3).toISOString();
+      profile.reset_token_hash = tokenHash;
+      profile.reset_token_expires_at = expiresAt;
+      profile.updated_at = (/* @__PURE__ */ new Date()).toISOString();
       await this.persist();
       await this.recordAuditLog({
-        action: "ADMIN_PASSWORD_RESET",
+        action: "PASSWORD_RESET_TOKEN_GENERATED",
         entityType: "user",
-        entityId: target.id,
-        details: `Password reset by administrator ${admin.email} for user ${target.email}.`,
-        performedBy: admin.id,
-        performedByEmail: admin.email
+        entityId: profile.id,
+        details: `Password reset token generated for user ${profile.email}.`,
+        performedBy: "system",
+        performedByEmail: profile.email
       });
+      return { token, expiresAt };
     });
   }
   async resetPasswordWithToken(params) {
     return this.mutex.runExclusive(async () => {
-      if (typeof params.email !== "string" || typeof params.newPassword !== "string") {
-        throw new ValidationError("Email and new password must be valid strings.");
+      if (typeof params.email !== "string" || typeof params.resetToken !== "string" || typeof params.newPassword !== "string") {
+        throw new ValidationError("Email, reset token, and new password must be valid strings.");
+      }
+      const token = params.resetToken.trim();
+      if (!token || token.length < 16) {
+        throw new ValidationError("Invalid or malformed reset token.");
       }
       const email = params.email.trim().toLowerCase();
       const profile = this.data.profiles.find((p) => p.email.toLowerCase() === email);
       if (!profile) {
-        throw new ValidationError("User account not found.");
+        throw new ValidationError("Invalid or expired password reset token.");
+      }
+      if (!profile.reset_token_hash || !profile.reset_token_expires_at) {
+        throw new ValidationError("No active password reset request found for this account.");
+      }
+      if (new Date(profile.reset_token_expires_at).getTime() < Date.now()) {
+        profile.reset_token_hash = null;
+        profile.reset_token_expires_at = null;
+        await this.persist();
+        throw new ValidationError("Password reset token has expired. Please request a new one.");
+      }
+      const providedHash = crypto2.createHash("sha256").update(token).digest("hex");
+      const expectedBuffer = Buffer.from(profile.reset_token_hash, "hex");
+      const providedBuffer = Buffer.from(providedHash, "hex");
+      if (expectedBuffer.length !== providedBuffer.length || !crypto2.timingSafeEqual(expectedBuffer, providedBuffer)) {
+        throw new ValidationError("Invalid or expired password reset token.");
       }
       const passwordCheck = await validateServerPassword(params.newPassword);
       if (!passwordCheck.isValid) {
@@ -855,99 +819,19 @@ var RelationalDatabase = class {
       }
       const salt = await bcrypt.genSalt(10);
       profile.password_hash = await bcrypt.hash(params.newPassword, salt);
+      profile.reset_token_hash = null;
+      profile.reset_token_expires_at = null;
       profile.updated_at = (/* @__PURE__ */ new Date()).toISOString();
       await this.persist();
       await this.recordAuditLog({
         action: "PASSWORD_RESET",
         entityType: "user",
         entityId: profile.id,
-        details: `Password reset with token for user ${profile.email}.`,
+        details: `Password reset successfully completed for user ${profile.email}.`,
         performedBy: profile.id,
         performedByEmail: profile.email
       });
     });
-  }
-  // --- ORGANIZATIONS MANAGEMENT ---
-  async getUserOrganizations(userId) {
-    if (!this.data.organizations) this.data.organizations = [];
-    const list = this.data.organizations.filter((o) => {
-      const ownsOrg = o.owner_id === userId;
-      const inOrgStudy = this.data.groups.some(
-        (g) => g.organization_id === o.id && g.members.some((m) => m.user_id === userId)
-      );
-      return ownsOrg || inOrgStudy;
-    });
-    return list.map((o) => {
-      const studies = this.data.groups.filter((g) => g.organization_id === o.id);
-      const uniqueMembers = /* @__PURE__ */ new Set();
-      studies.forEach((s) => s.members.forEach((m) => uniqueMembers.add(m.user_id)));
-      return {
-        id: o.id,
-        name: o.name,
-        description: o.description,
-        institution: o.institution,
-        contactEmail: o.contact_email,
-        ownerId: o.owner_id,
-        studiesCount: studies.length,
-        membersCount: uniqueMembers.size,
-        createdAt: o.created_at,
-        updatedAt: o.updated_at
-      };
-    });
-  }
-  async createOrganization(userId, params) {
-    return this.mutex.runExclusive(async () => {
-      if (!params || typeof params.name !== "string" || !params.name.trim()) {
-        throw new ValidationError("Organization name is required.");
-      }
-      const name = params.name.trim();
-      if (!this.data.organizations) this.data.organizations = [];
-      const now = (/* @__PURE__ */ new Date()).toISOString();
-      const newOrg = {
-        id: crypto2.randomUUID(),
-        name,
-        description: typeof params.description === "string" && params.description.trim() ? params.description.trim() : void 0,
-        institution: typeof params.institution === "string" && params.institution.trim() ? params.institution.trim() : void 0,
-        contact_email: typeof params.contactEmail === "string" && params.contactEmail.trim() ? params.contactEmail.trim() : void 0,
-        owner_id: userId,
-        created_at: now,
-        updated_at: now
-      };
-      this.data.organizations.push(newOrg);
-      await this.persist();
-      return {
-        id: newOrg.id,
-        name: newOrg.name,
-        description: newOrg.description,
-        institution: newOrg.institution,
-        contactEmail: newOrg.contact_email,
-        ownerId: newOrg.owner_id,
-        studiesCount: 0,
-        membersCount: 1,
-        createdAt: newOrg.created_at,
-        updatedAt: newOrg.updated_at
-      };
-    });
-  }
-  async getOrganizationById(orgId) {
-    if (!this.data.organizations) return null;
-    const org = this.data.organizations.find((o) => o.id === orgId);
-    if (!org) return null;
-    const studies = this.data.groups.filter((g) => g.organization_id === org.id);
-    const uniqueMembers = /* @__PURE__ */ new Set();
-    studies.forEach((s) => s.members.forEach((m) => uniqueMembers.add(m.user_id)));
-    return {
-      id: org.id,
-      name: org.name,
-      description: org.description,
-      institution: org.institution,
-      contactEmail: org.contact_email,
-      ownerId: org.owner_id,
-      studiesCount: studies.length,
-      membersCount: uniqueMembers.size,
-      createdAt: org.created_at,
-      updatedAt: org.updated_at
-    };
   }
   // --- RESEARCH GROUPS / STUDIES MANAGEMENT ---
   async getUserGroups(userId) {
@@ -998,7 +882,6 @@ var RelationalDatabase = class {
       };
       const newGroup = {
         id: newGroupId,
-        organization_id: typeof params.organizationId === "string" && params.organizationId.trim() ? params.organizationId.trim() : void 0,
         name,
         study_title: studyTitle,
         study_type: params.studyType || "Clinical Pharmacy",
@@ -1057,10 +940,6 @@ var RelationalDatabase = class {
         if (typeof updates.institution !== "string") throw new ValidationError("Institution must be a string.");
         group.institution = updates.institution.trim() || void 0;
       }
-      if (updates.organizationId !== void 0) {
-        if (typeof updates.organizationId !== "string") throw new ValidationError("Organization ID must be a string.");
-        group.organization_id = updates.organizationId.trim() || void 0;
-      }
       if (updates.customFields !== void 0) {
         if (!Array.isArray(updates.customFields)) throw new ValidationError("Custom fields must be an array.");
         group.custom_fields = updates.customFields;
@@ -1086,7 +965,10 @@ var RelationalDatabase = class {
       uploadedBy: f.uploaded_by,
       uploadedByName: f.uploaded_by_name,
       uploadedAt: f.created_at,
-      fileData: f.file_data
+      fileData: f.file_data,
+      driveFileId: f.drive_file_id,
+      driveLink: f.drive_link,
+      isDriveDirect: f.is_drive_direct
     }));
   }
   async uploadGroupFile(params) {
@@ -1095,18 +977,34 @@ var RelationalDatabase = class {
       if (!params || typeof params.name !== "string" || !params.name.trim()) {
         throw new ValidationError("File name is required.");
       }
+      const baseName = path.basename(params.name.trim()).replace(/[^\w\.\-\s]/g, "_");
+      if (!baseName || baseName === "." || baseName === "..") {
+        throw new ValidationError("Invalid file name.");
+      }
+      const dangerousExts = [".exe", ".bat", ".cmd", ".sh", ".bash", ".php", ".phtml", ".py", ".js", ".mjs", ".vbs", ".scr", ".jar", ".com"];
+      const fileExt = path.extname(baseName).toLowerCase();
+      if (dangerousExts.includes(fileExt)) {
+        throw new ValidationError("Executable or script file extensions are not permitted.");
+      }
+      const fileSize = typeof params.size === "number" ? params.size : 0;
+      if (fileSize > 15 * 1024 * 1024) {
+        throw new ValidationError("File exceeds the maximum allowable size of 15MB.");
+      }
       const user = this.data.profiles.find((p) => p.id === params.userId);
       if (!this.data.files) this.data.files = [];
       const newFile = {
         id: crypto2.randomUUID(),
         group_id: params.groupId,
-        name: params.name.trim(),
-        size: typeof params.size === "number" ? params.size : 0,
+        name: baseName,
+        size: fileSize,
         mime_type: typeof params.mimeType === "string" ? params.mimeType : "application/octet-stream",
         category: params.category || "other",
         uploaded_by: params.userId,
         uploaded_by_name: user ? user.display_name : "Researcher",
         file_data: params.fileData,
+        drive_file_id: params.driveFileId,
+        drive_link: params.driveLink,
+        is_drive_direct: !!params.isDriveDirect,
         created_at: (/* @__PURE__ */ new Date()).toISOString()
       };
       this.data.files.push(newFile);
@@ -1121,7 +1019,10 @@ var RelationalDatabase = class {
         uploadedBy: newFile.uploaded_by,
         uploadedByName: newFile.uploaded_by_name,
         uploadedAt: newFile.created_at,
-        fileData: newFile.file_data
+        fileData: newFile.file_data,
+        driveFileId: newFile.drive_file_id,
+        driveLink: newFile.drive_link,
+        isDriveDirect: newFile.is_drive_direct
       };
     });
   }
@@ -1571,296 +1472,6 @@ var RelationalDatabase = class {
       members: membersSummary
     };
   }
-  // =========================================================================
-  // --- APP OWNER / ORGANIZATION ADMINISTRATION METHODS ---
-  // =========================================================================
-  async getAppOwnerOverview() {
-    const totalUsers = this.data.profiles.length;
-    const totalOrganizations = this.data.organizations?.length || 0;
-    const totalGroups = this.data.groups.length;
-    const activeGroups = this.data.groups.filter((g) => (g.status || "active") === "active").length;
-    const totalMemberships = this.data.groups.reduce((acc, g) => acc + g.members.length, 0);
-    const totalCases = this.data.cases.length;
-    const totalFiles = this.data.files?.length || 0;
-    return {
-      totalUsers,
-      totalOrganizations,
-      totalGroups,
-      activeGroups,
-      totalMemberships,
-      totalCases,
-      totalFiles
-    };
-  }
-  async getAppOwnerOrganizations() {
-    if (!this.data.organizations) this.data.organizations = [];
-    return this.data.organizations.map((o) => {
-      const studies = this.data.groups.filter((g) => g.organization_id === o.id);
-      const uniqueMembers = /* @__PURE__ */ new Set();
-      studies.forEach((s) => s.members.forEach((m) => uniqueMembers.add(m.user_id)));
-      return {
-        id: o.id,
-        name: o.name,
-        description: o.description,
-        institution: o.institution,
-        contactEmail: o.contact_email,
-        ownerId: o.owner_id,
-        studiesCount: studies.length,
-        membersCount: uniqueMembers.size,
-        createdAt: o.created_at,
-        updatedAt: o.updated_at
-      };
-    });
-  }
-  async getAppOwnerUsers(options) {
-    let list = this.data.profiles;
-    if (options?.search) {
-      const q = options.search.trim().toLowerCase();
-      list = list.filter(
-        (p) => p.display_name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q)
-      );
-    }
-    if (options?.status && options.status !== "ALL") {
-      list = list.filter((p) => (p.status || "active") === options.status);
-    }
-    return list.map((p) => {
-      const userGroups = this.data.groups.filter((g) => g.members.some((m) => m.user_id === p.id)).map((g) => {
-        const m = g.members.find((mem) => mem.user_id === p.id);
-        return {
-          groupId: g.id,
-          groupName: g.name,
-          role: m.role,
-          joinedAt: m.joined_at
-        };
-      });
-      return {
-        id: p.id,
-        email: p.email,
-        displayName: p.display_name,
-        status: p.status || "active",
-        createdAt: p.created_at,
-        isAppOwner: this.isAppOwner(p.email),
-        groups: userGroups
-      };
-    });
-  }
-  async setAppOwnerUserStatus(userId, newStatus, adminEmail) {
-    return this.mutex.runExclusive(async () => {
-      const profile = this.data.profiles.find((p) => p.id === userId);
-      if (!profile) throw new ValidationError("User profile not found.");
-      if (this.isAppOwner(profile.email)) {
-        throw new ValidationError("Action rejected: Cannot modify status of an authorized App Owner account.");
-      }
-      profile.status = newStatus;
-      profile.updated_at = (/* @__PURE__ */ new Date()).toISOString();
-      await this.persist();
-      await this.recordAuditLog({
-        action: newStatus === "suspended" ? "USER_SUSPENDED" : "USER_REACTIVATED",
-        entityType: "user",
-        entityId: profile.id,
-        entityName: profile.display_name,
-        details: `Account status for "${profile.email}" changed to ${newStatus}.`,
-        performedBy: adminEmail,
-        performedByEmail: adminEmail
-      });
-      const userGroups = this.data.groups.filter((g) => g.members.some((m) => m.user_id === profile.id)).map((g) => {
-        const m = g.members.find((mem) => mem.user_id === profile.id);
-        return {
-          groupId: g.id,
-          groupName: g.name,
-          role: m.role,
-          joinedAt: m.joined_at
-        };
-      });
-      return {
-        id: profile.id,
-        email: profile.email,
-        displayName: profile.display_name,
-        status: profile.status,
-        createdAt: profile.created_at,
-        isAppOwner: false,
-        groups: userGroups
-      };
-    });
-  }
-  async getAppOwnerGroups(options) {
-    let list = this.data.groups;
-    if (options?.search) {
-      const q = options.search.trim().toLowerCase();
-      list = list.filter(
-        (g) => g.name.toLowerCase().includes(q) || g.study_title.toLowerCase().includes(q) || g.institution && g.institution.toLowerCase().includes(q)
-      );
-    }
-    if (options?.status && options.status !== "ALL") {
-      list = list.filter((g) => (g.status || "active") === options.status);
-    }
-    return list.map((g) => {
-      const owner = this.data.profiles.find((p) => p.id === g.owner_id);
-      const caseCount = this.data.cases.filter((c) => c.group_id === g.id).length;
-      const invitationsCount = this.data.invitations.filter((i) => i.group_id === g.id).length;
-      let orgName;
-      if (g.organization_id && this.data.organizations) {
-        const org = this.data.organizations.find((o) => o.id === g.organization_id);
-        if (org) orgName = org.name;
-      }
-      return {
-        id: g.id,
-        organizationId: g.organization_id,
-        organizationName: orgName,
-        name: g.name,
-        studyTitle: g.study_title,
-        studyType: g.study_type,
-        ownerId: g.owner_id,
-        ownerName: owner ? owner.display_name : "Unknown Owner",
-        ownerEmail: owner ? owner.email : "",
-        memberCount: g.members.length,
-        targetSampleSize: g.target_sample_size,
-        caseCount,
-        description: g.description,
-        institution: g.institution,
-        status: g.status || "active",
-        createdAt: g.created_at,
-        updatedAt: g.updated_at,
-        members: g.members.map((m) => ({
-          userId: m.user_id,
-          displayName: m.display_name,
-          email: m.email,
-          role: m.role,
-          joinedAt: m.joined_at
-        })),
-        invitationsCount
-      };
-    });
-  }
-  async setAppOwnerGroupStatus(groupId, newStatus, adminEmail) {
-    return this.mutex.runExclusive(async () => {
-      const group = this.data.groups.find((g) => g.id === groupId);
-      if (!group) throw new GroupNotFoundError();
-      group.status = newStatus;
-      group.updated_at = (/* @__PURE__ */ new Date()).toISOString();
-      await this.persist();
-      await this.recordAuditLog({
-        action: "GROUP_STATUS_CHANGED",
-        entityType: "group",
-        entityId: group.id,
-        entityName: group.name,
-        details: `Research study "${group.name}" status changed to ${newStatus}.`,
-        performedBy: adminEmail,
-        performedByEmail: adminEmail
-      });
-      const owner = this.data.profiles.find((p) => p.id === group.owner_id);
-      const caseCount = this.data.cases.filter((c) => c.group_id === group.id).length;
-      const invitationsCount = this.data.invitations.filter((i) => i.group_id === group.id).length;
-      return {
-        id: group.id,
-        name: group.name,
-        studyTitle: group.study_title,
-        studyType: group.study_type,
-        ownerId: group.owner_id,
-        ownerName: owner ? owner.display_name : "Unknown Owner",
-        ownerEmail: owner ? owner.email : "",
-        memberCount: group.members.length,
-        targetSampleSize: group.target_sample_size,
-        caseCount,
-        description: group.description,
-        institution: group.institution,
-        status: group.status || "active",
-        createdAt: group.created_at,
-        updatedAt: group.updated_at,
-        members: group.members.map((m) => ({
-          userId: m.user_id,
-          displayName: m.display_name,
-          email: m.email,
-          role: m.role,
-          joinedAt: m.joined_at
-        })),
-        invitationsCount
-      };
-    });
-  }
-  async deleteAppOwnerGroup(groupId, adminEmail) {
-    return this.mutex.runExclusive(async () => {
-      const idx = this.data.groups.findIndex((g) => g.id === groupId);
-      if (idx === -1) throw new GroupNotFoundError();
-      const [removed] = this.data.groups.splice(idx, 1);
-      const caseCountBefore = this.data.cases.length;
-      this.data.cases = this.data.cases.filter((c) => c.group_id !== groupId);
-      const casesPurged = caseCountBefore - this.data.cases.length;
-      this.data.invitations = this.data.invitations.filter((i) => i.group_id !== groupId);
-      if (this.data.files) {
-        this.data.files = this.data.files.filter((f) => f.group_id !== groupId);
-      }
-      await this.persist();
-      await this.recordAuditLog({
-        action: "GROUP_DELETED",
-        entityType: "group",
-        entityId: removed.id,
-        entityName: removed.name,
-        details: `Research study "${removed.name}" deleted (${casesPurged} case records purged).`,
-        performedBy: adminEmail,
-        performedByEmail: adminEmail
-      });
-      return { success: true, groupName: removed.name };
-    });
-  }
-  getAppSettings() {
-    const settings = this.data.app_settings || {
-      authorized_app_owners: [PRIMARY_APP_OWNER],
-      maintenance_mode: false,
-      allow_registration: true,
-      updated_at: (/* @__PURE__ */ new Date()).toISOString()
-    };
-    return {
-      authorizedAppOwners: settings.authorized_app_owners,
-      maintenanceMode: settings.maintenance_mode,
-      allowRegistration: settings.allow_registration,
-      updatedAt: settings.updated_at
-    };
-  }
-  async updateAppSettings(updates, adminEmail) {
-    return this.mutex.runExclusive(async () => {
-      if (!this.data.app_settings) {
-        this.data.app_settings = {
-          authorized_app_owners: [PRIMARY_APP_OWNER],
-          maintenance_mode: false,
-          allow_registration: true,
-          updated_at: (/* @__PURE__ */ new Date()).toISOString()
-        };
-      }
-      if (updates.authorizedAppOwners !== void 0) {
-        const unique = Array.from(
-          new Set(
-            updates.authorizedAppOwners.map((e) => e.trim().toLowerCase()).filter((e) => e.includes("@") && e.includes("."))
-          )
-        );
-        if (!unique.includes(PRIMARY_APP_OWNER.toLowerCase())) {
-          unique.unshift(PRIMARY_APP_OWNER.toLowerCase());
-        }
-        this.data.app_settings.authorized_app_owners = unique;
-      }
-      if (updates.maintenanceMode !== void 0) {
-        this.data.app_settings.maintenance_mode = updates.maintenanceMode;
-      }
-      if (updates.allowRegistration !== void 0) {
-        this.data.app_settings.allow_registration = updates.allowRegistration;
-      }
-      this.data.app_settings.updated_at = (/* @__PURE__ */ new Date()).toISOString();
-      await this.persist();
-      await this.recordAuditLog({
-        action: "APP_SETTINGS_UPDATED",
-        entityType: "settings",
-        details: `Application settings updated by ${adminEmail}. Authorized owners count: ${this.data.app_settings.authorized_app_owners.length}.`,
-        performedBy: adminEmail,
-        performedByEmail: adminEmail
-      });
-      return {
-        authorizedAppOwners: this.data.app_settings.authorized_app_owners,
-        maintenanceMode: this.data.app_settings.maintenance_mode,
-        allowRegistration: this.data.app_settings.allow_registration,
-        updatedAt: this.data.app_settings.updated_at
-      };
-    });
-  }
   getLegalPolicies() {
     const docs = this.data.legal_docs || DEFAULT_LEGAL_DOCS;
     return docs.map((doc) => ({
@@ -1871,7 +1482,7 @@ var RelationalDatabase = class {
       lastUpdated: doc.last_updated
     }));
   }
-  async updateLegalPolicy(id, content, adminEmail) {
+  async updateLegalPolicy(id, content, operatorEmail) {
     return this.mutex.runExclusive(async () => {
       if (!this.data.legal_docs) this.data.legal_docs = [...DEFAULT_LEGAL_DOCS];
       if (typeof content !== "string") {
@@ -1888,8 +1499,8 @@ var RelationalDatabase = class {
         entityId: doc.id,
         entityName: doc.title,
         details: `Legal policy "${doc.title}" content updated.`,
-        performedBy: adminEmail,
-        performedByEmail: adminEmail
+        performedBy: operatorEmail,
+        performedByEmail: operatorEmail
       });
       return {
         id: doc.id,
@@ -1908,7 +1519,13 @@ dotenv.config();
 var app = express();
 var PORT = parseInt(process.env.PORT || "3000", 10);
 var isProd = process.env.NODE_ENV === "production";
-var JWT_SECRET = process.env.JWT_SECRET || "thesis-tracker-secure-secret-token-key-2026";
+var JWT_SECRET = process.env.JWT_SECRET || (() => {
+  const g = globalThis;
+  if (!g.__runtimeJwtSecret) {
+    g.__runtimeJwtSecret = crypto3.randomBytes(48).toString("hex");
+  }
+  return g.__runtimeJwtSecret;
+})();
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
 app.use((req, res, next) => {
@@ -2072,8 +1689,6 @@ var authenticateToken = async (req, res, next) => {
     const authHeader = req.headers["authorization"];
     if (authHeader && authHeader.startsWith("Bearer ")) {
       token = authHeader.split(" ")[1];
-    } else if (typeof req.query.token === "string" && req.query.token.trim()) {
-      token = req.query.token.trim();
     }
   }
   if (!token) {
@@ -2307,25 +1922,24 @@ var rateLimitInvitations = (req, res, next) => {
   }
   next();
 };
-if (!isProd) {
-  app.post("/api/dev/reset-invitation-rate-limit", (_req, res) => {
+if (!isProd && process.env.ENABLE_DEV_ENDPOINTS === "true") {
+  app.post("/api/dev/reset-invitation-rate-limit", authenticateToken, (req, res) => {
+    if (req.user?.email !== (process.env.ADMIN_EMAIL || "avishah.as118@gmail.com")) {
+      res.status(403).json({ error: "FORBIDDEN", message: "Admin access required." });
+      return;
+    }
     invitationRateLimiter.reset();
     res.json({ reset: true });
   });
-  app.post("/api/dev/reset-auth-rate-limit", (_req, res) => {
+  app.post("/api/dev/reset-auth-rate-limit", authenticateToken, (req, res) => {
+    if (req.user?.email !== (process.env.ADMIN_EMAIL || "avishah.as118@gmail.com")) {
+      res.status(403).json({ error: "FORBIDDEN", message: "Admin access required." });
+      return;
+    }
     authRateLimiter.reset();
     res.json({ reset: true });
   });
 }
-var authenticateAppOwner = async (req, res, next) => {
-  await authenticateToken(req, res, () => {
-    if (!req.user || !db.isAppOwner(req.user.email)) {
-      res.status(403).json({ error: "FORBIDDEN", message: "Access denied." });
-      return;
-    }
-    next();
-  });
-};
 function getGroupId(req) {
   const headerId = typeof req.headers["x-group-id"] === "string" && req.headers["x-group-id"].trim() ? req.headers["x-group-id"].trim() : null;
   const queryId = typeof req.query.groupId === "string" && req.query.groupId.trim() ? req.query.groupId.trim() : null;
@@ -2425,7 +2039,7 @@ app.post("/api/auth/login", async (req, res) => {
 });
 app.post("/api/auth/google-sync", async (req, res) => {
   try {
-    const { uid, email, displayName } = req.body || {};
+    const { uid, email, displayName, idToken, accessToken } = req.body || {};
     if (!uid || !email || typeof uid !== "string" || typeof email !== "string") {
       res.status(400).json({ error: "BAD_REQUEST", message: "UID and email are required as strings." });
       return;
@@ -2434,10 +2048,51 @@ app.post("/api/auth/google-sync", async (req, res) => {
       res.status(400).json({ error: "BAD_REQUEST", message: "Display name must be a string." });
       return;
     }
+    let verifiedEmail = null;
+    let verifiedUid = null;
+    if (typeof idToken === "string" && idToken.trim()) {
+      try {
+        const verifyRes = await fetch(
+          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken.trim())}`
+        );
+        if (verifyRes.ok) {
+          const info = await verifyRes.json();
+          if (info.email && (info.email_verified === "true" || info.email_verified === true)) {
+            verifiedEmail = info.email.toLowerCase();
+            verifiedUid = info.sub;
+          }
+        }
+      } catch (tokenErr) {
+        console.warn("Google id_token verification notice:", tokenErr);
+      }
+    }
+    if (!verifiedEmail && typeof accessToken === "string" && accessToken.trim()) {
+      try {
+        const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${accessToken.trim()}` }
+        });
+        if (userInfoRes.ok) {
+          const info = await userInfoRes.json();
+          if (info.email && (info.email_verified === true || info.email_verified === "true")) {
+            verifiedEmail = info.email.toLowerCase();
+            verifiedUid = info.sub;
+          }
+        }
+      } catch (userinfoErr) {
+        console.warn("Google accessToken userinfo notice:", userinfoErr);
+      }
+    }
+    if (!verifiedEmail || verifiedEmail !== email.trim().toLowerCase()) {
+      res.status(401).json({
+        error: "UNAUTHORIZED",
+        message: "Google identity verification failed. A valid, verified Google OAuth or ID token is required."
+      });
+      return;
+    }
     const user = await db.syncGoogleProfile({
-      uid,
-      email,
-      displayName: displayName || email.split("@")[0]
+      uid: verifiedUid || uid,
+      email: verifiedEmail,
+      displayName: displayName || verifiedEmail.split("@")[0]
     });
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "24h" });
     res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
@@ -2445,85 +2100,6 @@ app.post("/api/auth/google-sync", async (req, res) => {
     res.json({ token, user, isBrowserClient: !!isBrowserClient });
   } catch (err) {
     sendSafeErrorResponse(err, req, res, "GOOGLE_SYNC_FAILED");
-  }
-});
-app.post("/api/auth/organization-login", async (req, res) => {
-  const ip = getClientIp(req);
-  const ipResult = authRateLimiter.checkIp(ip);
-  if (!ipResult.allowed) {
-    db.recordAuditLog({
-      action: "AUTH_RATE_LIMIT_EXCEEDED",
-      entityType: "security",
-      details: `Authentication rate limit exceeded for organization login from IP ${ip}.`,
-      performedBy: "anonymous",
-      performedByEmail: "anonymous"
-    }).catch(() => {
-    });
-    res.setHeader("Retry-After", ipResult.retryAfterSeconds.toString());
-    res.status(429).json({
-      error: "TOO_MANY_REQUESTS",
-      message: "Too many authentication requests from this IP address. Please wait before trying again."
-    });
-    return;
-  }
-  try {
-    const { email, password, uid, displayName } = req.body;
-    let user = null;
-    if (email && password) {
-      if (typeof email !== "string" || typeof password !== "string") {
-        res.status(400).json({ error: "BAD_REQUEST", message: "Email and password must be strings." });
-        return;
-      }
-      const normalizedEmail = email.trim().toLowerCase();
-      const accountResult = authRateLimiter.checkAccount(normalizedEmail);
-      if (!accountResult.allowed) {
-        db.recordAuditLog({
-          action: "AUTH_RATE_LIMIT_EXCEEDED",
-          entityType: "security",
-          details: `Organization login rate limit exceeded for ${normalizedEmail} from IP ${ip}.`,
-          performedBy: "anonymous",
-          performedByEmail: normalizedEmail
-        }).catch(() => {
-        });
-        res.setHeader("Retry-After", accountResult.retryAfterSeconds.toString());
-        res.status(429).json({
-          error: "TOO_MANY_REQUESTS",
-          message: "Too many failed login attempts. Please wait before trying again."
-        });
-        return;
-      }
-      user = await db.verifyUserCredentials({ email: normalizedEmail, password });
-      if (!user) {
-        authRateLimiter.recordFailedAttempt(normalizedEmail);
-        res.status(401).json({ error: "INVALID_CREDENTIALS", message: "Invalid credentials." });
-        return;
-      }
-      authRateLimiter.recordSuccessfulAttempt(normalizedEmail);
-    } else if (uid && email) {
-      user = await db.syncGoogleProfile({
-        uid,
-        email,
-        displayName: displayName || email.split("@")[0]
-      });
-    }
-    if (!user) {
-      res.status(401).json({ error: "INVALID_CREDENTIALS", message: "Invalid credentials." });
-      return;
-    }
-    if (!db.isAppOwner(user.email)) {
-      res.status(403).json({ error: "FORBIDDEN", message: "Access denied." });
-      return;
-    }
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "24h" });
-    res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
-    const isBrowserClient = req.headers["x-requested-with"] === "XMLHttpRequest";
-    res.json({ token, user, isBrowserClient: !!isBrowserClient });
-  } catch (err) {
-    if (err instanceof AccountSuspendedError) {
-      res.status(403).json({ error: "ACCOUNT_SUSPENDED", message: err.message });
-      return;
-    }
-    sendSafeErrorResponse(err, req, res, "LOGIN_FAILED");
   }
 });
 app.post("/api/auth/logout", (req, res) => {
@@ -2563,6 +2139,33 @@ app.post("/api/auth/change-password", authenticateToken, async (req, res) => {
     sendSafeErrorResponse(err, req, res, "PASSWORD_CHANGE_FAILED");
   }
 });
+app.post("/api/auth/forgot-password", async (req, res) => {
+  const ip = getClientIp(req);
+  const ipResult = authRateLimiter.checkIp(ip);
+  if (!ipResult.allowed) {
+    res.setHeader("Retry-After", ipResult.retryAfterSeconds.toString());
+    res.status(429).json({
+      error: "TOO_MANY_REQUESTS",
+      message: "Too many requests. Please wait before trying again."
+    });
+    return;
+  }
+  try {
+    const { email } = req.body || {};
+    if (!email || typeof email !== "string") {
+      res.status(400).json({ error: "BAD_REQUEST", message: "Email is required as a string." });
+      return;
+    }
+    const result = await db.generatePasswordResetToken(email);
+    res.json({
+      success: true,
+      message: "If an account exists with that email address, password reset instructions have been generated.",
+      ...!isProd && result ? { devResetToken: result.token } : {}
+    });
+  } catch (err) {
+    sendSafeErrorResponse(err, req, res, "FORGOT_PASSWORD_FAILED");
+  }
+});
 app.post("/api/auth/reset-password", async (req, res) => {
   try {
     const { email, resetToken, newPassword, confirmPassword } = req.body || {};
@@ -2592,81 +2195,8 @@ app.post("/api/auth/reset-password", async (req, res) => {
     sendSafeErrorResponse(err, req, res, "PASSWORD_RESET_FAILED");
   }
 });
-app.post("/api/auth/admin/set-user-password", authenticateToken, async (req, res) => {
-  try {
-    if (!db.isAppOwner(req.user.email)) {
-      res.status(403).json({ error: "FORBIDDEN", message: "Access denied." });
-      return;
-    }
-    const { targetUserId, newPassword } = req.body || {};
-    if (typeof targetUserId !== "string" || typeof newPassword !== "string") {
-      res.status(400).json({
-        error: "INVALID_REQUEST",
-        message: "targetUserId and newPassword are required strings."
-      });
-      return;
-    }
-    await db.adminResetUserPassword({
-      adminUserId: req.user.id,
-      targetUserId,
-      newPassword
-    });
-    res.json({ success: true, message: "User password reset successfully." });
-  } catch (err) {
-    sendSafeErrorResponse(err, req, res, "ADMIN_PASSWORD_RESET_FAILED");
-  }
-});
 app.get("/api/auth/me", authenticateToken, async (req, res) => {
   res.json({ user: req.user });
-});
-app.get("/api/organizations", authenticateToken, async (req, res) => {
-  try {
-    const organizations = await db.getUserOrganizations(req.user.id);
-    res.json({ organizations });
-  } catch (err) {
-    sendSafeErrorResponse(err, req, res, "SERVER_ERROR");
-  }
-});
-app.post("/api/organizations", authenticateToken, async (req, res) => {
-  try {
-    const { name, description, institution, contactEmail } = req.body || {};
-    if (!name || typeof name !== "string" || !name.trim()) {
-      res.status(400).json({ error: "BAD_REQUEST", message: "Organization name is required." });
-      return;
-    }
-    if (description !== void 0 && typeof description !== "string") {
-      res.status(400).json({ error: "BAD_REQUEST", message: "Description must be a string." });
-      return;
-    }
-    if (institution !== void 0 && typeof institution !== "string") {
-      res.status(400).json({ error: "BAD_REQUEST", message: "Institution must be a string." });
-      return;
-    }
-    if (contactEmail !== void 0 && typeof contactEmail !== "string") {
-      res.status(400).json({ error: "BAD_REQUEST", message: "Contact email must be a string." });
-      return;
-    }
-    const organization = await db.createOrganization(req.user.id, req.body);
-    res.status(201).json({ organization });
-  } catch (err) {
-    sendSafeErrorResponse(err, req, res, "CREATE_ORG_FAILED");
-  }
-});
-app.get("/api/organizations/:id", authenticateToken, async (req, res) => {
-  try {
-    if (!req.params.id || typeof req.params.id !== "string") {
-      res.status(400).json({ error: "BAD_REQUEST", message: "Organization ID is required." });
-      return;
-    }
-    const organization = await db.getOrganizationById(req.params.id);
-    if (!organization) {
-      res.status(404).json({ error: "NOT_FOUND", message: "Organization not found." });
-      return;
-    }
-    res.json({ organization });
-  } catch (err) {
-    sendSafeErrorResponse(err, req, res, "SERVER_ERROR");
-  }
 });
 app.get("/api/groups", authenticateToken, async (req, res) => {
   try {
@@ -2686,7 +2216,6 @@ app.post("/api/groups", authenticateToken, async (req, res) => {
       targetSampleSize,
       description,
       institution,
-      organizationId,
       customFields
     } = req.body || {};
     if (!name || typeof name !== "string" || !name.trim()) {
@@ -2705,10 +2234,6 @@ app.post("/api/groups", authenticateToken, async (req, res) => {
       res.status(400).json({ error: "BAD_REQUEST", message: "Institution must be a string." });
       return;
     }
-    if (organizationId !== void 0 && typeof organizationId !== "string") {
-      res.status(400).json({ error: "BAD_REQUEST", message: "Organization ID must be a string." });
-      return;
-    }
     if (customFields !== void 0 && !Array.isArray(customFields)) {
       res.status(400).json({ error: "BAD_REQUEST", message: "Custom fields must be an array." });
       return;
@@ -2721,7 +2246,6 @@ app.post("/api/groups", authenticateToken, async (req, res) => {
       targetSampleSize,
       description,
       institution,
-      organizationId,
       customFields
     });
     res.status(201).json({ group });
@@ -2739,7 +2263,7 @@ app.get("/api/groups/:groupId", authenticateToken, async (req, res) => {
 });
 app.patch("/api/groups/:groupId/settings", authenticateToken, async (req, res) => {
   try {
-    const { name, studyTitle, description, institution, organizationId, customFields } = req.body || {};
+    const { name, studyTitle, description, institution, customFields } = req.body || {};
     if (name !== void 0 && (typeof name !== "string" || !name.trim())) {
       res.status(400).json({ error: "BAD_REQUEST", message: "Study name must be a non-empty string." });
       return;
@@ -2754,10 +2278,6 @@ app.patch("/api/groups/:groupId/settings", authenticateToken, async (req, res) =
     }
     if (institution !== void 0 && typeof institution !== "string") {
       res.status(400).json({ error: "BAD_REQUEST", message: "Institution must be a string." });
-      return;
-    }
-    if (organizationId !== void 0 && typeof organizationId !== "string") {
-      res.status(400).json({ error: "BAD_REQUEST", message: "Organization ID must be a string." });
       return;
     }
     if (customFields !== void 0 && !Array.isArray(customFields)) {
@@ -2844,7 +2364,7 @@ app.get("/api/groups/:groupId/files", authenticateToken, async (req, res) => {
 });
 app.post("/api/groups/:groupId/files", authenticateToken, async (req, res) => {
   try {
-    const { name, size, mimeType, category, fileData } = req.body || {};
+    const { name, size, mimeType, category, fileData, driveFileId, driveLink, isDriveDirect } = req.body || {};
     if (!name || typeof name !== "string" || !name.trim()) {
       res.status(400).json({ error: "BAD_REQUEST", message: "File name is required." });
       return;
@@ -2860,7 +2380,10 @@ app.post("/api/groups/:groupId/files", authenticateToken, async (req, res) => {
       size: typeof size === "number" ? size : 0,
       mimeType: mimeType || "application/octet-stream",
       category,
-      fileData
+      fileData,
+      driveFileId: typeof driveFileId === "string" ? driveFileId : void 0,
+      driveLink: typeof driveLink === "string" ? driveLink : void 0,
+      isDriveDirect: !!isDriveDirect
     });
     res.status(201).json({ file });
   } catch (err) {
@@ -3131,122 +2654,6 @@ app.get("/api/cases/team-summary", authenticateToken, async (req, res) => {
     sendSafeErrorResponse(err, req, res, "SERVER_ERROR");
   }
 });
-app.get("/api/app-owner/overview", authenticateAppOwner, async (req, res) => {
-  try {
-    const stats = await db.getAppOwnerOverview();
-    res.json({ stats });
-  } catch (err) {
-    sendSafeErrorResponse(err, req, res, "SERVER_ERROR");
-  }
-});
-app.get("/api/app-owner/organizations", authenticateAppOwner, async (req, res) => {
-  try {
-    const organizations = await db.getAppOwnerOrganizations();
-    res.json({ organizations });
-  } catch (err) {
-    sendSafeErrorResponse(err, req, res, "SERVER_ERROR");
-  }
-});
-app.get("/api/app-owner/users", authenticateAppOwner, async (req, res) => {
-  try {
-    const { search, status } = req.query;
-    const users = await db.getAppOwnerUsers({
-      search: typeof search === "string" ? search : void 0,
-      status: typeof status === "string" ? status : void 0
-    });
-    res.json({ users });
-  } catch (err) {
-    sendSafeErrorResponse(err, req, res, "SERVER_ERROR");
-  }
-});
-app.patch("/api/app-owner/users/:id/status", authenticateAppOwner, async (req, res) => {
-  try {
-    const { status } = req.body || {};
-    if (!status || typeof status !== "string" || !["active", "suspended"].includes(status)) {
-      res.status(400).json({ error: "BAD_REQUEST", message: 'Valid status ("active" or "suspended") is required.' });
-      return;
-    }
-    const updated = await db.setAppOwnerUserStatus(req.params.id, status, req.user.email);
-    res.json({ success: true, user: updated });
-  } catch (err) {
-    sendSafeErrorResponse(err, req, res, "ACTION_FAILED");
-  }
-});
-app.get("/api/app-owner/groups", authenticateAppOwner, async (req, res) => {
-  try {
-    const { search, status } = req.query;
-    const groups = await db.getAppOwnerGroups({
-      search: typeof search === "string" ? search : void 0,
-      status: typeof status === "string" ? status : void 0
-    });
-    res.json({ groups });
-  } catch (err) {
-    sendSafeErrorResponse(err, req, res, "SERVER_ERROR");
-  }
-});
-app.patch("/api/app-owner/groups/:id/status", authenticateAppOwner, async (req, res) => {
-  try {
-    const { status } = req.body || {};
-    if (!status || typeof status !== "string" || !["active", "archived", "suspended"].includes(status)) {
-      res.status(400).json({ error: "BAD_REQUEST", message: 'Valid status ("active", "archived", or "suspended") is required.' });
-      return;
-    }
-    const updated = await db.setAppOwnerGroupStatus(req.params.id, status, req.user.email);
-    res.json({ success: true, group: updated });
-  } catch (err) {
-    sendSafeErrorResponse(err, req, res, "ACTION_FAILED");
-  }
-});
-app.delete("/api/app-owner/groups/:id", authenticateAppOwner, async (req, res) => {
-  try {
-    const result = await db.deleteAppOwnerGroup(req.params.id, req.user.email);
-    res.json(result);
-  } catch (err) {
-    sendSafeErrorResponse(err, req, res, "DELETE_FAILED");
-  }
-});
-app.get("/api/app-owner/audit-logs", authenticateAppOwner, async (req, res) => {
-  try {
-    const { limit, action, entityType } = req.query;
-    const logs = db.getAuditLogs({
-      limit: limit && !isNaN(parseInt(limit, 10)) ? parseInt(limit, 10) : 100,
-      action: typeof action === "string" ? action : void 0,
-      entityType: typeof entityType === "string" ? entityType : void 0
-    });
-    res.json({ logs });
-  } catch (err) {
-    sendSafeErrorResponse(err, req, res, "SERVER_ERROR");
-  }
-});
-app.get("/api/app-owner/settings", authenticateAppOwner, (req, res) => {
-  try {
-    const settings = db.getAppSettings();
-    res.json({ settings });
-  } catch (err) {
-    sendSafeErrorResponse(err, req, res, "SERVER_ERROR");
-  }
-});
-app.patch("/api/app-owner/settings", authenticateAppOwner, async (req, res) => {
-  try {
-    const updated = await db.updateAppSettings(req.body || {}, req.user.email);
-    res.json({ settings: updated });
-  } catch (err) {
-    sendSafeErrorResponse(err, req, res, "UPDATE_FAILED");
-  }
-});
-app.patch("/api/app-owner/legal-policies/:id", authenticateAppOwner, async (req, res) => {
-  try {
-    const { content } = req.body || {};
-    if (!content || typeof content !== "string") {
-      res.status(400).json({ error: "BAD_REQUEST", message: "Policy content is required as a string." });
-      return;
-    }
-    const updated = await db.updateLegalPolicy(req.params.id, content, req.user.email);
-    res.json({ policy: updated });
-  } catch (err) {
-    sendSafeErrorResponse(err, req, res, "UPDATE_FAILED");
-  }
-});
 app.get(
   "/api/cases/events",
   authenticateToken,
@@ -3287,11 +2694,19 @@ app.get(
     });
   }
 );
-if (!isProd) {
-  app.get("/api/dev/force-error", (req, _res) => {
+if (!isProd && process.env.ENABLE_DEV_ENDPOINTS === "true") {
+  app.get("/api/dev/force-error", authenticateToken, (req, _res) => {
+    if (req.user?.email !== (process.env.ADMIN_EMAIL || "avishah.as118@gmail.com")) {
+      _res.status(403).json({ error: "FORBIDDEN" });
+      return;
+    }
     throw new Error("Controlled test server error for SEC-007 verification");
   });
-  app.get("/api/dev/force-type-error", (_req, _res) => {
+  app.get("/api/dev/force-type-error", authenticateToken, (req, _res) => {
+    if (req.user?.email !== (process.env.ADMIN_EMAIL || "avishah.as118@gmail.com")) {
+      _res.status(403).json({ error: "FORBIDDEN" });
+      return;
+    }
     const obj = void 0;
     return obj.trim();
   });

@@ -75,9 +75,6 @@ interface StoredFile {
   uploaded_by: string;
   uploaded_by_name: string;
   file_data?: string;
-  drive_file_id?: string;
-  drive_link?: string;
-  is_drive_direct?: boolean;
   created_at: string;
 }
 
@@ -273,7 +270,7 @@ The primary function of the platform is to alert research collaborators when a p
 The platform serves as an operational coordination tool for case assignment and duplicate prevention. Ultimate legal, clinical, and ethical responsibility for trial conduct, patient safety, and regulatory compliance resides with the Principal Investigator and the sponsoring healthcare institution.`,
   },
   {
-    id: 'storage-drive-notice',
+    id: 'storage-policy-notice',
     title: 'Data Storage, Security & Retention Policy',
     category: 'storage',
     last_updated: '2026-10-06T00:00:00.000Z',
@@ -1073,9 +1070,6 @@ export class RelationalDatabase {
         uploadedByName: f.uploaded_by_name,
         uploadedAt: f.created_at,
         fileData: f.file_data,
-        driveFileId: f.drive_file_id,
-        driveLink: f.drive_link,
-        isDriveDirect: f.is_drive_direct,
       }));
   }
 
@@ -1087,9 +1081,6 @@ export class RelationalDatabase {
     mimeType: string;
     category?: 'protocol' | 'approval' | 'questionnaire' | 'data' | 'other';
     fileData?: string;
-    driveFileId?: string;
-    driveLink?: string;
-    isDriveDirect?: boolean;
   }): Promise<ResearchFile> {
     return this.mutex.runExclusive(async () => {
       this.verifyUserGroupMembership(params.groupId, params.userId);
@@ -1129,9 +1120,6 @@ export class RelationalDatabase {
         uploaded_by: params.userId,
         uploaded_by_name: user ? user.display_name : 'Researcher',
         file_data: params.fileData,
-        drive_file_id: params.driveFileId,
-        drive_link: params.driveLink,
-        is_drive_direct: !!params.isDriveDirect,
         created_at: new Date().toISOString(),
       };
 
@@ -1149,9 +1137,6 @@ export class RelationalDatabase {
         uploadedByName: newFile.uploaded_by_name,
         uploadedAt: newFile.created_at,
         fileData: newFile.file_data,
-        driveFileId: newFile.drive_file_id,
-        driveLink: newFile.drive_link,
-        isDriveDirect: newFile.is_drive_direct,
       };
     });
   }
