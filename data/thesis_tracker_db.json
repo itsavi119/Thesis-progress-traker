@@ -2,16 +2,6 @@
   "version": 3,
   "profiles": [
     {
-      "id": "admin-super-avishah-118",
-      "email": "avishah.as118@gmail.com",
-      "password_hash": "",
-      "display_name": "Avi Shah",
-      "role": "super_admin",
-      "status": "active",
-      "created_at": "2026-10-08T06:01:04.775Z",
-      "updated_at": "2026-10-08T06:01:04.775Z"
-    },
-    {
       "id": "942d46fc-c6ad-4829-ae6f-291b75fe9901",
       "email": "anilshah.as118@gmail.com",
       "password_hash": "$2b$10$tHhOy4eEs718eyv4uZh50.g9xnS77mDpC17upd2QnbEauFN61X6W2",
@@ -19,13 +9,60 @@
       "role": "member",
       "created_at": "2026-10-05T09:41:02.183Z",
       "updated_at": "2026-10-08T06:01:04.775Z"
+    },
+    {
+      "id": "736f641b-8a81-4a02-a804-647e82ffb29e",
+      "email": "doctor.smith@clinic.org",
+      "password_hash": "$2b$10$49DKfSfTHR652K45yCwjYusm1TNs0FPlRsPXFNJtIhpXK0wGB1YhC",
+      "display_name": "Dr. Smith",
+      "role": "member",
+      "status": "active",
+      "created_at": "2026-10-08T12:51:40.621Z",
+      "updated_at": "2026-10-08T12:51:40.621Z",
+      "last_login": "2026-10-08T12:51:52.512Z",
+      "last_active_at": "2026-10-08T12:51:52.512Z"
     }
   ],
   "organizations": [],
-  "groups": [],
+  "groups": [
+    {
+      "id": "e107401e-d6f5-4114-8677-e3843f75328b",
+      "name": "Cardiology Cohort A",
+      "study_title": "Post-MI Stent Adherence Study",
+      "study_type": "Clinical Pharmacy",
+      "subject_terminology": "Patient",
+      "target_sample_size": 100,
+      "custom_fields": [],
+      "owner_id": "736f641b-8a81-4a02-a804-647e82ffb29e",
+      "status": "active",
+      "members": [
+        {
+          "user_id": "736f641b-8a81-4a02-a804-647e82ffb29e",
+          "email": "doctor.smith@clinic.org",
+          "display_name": "Dr. Smith",
+          "role": "owner",
+          "joined_at": "2026-10-08T12:51:46.771Z"
+        }
+      ],
+      "created_at": "2026-10-08T12:51:46.771Z",
+      "updated_at": "2026-10-08T12:51:46.771Z"
+    }
+  ],
   "invitations": [],
-  "admin_invitations": [],
-  "cases": [],
+  "cases": [
+    {
+      "id": "a7955706-83bb-412c-9cc3-f9f9481ce47d",
+      "group_id": "e107401e-d6f5-4114-8677-e3843f75328b",
+      "patient_id": "CARDIO-001",
+      "normalized_patient_id": "CARDIO001",
+      "assigned_to": "736f641b-8a81-4a02-a804-647e82ffb29e",
+      "status": "In Progress",
+      "patient_name": "John Doe",
+      "diagnosis": "Acute Coronary Syndrome",
+      "registered_at": "2026-10-08T12:51:52.555Z",
+      "updated_at": "2026-10-08T12:51:52.555Z"
+    }
+  ],
   "files": [],
   "audit_logs": [
     {

@@ -1,6 +1,6 @@
 export type CaseStatus = 'In Progress' | 'Completed' | 'Excluded';
 
-export type UserRole = 'member' | 'admin' | 'super_admin';
+export type UserRole = 'member';
 
 export type GroupMemberRole = 'owner' | 'researcher';
 
@@ -152,67 +152,6 @@ export interface AuthResponse {
   user: UserProfile;
 }
 
-// --- ADMINISTRATIVE PORTAL TYPES ---
-
-export interface AdminStats {
-  totalUsers: number;
-  activeUsers: number;
-  inactiveUsers: number;
-  newUsersLast30Days: number;
-  recentlyActiveUsers24h: number;
-  currentlyOnlineUsers: number;
-  totalGroups: number;
-  activeGroups: number;
-  totalMemberships: number;
-  totalCases: number;
-  totalFiles: number;
-}
-
-export interface AdminUser {
-  id: string;
-  email: string;
-  displayName: string;
-  role: UserRole;
-  status: 'active' | 'suspended';
-  createdAt: string;
-  lastLogin?: string;
-  lastActiveAt?: string;
-  groupCount: number;
-  caseCount: number;
-  groups: Array<{
-    groupId: string;
-    groupName: string;
-    role: GroupMemberRole;
-    joinedAt: string;
-  }>;
-}
-
-export interface AdminGroup {
-  id: string;
-  name: string;
-  studyTitle: string;
-  studyType?: StudyType;
-  ownerId: string;
-  ownerName: string;
-  ownerEmail: string;
-  memberCount: number;
-  targetSampleSize: number;
-  caseCount: number;
-  description?: string;
-  institution?: string;
-  status: 'active' | 'archived' | 'suspended';
-  createdAt: string;
-  updatedAt: string;
-  members: Array<{
-    userId: string;
-    displayName: string;
-    email: string;
-    role: GroupMemberRole;
-    joinedAt: string;
-  }>;
-  invitationsCount: number;
-}
-
 export interface AuditLogEntry {
   id: string;
   action: string;
@@ -225,33 +164,10 @@ export interface AuditLogEntry {
   createdAt: string;
 }
 
-export interface AdminSettings {
-  maintenanceMode: boolean;
-  allowRegistration: boolean;
-  updatedAt: string;
-}
-
 export interface LegalPolicyDoc {
   id: string;
   title: string;
   category: 'privacy' | 'terms' | 'responsibility' | 'storage' | 'deletion' | 'disclaimer';
   content: string;
   lastUpdated: string;
-}
-
-export interface AdminInvitation {
-  id: string;
-  email: string;
-  role: 'admin' | 'super_admin';
-  token?: string;
-  tokenHash?: string;
-  invitedBy: string;
-  invitedByEmail: string;
-  invitedByName: string;
-  createdAt: string;
-  expiresAt: string;
-  status: 'pending' | 'accepted' | 'revoked' | 'expired';
-  acceptedBy?: string;
-  acceptedAt?: string;
-  note?: string;
 }

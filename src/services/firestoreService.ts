@@ -42,7 +42,7 @@ export interface FirestoreUserDoc {
   id: string;
   email: string;
   display_name: string;
-  role: 'admin' | 'member';
+  role: 'member';
   photo_url?: string;
   created_at: string;
   updated_at: string;
@@ -66,7 +66,7 @@ export const firestoreService = {
         id: user.uid,
         email: user.email || data.email,
         display_name: user.displayName || data.display_name || 'Researcher',
-        role: data.role || 'member',
+        role: 'member',
         created_at: data.created_at || now,
         updated_at: now,
       };

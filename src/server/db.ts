@@ -5,11 +5,6 @@ import bcrypt from 'bcryptjs';
 import { normalizePatientId, validatePatientId } from '../utils/normalizePatientId.js';
 import { validateServerPassword } from './passwordSecurity.js';
 import type {
-  AdminGroup,
-  AdminInvitation,
-  AdminSettings,
-  AdminStats,
-  AdminUser,
   AuditLogEntry,
   CaseRecord,
   CaseStatus,
@@ -28,18 +23,6 @@ import type {
   UserProfile,
   UserRole,
 } from '../types/index.js';
-
-export const INITIAL_ADMIN_EMAILS = [
-  'avishah.as118@gmail.com',
-];
-
-export const isInitialAdminEmail = (email: string | null | undefined): boolean => {
-  if (!email) return false;
-  const normalized = email.trim().toLowerCase();
-  return normalized === 'avishah.as118@gmail.com';
-};
-
-export const INITIAL_ADMIN_EMAIL = 'avishah.as118@gmail.com';
 
 export interface StoredProfile {
   id: string;
@@ -112,23 +95,6 @@ export interface StoredInvitation {
   accepted_at?: string;
 }
 
-export interface StoredAdminInvitation {
-  id: string;
-  email: string;
-  role: 'admin' | 'super_admin';
-  token: string;
-  token_hash: string;
-  invited_by: string;
-  invited_by_email: string;
-  invited_by_name: string;
-  created_at: string;
-  expires_at: string;
-  status: 'pending' | 'accepted' | 'revoked' | 'expired';
-  accepted_by?: string;
-  accepted_at?: string;
-  note?: string;
-}
-
 interface StoredCase {
   id: string;
   group_id: string;
@@ -176,7 +142,6 @@ interface DatabaseSchema {
   organizations?: any[];
   groups: StoredGroup[];
   invitations: StoredInvitation[];
-  admin_invitations?: StoredAdminInvitation[];
   cases: StoredCase[];
   files?: StoredFile[];
   audit_logs?: StoredAuditLog[];
@@ -371,7 +336,6 @@ export class RelationalDatabase {
       organizations: [],
       groups: [],
       invitations: [],
-      admin_invitations: [],
       cases: [],
       files: [],
       audit_logs: [],
@@ -397,7 +361,6 @@ export class RelationalDatabase {
           organizations: [],
           groups: Array.isArray(parsed.groups) ? parsed.groups : [],
           invitations: Array.isArray(parsed.invitations) ? parsed.invitations : [],
-          admin_invitations: Array.isArray(parsed.admin_invitations) ? parsed.admin_invitations : [],
           cases: Array.isArray(parsed.cases) ? parsed.cases : [],
           files: Array.isArray(parsed.files) ? parsed.files : [],
           audit_logs: Array.isArray(parsed.audit_logs) ? parsed.audit_logs : [],
@@ -414,43 +377,9 @@ export class RelationalDatabase {
         // Filter out any synthetic mock benchmark accounts (@hospital.org)
         this.data.profiles = this.data.profiles.filter((p) => !p.email.includes('@hospital.org'));
 
-        // Bootstrap sole super administrator: avishah.as118@gmail.com
-        const superAdminNormalized = 'avishah.as118@gmail.com';
-        let superAdminProfile = this.data.profiles.find((p) => p.email.toLowerCase() === superAdminNormalized);
-        if (!superAdminProfile) {
-          superAdminProfile = {
-            id: 'admin-super-avishah-118',
-            email: superAdminNormalized,
-            password_hash: '',
-            display_name: 'Avi Shah',
-            role: 'super_admin',
-            status: 'active',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-          this.data.profiles.unshift(superAdminProfile);
-        } else {
-          superAdminProfile.role = 'super_admin';
-          superAdminProfile.status = 'active';
-        }
-
-        // Enforce that ONLY avishah.as118@gmail.com or users with accepted admin invitations have admin roles
-        const acceptedAdminEmails = new Set(
-          (this.data.admin_invitations || [])
-            .filter((i) => i.status === 'accepted')
-            .map((i) => i.email.toLowerCase())
-        );
-
+        // All profiles have role member
         for (const profile of this.data.profiles) {
-          const emailNorm = profile.email.toLowerCase();
-          if (emailNorm === superAdminNormalized) {
-            profile.role = 'super_admin';
-          } else if (acceptedAdminEmails.has(emailNorm)) {
-            // Retain granted admin role
-          } else if (profile.role === 'admin' || profile.role === 'super_admin') {
-            // Revert back to member/researcher
-            profile.role = 'member';
-          }
+          profile.role = 'member';
         }
 
         // Migrate legacy invitations: compute deterministic token_hash if missing
@@ -516,47 +445,12 @@ export class RelationalDatabase {
     }
   }
 
-  // --- ROLE-BASED ADMIN AUTHORIZATION ---
-
-  public isAdmin(userOrEmail: StoredProfile | UserProfile | string | null | undefined): boolean {
-    if (!userOrEmail) return false;
-    if (typeof userOrEmail === 'string') {
-      const email = userOrEmail.trim().toLowerCase();
-      if (isInitialAdminEmail(email)) return true;
-      const profile = this.data.profiles.find((p) => p.email.toLowerCase() === email);
-      return profile ? (profile.role === 'admin' || profile.role === 'super_admin') : false;
-    }
-    if (isInitialAdminEmail(userOrEmail.email)) return true;
-    const role = userOrEmail.role;
-    return role === 'admin' || role === 'super_admin';
-  }
-
-  public isSuperAdmin(userOrEmail: StoredProfile | UserProfile | string | null | undefined): boolean {
-    if (!userOrEmail) return false;
-    if (typeof userOrEmail === 'string') {
-      const email = userOrEmail.trim().toLowerCase();
-      if (isInitialAdminEmail(email)) return true;
-      const profile = this.data.profiles.find((p) => p.email.toLowerCase() === email);
-      return profile ? profile.role === 'super_admin' : false;
-    }
-    if (isInitialAdminEmail(userOrEmail.email)) return true;
-    return userOrEmail.role === 'super_admin';
-  }
-
-  public recordUserPresence(userId: string): void {
-    const profile = this.data.profiles.find((p) => p.id === userId);
-    if (profile) {
-      profile.last_active_at = new Date().toISOString();
-    }
-  }
-
   private resolveUserProfile(p: StoredProfile): UserProfile {
     const { password_hash, ...safeProfile } = p;
     const hasPassword = Boolean(password_hash && password_hash.trim().length > 0);
-    const effectiveRole = isInitialAdminEmail(p.email) ? 'super_admin' : (p.role || 'member');
     return {
       ...safeProfile,
-      role: effectiveRole,
+      role: p.role || 'member',
       status: p.status || 'active',
       last_login: p.last_login,
       last_active_at: p.last_active_at,
@@ -708,7 +602,7 @@ export class RelationalDatabase {
   }): Promise<UserProfile> {
     return this.mutex.runExclusive(async () => {
       if (this.data.app_settings && !this.data.app_settings.allow_registration) {
-        throw new ValidationError('New researcher registration is temporarily paused by the administrator.');
+        throw new ValidationError('New researcher registration is temporarily paused.');
       }
 
       if (
@@ -753,15 +647,12 @@ export class RelationalDatabase {
       const password_hash = await bcrypt.hash(params.password, salt);
       const now = new Date().toISOString();
 
-      const isInitialAdmin = email === INITIAL_ADMIN_EMAIL.toLowerCase();
-      const role: UserRole = isInitialAdmin ? 'super_admin' : 'member';
-
       const newProfile: StoredProfile = {
         id: crypto.randomUUID(),
         email,
         password_hash,
         display_name: displayName,
-        role,
+        role: 'member',
         status: 'active',
         created_at: now,
         updated_at: now,
@@ -790,9 +681,6 @@ export class RelationalDatabase {
         if (profile.status === 'suspended') {
           throw new AccountSuspendedError();
         }
-        if (email === INITIAL_ADMIN_EMAIL.toLowerCase() && profile.role !== 'super_admin') {
-          profile.role = 'super_admin';
-        }
         profile.last_login = new Date().toISOString();
         profile.last_active_at = profile.last_login;
         profile.display_name = (typeof params.displayName === 'string' && params.displayName.trim()) ? params.displayName.trim() : profile.display_name;
@@ -802,18 +690,16 @@ export class RelationalDatabase {
       }
 
       if (this.data.app_settings && !this.data.app_settings.allow_registration) {
-        throw new ValidationError('New researcher registration is temporarily paused by the administrator.');
+        throw new ValidationError('New researcher registration is temporarily paused.');
       }
 
       const now = new Date().toISOString();
-      const isInitialAdmin = email === INITIAL_ADMIN_EMAIL.toLowerCase();
-      const role: UserRole = isInitialAdmin ? 'super_admin' : 'member';
       const newProfile: StoredProfile = {
         id: params.uid,
         email,
         password_hash: '',
         display_name: (typeof params.displayName === 'string' && params.displayName.trim()) ? params.displayName.trim() : email.split('@')[0],
-        role,
+        role: 'member',
         status: 'active',
         last_login: now,
         last_active_at: now,
@@ -898,47 +784,6 @@ export class RelationalDatabase {
         details: `Password changed for user ${profile.email}.`,
         performedBy: profile.id,
         performedByEmail: profile.email,
-      });
-    });
-  }
-
-  public async adminResetUserPassword(params: {
-    adminUserId: string;
-    targetUserId: string;
-    newPassword: string;
-  }): Promise<void> {
-    return this.mutex.runExclusive(async () => {
-      const admin = this.data.profiles.find((p) => p.id === params.adminUserId);
-      if (!admin || !this.isAdmin(admin)) {
-        throw new UnauthorizedGroupActionError('Access denied: Administrator authorization required.');
-      }
-
-      const target = this.data.profiles.find((p) => p.id === params.targetUserId);
-      if (!target) {
-        throw new ValidationError('Target user account not found.');
-      }
-
-      // Enforce the identical password policy for administrators without bypass
-      const passwordCheck = await validateServerPassword(params.newPassword);
-      if (!passwordCheck.isValid) {
-        if (passwordCheck.errorCode === 'WEAK_PASSWORD') {
-          throw new WeakPasswordError(passwordCheck.message);
-        }
-        throw new ValidationError(passwordCheck.message || 'Password does not meet the security requirements.');
-      }
-
-      const salt = await bcrypt.genSalt(10);
-      target.password_hash = await bcrypt.hash(params.newPassword, salt);
-      target.updated_at = new Date().toISOString();
-      await this.persist();
-
-      await this.recordAuditLog({
-        action: 'ADMIN_PASSWORD_RESET',
-        entityType: 'user',
-        entityId: target.id,
-        details: `Password reset by administrator ${admin.email} for user ${target.email}.`,
-        performedBy: admin.id,
-        performedByEmail: admin.email,
       });
     });
   }
@@ -1849,452 +1694,6 @@ export class RelationalDatabase {
     };
   }
 
-  // =========================================================================
-  // --- ADMINISTRATIVE PORTAL BACKEND METHODS ---
-  // =========================================================================
-
-  private mapToAdminUser(p: StoredProfile): AdminUser {
-    const userGroups = this.data.groups
-      .filter((g) => g.members.some((m) => m.user_id === p.id))
-      .map((g) => {
-        const m = g.members.find((mem) => mem.user_id === p.id)!;
-        return {
-          groupId: g.id,
-          groupName: g.name,
-          role: m.role,
-          joinedAt: m.joined_at,
-        };
-      });
-
-    const userCaseCount = this.data.cases.filter((c) => c.assigned_to === p.id).length;
-
-    return {
-      id: p.id,
-      email: p.email,
-      displayName: p.display_name,
-      role: p.role,
-      status: p.status || 'active',
-      createdAt: p.created_at,
-      lastLogin: p.last_login,
-      lastActiveAt: p.last_active_at,
-      groupCount: userGroups.length,
-      caseCount: userCaseCount,
-      groups: userGroups,
-    };
-  }
-
-  public async getAdminOverview(): Promise<AdminStats> {
-    const totalUsers = this.data.profiles.length;
-    const activeUsers = this.data.profiles.filter((p) => (p.status || 'active') === 'active').length;
-    const inactiveUsers = this.data.profiles.filter((p) => p.status === 'suspended').length;
-
-    const now = Date.now();
-    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
-    const oneDayAgo = now - 24 * 60 * 60 * 1000;
-    const fiveMinutesAgo = now - 5 * 60 * 1000;
-
-    const newUsersLast30Days = this.data.profiles.filter(
-      (p) => new Date(p.created_at).getTime() >= thirtyDaysAgo
-    ).length;
-
-    const recentlyActiveUsers24h = this.data.profiles.filter((p) => {
-      const activeTime = p.last_active_at || p.last_login || p.updated_at;
-      return activeTime && new Date(activeTime).getTime() >= oneDayAgo;
-    }).length;
-
-    const currentlyOnlineUsers = this.data.profiles.filter((p) => {
-      return p.last_active_at && new Date(p.last_active_at).getTime() >= fiveMinutesAgo;
-    }).length;
-
-    const totalGroups = this.data.groups.length;
-    const activeGroups = this.data.groups.filter((g) => (g.status || 'active') === 'active').length;
-    const totalMemberships = this.data.groups.reduce((acc, g) => acc + g.members.length, 0);
-    const totalCases = this.data.cases.length;
-    const totalFiles = this.data.files?.length || 0;
-
-    return {
-      totalUsers,
-      activeUsers,
-      inactiveUsers,
-      newUsersLast30Days,
-      recentlyActiveUsers24h,
-      currentlyOnlineUsers,
-      totalGroups,
-      activeGroups,
-      totalMemberships,
-      totalCases,
-      totalFiles,
-    };
-  }
-
-  public async getAdminUsers(options?: {
-    search?: string;
-    status?: string;
-    role?: string;
-  }): Promise<AdminUser[]> {
-    let list = this.data.profiles;
-
-    if (options?.search) {
-      const q = options.search.trim().toLowerCase();
-      list = list.filter(
-        (p) =>
-          p.display_name.toLowerCase().includes(q) ||
-          p.email.toLowerCase().includes(q)
-      );
-    }
-
-    if (options?.status && options.status !== 'ALL') {
-      list = list.filter((p) => (p.status || 'active') === options.status);
-    }
-
-    if (options?.role && options.role !== 'ALL') {
-      list = list.filter((p) => p.role === options.role);
-    }
-
-    return list.map((p) => this.mapToAdminUser(p));
-  }
-
-  public async getAdminUserDetail(userId: string): Promise<{
-    user: AdminUser;
-    activity: AuditLogEntry[];
-    casesCount: number;
-  } | null> {
-    const profile = this.data.profiles.find((p) => p.id === userId);
-    if (!profile) return null;
-
-    const user = this.mapToAdminUser(profile);
-    const activity = (this.data.audit_logs || [])
-      .filter((l) => l.performed_by === userId || l.entity_id === userId || l.performed_by_email === profile.email)
-      .slice(0, 50);
-
-    const casesCount = this.data.cases.filter((c) => c.assigned_to === userId).length;
-
-    return {
-      user,
-      activity: activity.map((l) => ({
-        id: l.id,
-        action: l.action,
-        entityType: l.entity_type,
-        entityId: l.entity_id,
-        entityName: l.entity_name,
-        details: l.details,
-        performedBy: l.performed_by,
-        performedByEmail: l.performed_by_email,
-        createdAt: l.created_at,
-      })),
-      casesCount,
-    };
-  }
-
-  public async setAdminUserStatus(
-    userId: string,
-    newStatus: 'active' | 'suspended',
-    adminEmail: string
-  ): Promise<AdminUser> {
-    return this.mutex.runExclusive(async () => {
-      const profile = this.data.profiles.find((p) => p.id === userId);
-      if (!profile) throw new ValidationError('User profile not found.');
-
-      if (profile.email.toLowerCase() === INITIAL_ADMIN_EMAIL.toLowerCase()) {
-        throw new ValidationError('Action rejected: Cannot modify status of the primary initial administrator.');
-      }
-
-      profile.status = newStatus;
-      profile.updated_at = new Date().toISOString();
-      await this.persist();
-
-      await this.recordAuditLog({
-        action: newStatus === 'suspended' ? 'USER_SUSPENDED' : 'USER_REACTIVATED',
-        entityType: 'user',
-        entityId: profile.id,
-        entityName: profile.display_name,
-        details: `Account status for "${profile.email}" changed to ${newStatus}.`,
-        performedBy: adminEmail,
-        performedByEmail: adminEmail,
-      });
-
-      return this.mapToAdminUser(profile);
-    });
-  }
-
-  public async setAdminUserRole(
-    userId: string,
-    newRole: UserRole,
-    adminEmail: string,
-    operatorIsSuperAdmin: boolean
-  ): Promise<AdminUser> {
-    return this.mutex.runExclusive(async () => {
-      const profile = this.data.profiles.find((p) => p.id === userId);
-      if (!profile) throw new ValidationError('User profile not found.');
-
-      if (profile.email.toLowerCase() === INITIAL_ADMIN_EMAIL.toLowerCase() && newRole !== 'super_admin') {
-        throw new ValidationError('Action rejected: Cannot revoke role from the primary initial administrator.');
-      }
-
-      if (!operatorIsSuperAdmin && (newRole === 'super_admin' || profile.role === 'super_admin')) {
-        throw new UnauthorizedGroupActionError('Only Super Administrators can assign or modify Super Administrator roles.');
-      }
-
-      const previousRole = profile.role;
-      profile.role = newRole;
-      profile.updated_at = new Date().toISOString();
-      await this.persist();
-
-      await this.recordAuditLog({
-        action: 'USER_ROLE_CHANGED',
-        entityType: 'user',
-        entityId: profile.id,
-        entityName: profile.display_name,
-        details: `Role for "${profile.email}" changed from ${previousRole} to ${newRole}.`,
-        performedBy: adminEmail,
-        performedByEmail: adminEmail,
-      });
-
-      return this.mapToAdminUser(profile);
-    });
-  }
-
-  public async deleteAdminUser(
-    userId: string,
-    adminEmail: string
-  ): Promise<{ success: boolean; email: string }> {
-    return this.mutex.runExclusive(async () => {
-      const idx = this.data.profiles.findIndex((p) => p.id === userId);
-      if (idx === -1) throw new ValidationError('User not found.');
-
-      const target = this.data.profiles[idx];
-      if (target.email.toLowerCase() === INITIAL_ADMIN_EMAIL.toLowerCase()) {
-        throw new ValidationError('Action rejected: Cannot delete the primary initial administrator account.');
-      }
-
-      const [removed] = this.data.profiles.splice(idx, 1);
-
-      // Remove from group memberships
-      for (const group of this.data.groups) {
-        group.members = group.members.filter((m) => m.user_id !== userId);
-      }
-
-      await this.persist();
-
-      await this.recordAuditLog({
-        action: 'USER_DELETED',
-        entityType: 'user',
-        entityId: removed.id,
-        entityName: removed.display_name,
-        details: `User account "${removed.email}" permanently removed by administrator.`,
-        performedBy: adminEmail,
-        performedByEmail: adminEmail,
-      });
-
-      return { success: true, email: removed.email };
-    });
-  }
-
-  public async getAdminGroups(options?: {
-    search?: string;
-    status?: string;
-  }): Promise<AdminGroup[]> {
-    let list = this.data.groups;
-
-    if (options?.search) {
-      const q = options.search.trim().toLowerCase();
-      list = list.filter(
-        (g) =>
-          g.name.toLowerCase().includes(q) ||
-          g.study_title.toLowerCase().includes(q) ||
-          (g.institution && g.institution.toLowerCase().includes(q))
-      );
-    }
-
-    if (options?.status && options.status !== 'ALL') {
-      list = list.filter((g) => (g.status || 'active') === options.status);
-    }
-
-    return list.map((g) => {
-      const owner = this.data.profiles.find((p) => p.id === g.owner_id);
-      const caseCount = this.data.cases.filter((c) => c.group_id === g.id).length;
-      const invitationsCount = this.data.invitations.filter((i) => i.group_id === g.id).length;
-
-      return {
-        id: g.id,
-        name: g.name,
-        studyTitle: g.study_title,
-        studyType: g.study_type,
-        ownerId: g.owner_id,
-        ownerName: owner ? owner.display_name : 'Unknown Owner',
-        ownerEmail: owner ? owner.email : '',
-        memberCount: g.members.length,
-        targetSampleSize: g.target_sample_size,
-        caseCount,
-        description: g.description,
-        institution: g.institution,
-        status: g.status || 'active',
-        createdAt: g.created_at,
-        updatedAt: g.updated_at,
-        members: g.members.map((m) => ({
-          userId: m.user_id,
-          displayName: m.display_name,
-          email: m.email,
-          role: m.role,
-          joinedAt: m.joined_at,
-        })),
-        invitationsCount,
-      };
-    });
-  }
-
-  public async setAdminGroupStatus(
-    groupId: string,
-    newStatus: 'active' | 'archived' | 'suspended',
-    adminEmail: string
-  ): Promise<AdminGroup> {
-    return this.mutex.runExclusive(async () => {
-      const group = this.data.groups.find((g) => g.id === groupId);
-      if (!group) throw new GroupNotFoundError();
-
-      group.status = newStatus;
-      group.updated_at = new Date().toISOString();
-      await this.persist();
-
-      await this.recordAuditLog({
-        action: 'GROUP_STATUS_CHANGED',
-        entityType: 'group',
-        entityId: group.id,
-        entityName: group.name,
-        details: `Research study "${group.name}" status changed to ${newStatus}.`,
-        performedBy: adminEmail,
-        performedByEmail: adminEmail,
-      });
-
-      const owner = this.data.profiles.find((p) => p.id === group.owner_id);
-      const caseCount = this.data.cases.filter((c) => c.group_id === group.id).length;
-      const invitationsCount = this.data.invitations.filter((i) => i.group_id === group.id).length;
-
-      return {
-        id: group.id,
-        name: group.name,
-        studyTitle: group.study_title,
-        studyType: group.study_type,
-        ownerId: group.owner_id,
-        ownerName: owner ? owner.display_name : 'Unknown Owner',
-        ownerEmail: owner ? owner.email : '',
-        memberCount: group.members.length,
-        targetSampleSize: group.target_sample_size,
-        caseCount,
-        description: group.description,
-        institution: group.institution,
-        status: group.status || 'active',
-        createdAt: group.created_at,
-        updatedAt: group.updated_at,
-        members: group.members.map((m) => ({
-          userId: m.user_id,
-          displayName: m.display_name,
-          email: m.email,
-          role: m.role,
-          joinedAt: m.joined_at,
-        })),
-        invitationsCount,
-      };
-    });
-  }
-
-  public findGroupById(groupId: string): StoredGroup | undefined {
-    return this.data.groups.find((g) => g.id === groupId);
-  }
-
-  public async deleteAdminGroup(
-    groupId: string,
-    adminEmail: string
-  ): Promise<{ success: boolean; groupName: string }> {
-    return this.mutex.runExclusive(async () => {
-      const idx = this.data.groups.findIndex((g) => g.id === groupId);
-      if (idx === -1) throw new GroupNotFoundError();
-
-      const [removed] = this.data.groups.splice(idx, 1);
-
-      // Purge group cases, invitations, and files
-      const caseCountBefore = this.data.cases.length;
-      this.data.cases = this.data.cases.filter((c) => c.group_id !== groupId);
-      const casesPurged = caseCountBefore - this.data.cases.length;
-
-      this.data.invitations = this.data.invitations.filter((i) => i.group_id !== groupId);
-      if (this.data.files) {
-        this.data.files = this.data.files.filter((f) => f.group_id !== groupId);
-      }
-
-      await this.persist();
-
-      await this.recordAuditLog({
-        action: 'GROUP_DELETED',
-        entityType: 'group',
-        entityId: removed.id,
-        entityName: removed.name,
-        details: `Research study "${removed.name}" deleted (${casesPurged} case records purged).`,
-        performedBy: adminEmail,
-        performedByEmail: adminEmail,
-      });
-
-      return { success: true, groupName: removed.name };
-    });
-  }
-
-  public getAdminSettings(): AdminSettings {
-    const settings = this.data.app_settings || {
-      maintenance_mode: false,
-      allow_registration: true,
-      updated_at: new Date().toISOString(),
-    };
-
-    return {
-      maintenanceMode: settings.maintenance_mode,
-      allowRegistration: settings.allow_registration,
-      updatedAt: settings.updated_at,
-    };
-  }
-
-  public async updateAdminSettings(
-    updates: {
-      maintenanceMode?: boolean;
-      allowRegistration?: boolean;
-    },
-    adminEmail: string
-  ): Promise<AdminSettings> {
-    return this.mutex.runExclusive(async () => {
-      if (!this.data.app_settings) {
-        this.data.app_settings = {
-          maintenance_mode: false,
-          allow_registration: true,
-          updated_at: new Date().toISOString(),
-        };
-      }
-
-      if (updates.maintenanceMode !== undefined) {
-        this.data.app_settings.maintenance_mode = updates.maintenanceMode;
-      }
-
-      if (updates.allowRegistration !== undefined) {
-        this.data.app_settings.allow_registration = updates.allowRegistration;
-      }
-
-      this.data.app_settings.updated_at = new Date().toISOString();
-      await this.persist();
-
-      await this.recordAuditLog({
-        action: 'APP_SETTINGS_UPDATED',
-        entityType: 'settings',
-        details: `Application settings updated by ${adminEmail}. Registration allowed: ${this.data.app_settings.allow_registration}. Maintenance: ${this.data.app_settings.maintenance_mode}.`,
-        performedBy: adminEmail,
-        performedByEmail: adminEmail,
-      });
-
-      return {
-        maintenanceMode: this.data.app_settings.maintenance_mode,
-        allowRegistration: this.data.app_settings.allow_registration,
-        updatedAt: this.data.app_settings.updated_at,
-      };
-    });
-  }
-
   public getLegalPolicies(): LegalPolicyDoc[] {
     const docs = this.data.legal_docs || DEFAULT_LEGAL_DOCS;
     return docs.map((doc) => ({
@@ -2309,30 +1708,30 @@ export class RelationalDatabase {
   public async updateLegalPolicy(
     id: string,
     content: string,
-    adminEmail: string
+    operatorEmail: string
   ): Promise<LegalPolicyDoc> {
     return this.mutex.runExclusive(async () => {
       if (!this.data.legal_docs) this.data.legal_docs = [...DEFAULT_LEGAL_DOCS];
 
-      if (typeof content !== 'string') {
-        throw new ValidationError('Policy content must be a string.');
+      if (typeof content !== "string") {
+        throw new ValidationError("Policy content must be a string.");
       }
 
       const doc = this.data.legal_docs.find((d) => d.id === id);
-      if (!doc) throw new ValidationError('Policy document not found.');
+      if (!doc) throw new ValidationError("Policy document not found.");
 
       doc.content = content.trim();
       doc.last_updated = new Date().toISOString();
       await this.persist();
 
       await this.recordAuditLog({
-        action: 'LEGAL_POLICY_UPDATED',
-        entityType: 'legal',
+        action: "LEGAL_POLICY_UPDATED",
+        entityType: "legal",
         entityId: doc.id,
         entityName: doc.title,
         details: `Legal policy "${doc.title}" content updated.`,
-        performedBy: adminEmail,
-        performedByEmail: adminEmail,
+        performedBy: operatorEmail,
+        performedByEmail: operatorEmail,
       });
 
       return {
@@ -2342,315 +1741,6 @@ export class RelationalDatabase {
         content: doc.content,
         lastUpdated: doc.last_updated,
       };
-    });
-  }
-
-  // =========================================================================
-  // --- ADMINISTRATOR INVITATION MANAGEMENT METHODS ---
-  // =========================================================================
-
-  public async getAdminInvitations(): Promise<AdminInvitation[]> {
-    const list = this.data.admin_invitations || [];
-    const now = Date.now();
-    return list.map((inv) => {
-      let status = inv.status;
-      if (status === 'pending' && new Date(inv.expires_at).getTime() < now) {
-        status = 'expired';
-      }
-      return {
-        id: inv.id,
-        email: inv.email,
-        role: inv.role,
-        token: inv.token,
-        tokenHash: inv.token_hash,
-        invitedBy: inv.invited_by,
-        invitedByEmail: inv.invited_by_email,
-        invitedByName: inv.invited_by_name,
-        createdAt: inv.created_at,
-        expiresAt: inv.expires_at,
-        status,
-        acceptedBy: inv.accepted_by,
-        acceptedAt: inv.accepted_at,
-        note: inv.note,
-      };
-    });
-  }
-
-  public async createAdminInvitation(params: {
-    invitedBy: StoredProfile | UserProfile;
-    email: string;
-    role?: 'admin' | 'super_admin';
-    note?: string;
-  }): Promise<{ invitation: AdminInvitation; inviteLink: string; rawToken: string }> {
-    return this.mutex.runExclusive(async () => {
-      if (!this.data.admin_invitations) {
-        this.data.admin_invitations = [];
-      }
-
-      const email = params.email.trim().toLowerCase();
-      if (!email || !email.includes('@')) {
-        throw new ValidationError('A valid email address is required for administrator invitation.');
-      }
-
-      if (email === 'avishah.as118@gmail.com') {
-        throw new ValidationError('avishah.as118@gmail.com is already the primary Super Administrator.');
-      }
-
-      const existingProfile = this.data.profiles.find((p) => p.email.toLowerCase() === email);
-      if (existingProfile && (existingProfile.role === 'admin' || existingProfile.role === 'super_admin')) {
-        throw new ValidationError(`Account "${email}" is already an active administrator.`);
-      }
-
-      // Invalidate any prior pending invitation for this email
-      for (const inv of this.data.admin_invitations) {
-        if (inv.email.toLowerCase() === email && inv.status === 'pending') {
-          inv.status = 'revoked';
-        }
-      }
-
-      const rawToken = crypto.randomBytes(32).toString('hex');
-      const tokenHash = hashInvitationToken(rawToken);
-      const now = new Date();
-      const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
-      const role: 'admin' | 'super_admin' = params.role === 'super_admin' ? 'super_admin' : 'admin';
-
-      const newInvite: StoredAdminInvitation = {
-        id: crypto.randomUUID(),
-        email,
-        role,
-        token: rawToken,
-        token_hash: tokenHash,
-        invited_by: params.invitedBy.id,
-        invited_by_email: params.invitedBy.email,
-        invited_by_name: params.invitedBy.display_name || params.invitedBy.email,
-        created_at: now.toISOString(),
-        expires_at: expiresAt,
-        status: 'pending',
-        note: params.note?.trim(),
-      };
-
-      this.data.admin_invitations.unshift(newInvite);
-      await this.persist();
-
-      await this.recordAuditLog({
-        action: 'ADMIN_INVITATION_SENT',
-        entityType: 'security',
-        entityId: newInvite.id,
-        entityName: email,
-        details: `Administrator invitation sent to "${email}" with role "${role}" by ${params.invitedBy.email}.`,
-        performedBy: params.invitedBy.id,
-        performedByEmail: params.invitedBy.email,
-      });
-
-      const inviteLink = `/admin/accept-invite?token=${encodeURIComponent(rawToken)}`;
-
-      const invitation: AdminInvitation = {
-        id: newInvite.id,
-        email: newInvite.email,
-        role: newInvite.role,
-        token: rawToken,
-        tokenHash,
-        invitedBy: newInvite.invited_by,
-        invitedByEmail: newInvite.invited_by_email,
-        invitedByName: newInvite.invited_by_name,
-        createdAt: newInvite.created_at,
-        expiresAt: newInvite.expires_at,
-        status: 'pending',
-        note: newInvite.note,
-      };
-
-      return { invitation, inviteLink, rawToken };
-    });
-  }
-
-  public async revokeAdminInvitation(inviteId: string, adminEmail: string): Promise<boolean> {
-    return this.mutex.runExclusive(async () => {
-      const inv = (this.data.admin_invitations || []).find((i) => i.id === inviteId);
-      if (!inv) throw new ValidationError('Invitation not found.');
-
-      inv.status = 'revoked';
-      await this.persist();
-
-      await this.recordAuditLog({
-        action: 'ADMIN_INVITATION_REVOKED',
-        entityType: 'security',
-        entityId: inv.id,
-        entityName: inv.email,
-        details: `Administrator invitation for "${inv.email}" was revoked by ${adminEmail}.`,
-        performedBy: adminEmail,
-        performedByEmail: adminEmail,
-      });
-
-      return true;
-    });
-  }
-
-  public async resendAdminInvitation(
-    inviteId: string,
-    adminEmail: string
-  ): Promise<{ invitation: AdminInvitation; inviteLink: string }> {
-    return this.mutex.runExclusive(async () => {
-      const inv = (this.data.admin_invitations || []).find((i) => i.id === inviteId);
-      if (!inv) throw new ValidationError('Invitation not found.');
-
-      const rawToken = crypto.randomBytes(32).toString('hex');
-      inv.token = rawToken;
-      inv.token_hash = hashInvitationToken(rawToken);
-      inv.expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-      inv.status = 'pending';
-      await this.persist();
-
-      await this.recordAuditLog({
-        action: 'ADMIN_INVITATION_RESENT',
-        entityType: 'security',
-        entityId: inv.id,
-        entityName: inv.email,
-        details: `Administrator invitation for "${inv.email}" renewed by ${adminEmail}.`,
-        performedBy: adminEmail,
-        performedByEmail: adminEmail,
-      });
-
-      const inviteLink = `/admin/accept-invite?token=${encodeURIComponent(rawToken)}`;
-      return {
-        invitation: {
-          id: inv.id,
-          email: inv.email,
-          role: inv.role,
-          token: rawToken,
-          tokenHash: inv.token_hash,
-          invitedBy: inv.invited_by,
-          invitedByEmail: inv.invited_by_email,
-          invitedByName: inv.invited_by_name,
-          createdAt: inv.created_at,
-          expiresAt: inv.expires_at,
-          status: 'pending',
-          note: inv.note,
-        },
-        inviteLink,
-      };
-    });
-  }
-
-  public async verifyAdminInvitationToken(token: string): Promise<{
-    valid: boolean;
-    invitation?: AdminInvitation;
-    reason?: string;
-  }> {
-    if (!token || typeof token !== 'string') {
-      return { valid: false, reason: 'Missing invitation token.' };
-    }
-    const cleanToken = token.trim();
-    const tokenHash = hashInvitationToken(cleanToken);
-    const inv = (this.data.admin_invitations || []).find(
-      (i) => i.token_hash === tokenHash || i.token === cleanToken
-    );
-
-    if (!inv) {
-      return { valid: false, reason: 'Invalid or unknown administrator invitation link.' };
-    }
-
-    if (inv.status === 'revoked') {
-      return { valid: false, reason: 'This administrator invitation has been revoked by the Super Administrator.' };
-    }
-
-    if (inv.status === 'accepted') {
-      return { valid: false, reason: 'This invitation has already been accepted and the administrator account is active.' };
-    }
-
-    if (new Date(inv.expires_at).getTime() < Date.now()) {
-      inv.status = 'expired';
-      await this.persist();
-      return { valid: false, reason: 'This administrator invitation link has expired. Please request a new invitation.' };
-    }
-
-    return {
-      valid: true,
-      invitation: {
-        id: inv.id,
-        email: inv.email,
-        role: inv.role,
-        invitedBy: inv.invited_by,
-        invitedByEmail: inv.invited_by_email,
-        invitedByName: inv.invited_by_name,
-        createdAt: inv.created_at,
-        expiresAt: inv.expires_at,
-        status: inv.status,
-        note: inv.note,
-      },
-    };
-  }
-
-  public async acceptAdminInvitation(params: {
-    token: string;
-    displayName?: string;
-    password?: string;
-  }): Promise<{ user: UserProfile }> {
-    return this.mutex.runExclusive(async () => {
-      const verification = await this.verifyAdminInvitationToken(params.token);
-      if (!verification.valid || !verification.invitation) {
-        throw new ValidationError(verification.reason || 'Invalid or expired invitation token.');
-      }
-
-      const invRecord = (this.data.admin_invitations || []).find((i) => i.id === verification.invitation!.id);
-      if (!invRecord) throw new ValidationError('Invitation record not found.');
-
-      const targetEmail = invRecord.email.toLowerCase();
-      let profile = this.data.profiles.find((p) => p.email.toLowerCase() === targetEmail);
-
-      const now = new Date().toISOString();
-
-      if (profile) {
-        profile.role = invRecord.role;
-        profile.status = 'active';
-        if (params.displayName && params.displayName.trim()) {
-          profile.display_name = params.displayName.trim();
-        }
-        if (params.password && params.password.length >= 8) {
-          const salt = await bcrypt.genSalt(10);
-          profile.password_hash = await bcrypt.hash(params.password, salt);
-        }
-        profile.last_login = now;
-        profile.last_active_at = now;
-        profile.updated_at = now;
-      } else {
-        let passwordHash = '';
-        if (params.password && params.password.length >= 8) {
-          const salt = await bcrypt.genSalt(10);
-          passwordHash = await bcrypt.hash(params.password, salt);
-        }
-
-        profile = {
-          id: crypto.randomUUID(),
-          email: targetEmail,
-          password_hash: passwordHash,
-          display_name: params.displayName?.trim() || targetEmail.split('@')[0],
-          role: invRecord.role,
-          status: 'active',
-          last_login: now,
-          last_active_at: now,
-          created_at: now,
-          updated_at: now,
-        };
-        this.data.profiles.push(profile);
-      }
-
-      invRecord.status = 'accepted';
-      invRecord.accepted_by = profile.id;
-      invRecord.accepted_at = now;
-
-      await this.persist();
-
-      await this.recordAuditLog({
-        action: 'ADMIN_INVITATION_ACCEPTED',
-        entityType: 'security',
-        entityId: profile.id,
-        entityName: targetEmail,
-        details: `Account "${targetEmail}" accepted administrator invitation and was granted ${invRecord.role} privileges.`,
-        performedBy: profile.id,
-        performedByEmail: targetEmail,
-      });
-
-      return { user: this.resolveUserProfile(profile) };
     });
   }
 }

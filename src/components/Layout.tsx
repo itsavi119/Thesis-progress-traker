@@ -16,7 +16,6 @@ import {
   Check,
   FileText,
   KeyRound,
-  Shield,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.js';
 import { useGroup } from '../context/GroupContext.js';
@@ -39,11 +38,10 @@ export type ActiveTab =
 interface LayoutProps {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
-  onNavigateAdmin?: () => void;
   children: React.ReactNode;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, onNavigateAdmin, children }) => {
+export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, children }) => {
   const { user, logout } = useAuth();
   const { currentGroup, userGroups, selectGroup, refreshGroups } = useGroup();
 
@@ -267,18 +265,6 @@ export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, onNavig
             </div>
           </div>
 
-          {(user?.role === 'admin' || user?.role === 'super_admin') && onNavigateAdmin && (
-            <div className="mb-2">
-              <button
-                onClick={onNavigateAdmin}
-                className="w-full flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-rose-300 border border-slate-700 text-xs font-bold transition-colors cursor-pointer shadow-xs active:scale-[0.98]"
-              >
-                <Shield className="w-3.5 h-3.5 text-rose-400" />
-                <span>Open Admin Portal</span>
-              </button>
-            </div>
-          )}
-
           <div className="flex gap-2">
             {user?.auth_provider !== 'google' && user?.has_password !== false && (
               <button
@@ -445,19 +431,7 @@ export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, onNavig
               </button>
             </div>
 
-            <div className="pt-2 border-t border-slate-200 space-y-2">
-              {(user?.role === 'admin' || user?.role === 'super_admin') && onNavigateAdmin && (
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onNavigateAdmin();
-                  }}
-                  className="w-full min-h-[44px] flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-900 text-rose-300 font-bold text-xs border border-slate-700 active:scale-[0.98] transition-all cursor-pointer touch-manipulation"
-                >
-                  <Shield className="w-4 h-4 text-rose-400" />
-                  <span>Open Admin Portal</span>
-                </button>
-              )}
+            <div className="pt-2 border-t border-slate-200">
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);

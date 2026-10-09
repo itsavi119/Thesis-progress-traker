@@ -1,9 +1,4 @@
 import type {
-  AdminGroup,
-  AdminInvitation,
-  AdminSettings,
-  AdminStats,
-  AdminUser,
   AuditLogEntry,
   AuthResponse,
   CaseRecord,
@@ -27,32 +22,12 @@ class ApiService {
   private activeGroupId: string | null = null;
   private currentUserId: string | null = null;
   private token: string | null = null;
-  private adminToken: string | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
       this.token = localStorage.getItem('thesis_tracker_jwt_token');
-      this.adminToken = localStorage.getItem('thesis_tracker_admin_token');
       this.activeGroupId = localStorage.getItem('thesis_tracker_active_group_id');
     }
-  }
-
-  public setAdminToken(token: string | null) {
-    this.adminToken = token;
-    if (typeof window !== 'undefined') {
-      if (token) {
-        localStorage.setItem('thesis_tracker_admin_token', token);
-      } else {
-        localStorage.removeItem('thesis_tracker_admin_token');
-      }
-    }
-  }
-
-  public getAdminToken(): string | null {
-    if (!this.adminToken && typeof window !== 'undefined') {
-      this.adminToken = localStorage.getItem('thesis_tracker_admin_token');
-    }
-    return this.adminToken;
   }
 
   public setCurrentUserId(userId: string | null) {
@@ -133,11 +108,8 @@ class ApiService {
       ...((options.headers as Record<string, string>) || {}),
     };
 
-    const adminToken = this.getAdminToken();
     const token = this.getToken();
-    if (endpoint.startsWith('/api/admin/') && adminToken) {
-      headers['Authorization'] = `Bearer ${adminToken}`;
-    } else if (token && !headers['Authorization']) {
+    if (token && !headers['Authorization']) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
@@ -648,250 +620,6 @@ class ApiService {
       es?.close();
       onStatusChange?.(false);
     };
-  }
-
-  // =========================================================================
-  // --- ADMINISTRATIVE PORTAL CLIENT API ---
-  // =========================================================================
-
-  public async sendPresenceHeartbeat(): Promise<void> {
-    try {
-      await this.request<{ ok: boolean }>('/api/presence/heartbeat', {
-        method: 'POST',
-      });
-    } catch {}
-  }
-
-  public async adminLogin(params: {
-    email: string;
-    password?: string;
-  }): Promise<AuthResponse> {
-    const data = await this.request<AuthResponse>('/api/admin/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    });
-    if (data.token) {
-      this.setAdminToken(data.token);
-    }
-    return data;
-  }
-
-  public async adminGoogleSync(params: {
-    uid: string;
-    email: string;
-    displayName?: string;
-  }): Promise<AuthResponse> {
-    const data = await this.request<AuthResponse>('/api/admin/auth/google-sync', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    });
-    if (data.token) {
-      this.setAdminToken(data.token);
-    }
-    return data;
-  }
-
-  public async verifyAdminSession(): Promise<{
-    user: UserProfile;
-    role: string;
-    isSuperAdmin: boolean;
-  }> {
-    return this.request<{
-      user: UserProfile;
-      role: string;
-      isSuperAdmin: boolean;
-    }>('/api/admin/auth/verify');
-  }
-
-  public async adminLogout(): Promise<void> {
-    try {
-      await this.request<{ success: boolean }>('/api/admin/auth/logout', {
-        method: 'POST',
-      });
-    } catch {}
-    this.setAdminToken(null);
-  }
-
-  public async getAdminOverview(): Promise<{
-    stats: AdminStats;
-    recentAudit: AuditLogEntry[];
-    recentUsers: AdminUser[];
-  }> {
-    return this.request<{
-      stats: AdminStats;
-      recentAudit: AuditLogEntry[];
-      recentUsers: AdminUser[];
-    }>('/api/admin/overview');
-  }
-
-  public async getAdminUsers(params?: {
-    search?: string;
-    status?: string;
-    role?: string;
-  }): Promise<{ users: AdminUser[] }> {
-    const query = new URLSearchParams();
-    if (params?.search) query.set('search', params.search);
-    if (params?.status) query.set('status', params.status);
-    if (params?.role) query.set('role', params.role);
-    const qs = query.toString();
-    return this.request<{ users: AdminUser[] }>(`/api/admin/users${qs ? `?${qs}` : ''}`);
-  }
-
-  public async getAdminUserDetail(userId: string): Promise<{
-    user: AdminUser;
-    activity: AuditLogEntry[];
-    casesCount: number;
-  }> {
-    return this.request<{
-      user: AdminUser;
-      activity: AuditLogEntry[];
-      casesCount: number;
-    }>(`/api/admin/users/${userId}`);
-  }
-
-  public async setAdminUserStatus(
-    userId: string,
-    status: 'active' | 'suspended'
-  ): Promise<{ user: AdminUser }> {
-    return this.request<{ user: AdminUser }>(`/api/admin/users/${userId}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status }),
-    });
-  }
-
-  public async setAdminUserRole(
-    userId: string,
-    role: UserRole
-  ): Promise<{ user: AdminUser }> {
-    return this.request<{ user: AdminUser }>(`/api/admin/users/${userId}/role`, {
-      method: 'PATCH',
-      body: JSON.stringify({ role }),
-    });
-  }
-
-  public async deleteAdminUser(
-    userId: string
-  ): Promise<{ success: boolean; email: string }> {
-    return this.request<{ success: boolean; email: string }>(`/api/admin/users/${userId}`, {
-      method: 'DELETE',
-    });
-  }
-
-  public async getAdminGroups(params?: {
-    search?: string;
-    status?: string;
-  }): Promise<{ groups: AdminGroup[] }> {
-    const query = new URLSearchParams();
-    if (params?.search) query.set('search', params.search);
-    if (params?.status) query.set('status', params.status);
-    const qs = query.toString();
-    return this.request<{ groups: AdminGroup[] }>(`/api/admin/groups${qs ? `?${qs}` : ''}`);
-  }
-
-  public async setAdminGroupStatus(
-    groupId: string,
-    status: 'active' | 'archived' | 'suspended'
-  ): Promise<{ group: AdminGroup }> {
-    return this.request<{ group: AdminGroup }>(`/api/admin/groups/${groupId}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status }),
-    });
-  }
-
-  public async deleteAdminGroup(
-    groupId: string,
-    confirmGroupName: string
-  ): Promise<{ success: boolean; groupName: string }> {
-    return this.request<{ success: boolean; groupName: string }>(`/api/admin/groups/${groupId}`, {
-      method: 'DELETE',
-      body: JSON.stringify({ confirmGroupName }),
-    });
-  }
-
-  public async getAdminAuditLogs(params?: {
-    limit?: number;
-    action?: string;
-    entityType?: string;
-  }): Promise<{ logs: AuditLogEntry[] }> {
-    const query = new URLSearchParams();
-    if (params?.limit) query.set('limit', params.limit.toString());
-    if (params?.action) query.set('action', params.action);
-    if (params?.entityType) query.set('entityType', params.entityType);
-    const qs = query.toString();
-    return this.request<{ logs: AuditLogEntry[] }>(`/api/admin/audit-logs${qs ? `?${qs}` : ''}`);
-  }
-
-  public async getAdminSettings(): Promise<{ settings: AdminSettings }> {
-    return this.request<{ settings: AdminSettings }>('/api/admin/settings');
-  }
-
-  public async updateAdminSettings(params: {
-    maintenanceMode?: boolean;
-    allowRegistration?: boolean;
-  }): Promise<{ settings: AdminSettings }> {
-    return this.request<{ settings: AdminSettings }>('/api/admin/settings', {
-      method: 'PATCH',
-      body: JSON.stringify(params),
-    });
-  }
-
-  // Admin Invitations
-  public async getAdminInvitations(): Promise<{ invitations: AdminInvitation[] }> {
-    return this.request<{ invitations: AdminInvitation[] }>('/api/admin/invitations');
-  }
-
-  public async createAdminInvitation(params: {
-    email: string;
-    role?: 'admin' | 'super_admin';
-    note?: string;
-  }): Promise<{ invitation: AdminInvitation; inviteLink: string; rawToken: string }> {
-    return this.request<{ invitation: AdminInvitation; inviteLink: string; rawToken: string }>(
-      '/api/admin/invitations',
-      {
-        method: 'POST',
-        body: JSON.stringify(params),
-      }
-    );
-  }
-
-  public async revokeAdminInvitation(inviteId: string): Promise<{ success: boolean; message: string }> {
-    return this.request<{ success: boolean; message: string }>(`/api/admin/invitations/${inviteId}`, {
-      method: 'DELETE',
-    });
-  }
-
-  public async resendAdminInvitation(
-    inviteId: string
-  ): Promise<{ invitation: AdminInvitation; inviteLink: string }> {
-    return this.request<{ invitation: AdminInvitation; inviteLink: string }>(
-      `/api/admin/invitations/${inviteId}/resend`,
-      {
-        method: 'POST',
-      }
-    );
-  }
-
-  public async verifyAdminInvitation(
-    token: string
-  ): Promise<{ valid: boolean; invitation: AdminInvitation }> {
-    return this.request<{ valid: boolean; invitation: AdminInvitation }>(
-      `/api/admin/invitations/verify/${encodeURIComponent(token)}`
-    );
-  }
-
-  public async acceptAdminInvitation(params: {
-    token: string;
-    displayName?: string;
-    password?: string;
-  }): Promise<AuthResponse> {
-    const data = await this.request<AuthResponse>('/api/admin/invitations/accept', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    });
-    if (data.token) {
-      this.setAdminToken(data.token);
-    }
-    return data;
   }
 }
 

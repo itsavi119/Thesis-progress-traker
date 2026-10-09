@@ -22,7 +22,7 @@ import { Logo } from '../components/Logo.js';
 import { LegalDocsModal } from './LegalDocsModal.js';
 
 interface PublicWebsiteProps {
-  onNavigateToAuth: (mode?: 'login' | 'register' | 'admin-login') => void;
+  onNavigateToAuth: (mode?: 'login' | 'register') => void;
   isAuthenticated?: boolean;
   onGoToWorkspace?: () => void;
 }
@@ -143,14 +143,6 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
           {/* Header Action CTAs */}
           <div className="hidden sm:flex items-center gap-2.5">
-            <button
-              onClick={() => onNavigateToAuth('admin-login')}
-              className="px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer border border-slate-200 flex items-center gap-1.5"
-              title="Security Administration Portal"
-            >
-              <Shield className="w-3.5 h-3.5 text-rose-500" />
-              <span>Admin</span>
-            </button>
             {isAuthenticated ? (
               <button
                 onClick={onGoToWorkspace}
@@ -255,16 +247,6 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                     className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-center text-white bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer"
                   >
                     Sign Up
-                  </button>
-                  <button
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      onNavigateToAuth('admin-login');
-                    }}
-                    className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-center text-rose-300 bg-slate-900 hover:bg-slate-800 transition-colors cursor-pointer flex items-center justify-center gap-2 border border-slate-700"
-                  >
-                    <Shield className="w-4 h-4 text-rose-400" />
-                    <span>Admin Portal</span>
                   </button>
                 </>
               )}
@@ -732,15 +714,6 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                     className="hover:text-white transition-colors cursor-pointer"
                   >
                     Sign Up
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => onNavigateToAuth('admin-login')}
-                    className="hover:text-rose-400 transition-colors cursor-pointer flex items-center gap-1.5"
-                  >
-                    <Shield className="w-3.5 h-3.5 text-rose-500" />
-                    <span>Admin Portal</span>
                   </button>
                 </li>
               </ul>

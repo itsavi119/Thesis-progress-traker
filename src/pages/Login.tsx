@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, Mail, User, AlertCircle, ArrowLeft, CheckCircle2, X, Shield } from 'lucide-react';
+import { Lock, Mail, User, AlertCircle, ArrowLeft, CheckCircle2, X } from 'lucide-react';
 import { sendPasswordResetEmail } from 'firebase/auth';
 
 import { auth } from '../firebase/config.js';
@@ -15,7 +15,6 @@ interface LoginProps {
   onSuccessfulLogin?: () => void;
   onNavigateHome?: () => void;
   onSwitchMode?: (mode: 'login' | 'register') => void;
-  onNavigateAdmin?: () => void;
   initialMode?: 'login' | 'register';
 }
 
@@ -23,7 +22,6 @@ export const Login: React.FC<LoginProps> = ({
   onSuccessfulLogin,
   onNavigateHome,
   onSwitchMode,
-  onNavigateAdmin,
   initialMode = 'login',
 }) => {
   const { login, register, signInWithGoogle } = useAuth();
@@ -451,19 +449,6 @@ export const Login: React.FC<LoginProps> = ({
                   Sign Up →
                 </button>
               </p>
-            )}
-
-            {onNavigateAdmin && (
-              <div className="pt-1.5 border-t border-slate-100/80">
-                <button
-                  type="button"
-                  onClick={onNavigateAdmin}
-                  className="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50/60 font-semibold text-xs transition-colors cursor-pointer"
-                >
-                  <Shield className="w-3.5 h-3.5 text-rose-500" />
-                  <span>Administrator Portal Sign In →</span>
-                </button>
-              </div>
             )}
           </div>
         </div>
