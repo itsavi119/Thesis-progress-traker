@@ -339,7 +339,7 @@ The primary function of the platform is to alert research collaborators when a p
 The platform serves as an operational coordination tool for case assignment and duplicate prevention. Ultimate legal, clinical, and ethical responsibility for trial conduct, patient safety, and regulatory compliance resides with the Principal Investigator and the sponsoring healthcare institution.`
   },
   {
-    id: "storage-drive-notice",
+    id: "storage-policy-notice",
     title: "Data Storage, Security & Retention Policy",
     category: "storage",
     last_updated: "2026-10-06T00:00:00.000Z",
@@ -448,7 +448,17 @@ var RelationalDatabase = class {
         }
         this.saveToDiskSync();
       } catch (err) {
-        console.error("Failed to parse database file, initializing fresh state:", err);
+        console.error("CRITICAL: Failed to parse database file:", err);
+        const corruptBackup = `${this.filePath}.corrupt.${Date.now()}`;
+        try {
+          fs.copyFileSync(this.filePath, corruptBackup);
+          console.error(`[DATA RECOVERY] Existing database file preserved at ${corruptBackup}`);
+        } catch (copyErr) {
+          console.error("Failed to copy corrupt database file:", copyErr);
+        }
+        throw new Error(
+          `Fatal: Database file corruption detected at ${this.filePath}. Initialization halted to prevent data loss. Preserved copy at ${corruptBackup}.`
+        );
       }
     } else {
       this.saveToDiskSync();
@@ -501,7 +511,9 @@ var RelationalDatabase = class {
       last_login: p.last_login,
       last_active_at: p.last_active_at,
       has_password: hasPassword,
-      auth_provider: hasPassword ? "password" : "google"
+      auth_provider: p.auth_provider || (hasPassword ? "password" : "google"),
+      photo_url: p.photo_url || null,
+      firebase_uid: p.id
     };
   }
   resolveCaseRecord(c) {
@@ -693,6 +705,71 @@ var RelationalDatabase = class {
         display_name: typeof params.displayName === "string" && params.displayName.trim() ? params.displayName.trim() : email.split("@")[0],
         role: "member",
         status: "active",
+        last_login: now,
+        last_active_at: now,
+        created_at: now,
+        updated_at: now
+      };
+      this.data.profiles.push(newProfile);
+      await this.persist();
+      return this.resolveUserProfile(newProfile);
+    });
+  }
+  async syncFirebaseProfile(params) {
+    return this.mutex.runExclusive(async () => {
+      if (!params || typeof params.uid !== "string" || typeof params.email !== "string") {
+        throw new ValidationError("UID and email must be valid strings.");
+      }
+      const email = params.email.trim().toLowerCase();
+      const uid = params.uid.trim();
+      let profile = this.data.profiles.find((p) => p.id === uid || p.email.toLowerCase() === email);
+      if (profile) {
+        if (profile.status === "suspended") {
+          throw new AccountSuspendedError();
+        }
+        if (profile.id !== uid) {
+          const oldId = profile.id;
+          profile.id = uid;
+          for (const c of this.data.cases) {
+            if (c.assigned_to === oldId) c.assigned_to = uid;
+          }
+          for (const g of this.data.groups) {
+            if (g.owner_id === oldId) g.owner_id = uid;
+            for (const m of g.members) {
+              if (m.user_id === oldId) m.user_id = uid;
+            }
+          }
+        }
+        profile.last_login = (/* @__PURE__ */ new Date()).toISOString();
+        profile.last_active_at = profile.last_login;
+        if (typeof params.displayName === "string" && params.displayName.trim()) {
+          profile.display_name = params.displayName.trim();
+        }
+        if (params.photoUrl) {
+          profile.photo_url = params.photoUrl;
+        }
+        if (params.authProvider) {
+          profile.auth_provider = params.authProvider;
+        }
+        profile.updated_at = (/* @__PURE__ */ new Date()).toISOString();
+        await this.persist();
+        return this.resolveUserProfile(profile);
+      }
+      if (this.data.app_settings && !this.data.app_settings.allow_registration) {
+        throw new ValidationError("New researcher registration is temporarily paused.");
+      }
+      const now = (/* @__PURE__ */ new Date()).toISOString();
+      const newProfile = {
+        id: uid,
+        email,
+        password_hash: "",
+        // Handled exclusively by Firebase identity platform
+        display_name: typeof params.displayName === "string" && params.displayName.trim() ? params.displayName.trim() : email.split("@")[0],
+        role: "member",
+        // Normal Google/email users NEVER become administrators
+        status: "active",
+        photo_url: params.photoUrl || null,
+        auth_provider: params.authProvider || "google",
         last_login: now,
         last_active_at: now,
         created_at: now,
@@ -965,10 +1042,7 @@ var RelationalDatabase = class {
       uploadedBy: f.uploaded_by,
       uploadedByName: f.uploaded_by_name,
       uploadedAt: f.created_at,
-      fileData: f.file_data,
-      driveFileId: f.drive_file_id,
-      driveLink: f.drive_link,
-      isDriveDirect: f.is_drive_direct
+      fileData: f.file_data
     }));
   }
   async uploadGroupFile(params) {
@@ -1002,9 +1076,6 @@ var RelationalDatabase = class {
         uploaded_by: params.userId,
         uploaded_by_name: user ? user.display_name : "Researcher",
         file_data: params.fileData,
-        drive_file_id: params.driveFileId,
-        drive_link: params.driveLink,
-        is_drive_direct: !!params.isDriveDirect,
         created_at: (/* @__PURE__ */ new Date()).toISOString()
       };
       this.data.files.push(newFile);
@@ -1019,10 +1090,7 @@ var RelationalDatabase = class {
         uploadedBy: newFile.uploaded_by,
         uploadedByName: newFile.uploaded_by_name,
         uploadedAt: newFile.created_at,
-        fileData: newFile.file_data,
-        driveFileId: newFile.drive_file_id,
-        driveLink: newFile.drive_link,
-        isDriveDirect: newFile.is_drive_direct
+        fileData: newFile.file_data
       };
     });
   }
@@ -1520,11 +1588,34 @@ var app = express();
 var PORT = parseInt(process.env.PORT || "3000", 10);
 var isProd = process.env.NODE_ENV === "production";
 var JWT_SECRET = process.env.JWT_SECRET || (() => {
-  const g = globalThis;
-  if (!g.__runtimeJwtSecret) {
-    g.__runtimeJwtSecret = crypto3.randomBytes(48).toString("hex");
+  const secretFile = path2.resolve(process.cwd(), "data/.jwt_secret");
+  try {
+    if (fs2.existsSync(secretFile)) {
+      const saved = fs2.readFileSync(secretFile, "utf-8").trim();
+      if (saved.length >= 32) return saved;
+    }
+  } catch {
   }
-  return g.__runtimeJwtSecret;
+  const fresh = crypto3.randomBytes(48).toString("hex");
+  try {
+    const dataDir = path2.resolve(process.cwd(), "data");
+    if (!fs2.existsSync(dataDir)) fs2.mkdirSync(dataDir, { recursive: true });
+    fs2.writeFileSync(secretFile, fresh, "utf-8");
+  } catch {
+  }
+  return fresh;
+})();
+var FIREBASE_API_KEY = (() => {
+  if (process.env.VITE_FIREBASE_API_KEY) return process.env.VITE_FIREBASE_API_KEY;
+  try {
+    const configPath = path2.resolve(process.cwd(), "firebase-applet-config.json");
+    if (fs2.existsSync(configPath)) {
+      const parsed = JSON.parse(fs2.readFileSync(configPath, "utf-8"));
+      return parsed.apiKey || "";
+    }
+  } catch {
+  }
+  return "";
 })();
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
@@ -1621,24 +1712,24 @@ var getAuthCookieOptions = () => ({
 var securityHeadersMiddleware = (req, res, next) => {
   res.removeHeader("X-Powered-By");
   res.removeHeader("x-powered-by");
-  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
-  res.setHeader("Cross-Origin-Opener-Policy", "unsafe-none");
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
   const isHttps = req.secure || req.headers["x-forwarded-proto"] === "https" || isProd;
   if (isHttps) {
     res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
   const cspDirectives = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com https://accounts.google.com",
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com",
-    "font-src 'self' data:",
-    "connect-src 'self' ws: wss: https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://*.run.app https://*.ai.studio",
-    "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://*.google.com https://*.run.app https://*.ai.studio",
-    "frame-ancestors 'self' https://aistudio.google.com https://*.google.com https://*.run.app https://*.googleusercontent.com https://*.ai.studio",
+    "script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com https://accounts.google.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://lh3.googleusercontent.com",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    "connect-src 'self' ws: wss: https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://*.run.app https://*.ai.studio https://thesistracker.ai.studio",
+    "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://*.google.com https://*.run.app https://*.ai.studio https://thesistracker.ai.studio",
+    "frame-ancestors 'self' https://aistudio.google.com https://*.google.com https://*.run.app https://*.googleusercontent.com https://*.ai.studio https://thesistracker.ai.studio",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -1924,7 +2015,7 @@ var rateLimitInvitations = (req, res, next) => {
 };
 if (!isProd && process.env.ENABLE_DEV_ENDPOINTS === "true") {
   app.post("/api/dev/reset-invitation-rate-limit", authenticateToken, (req, res) => {
-    if (req.user?.email !== (process.env.ADMIN_EMAIL || "avishah.as118@gmail.com")) {
+    if (req.user?.email !== (process.env.ADMIN_EMAIL || "anilshah.as118@gmail.com")) {
       res.status(403).json({ error: "FORBIDDEN", message: "Admin access required." });
       return;
     }
@@ -1932,7 +2023,7 @@ if (!isProd && process.env.ENABLE_DEV_ENDPOINTS === "true") {
     res.json({ reset: true });
   });
   app.post("/api/dev/reset-auth-rate-limit", authenticateToken, (req, res) => {
-    if (req.user?.email !== (process.env.ADMIN_EMAIL || "avishah.as118@gmail.com")) {
+    if (req.user?.email !== (process.env.ADMIN_EMAIL || "anilshah.as118@gmail.com")) {
       res.status(403).json({ error: "FORBIDDEN", message: "Admin access required." });
       return;
     }
@@ -2037,69 +2128,84 @@ app.post("/api/auth/login", async (req, res) => {
     sendSafeErrorResponse(err, req, res, "LOGIN_FAILED");
   }
 });
-app.post("/api/auth/google-sync", async (req, res) => {
+app.post("/api/auth/firebase-sync", async (req, res) => {
   try {
-    const { uid, email, displayName, idToken, accessToken } = req.body || {};
-    if (!uid || !email || typeof uid !== "string" || typeof email !== "string") {
-      res.status(400).json({ error: "BAD_REQUEST", message: "UID and email are required as strings." });
+    const { idToken, displayName, photoUrl, provider } = req.body || {};
+    if (!idToken || typeof idToken !== "string" || idToken.trim().length < 20) {
+      res.status(401).json({
+        error: "UNAUTHORIZED",
+        message: "A valid Firebase identity token (idToken) is required for authentication."
+      });
       return;
     }
     if (displayName !== void 0 && typeof displayName !== "string") {
       res.status(400).json({ error: "BAD_REQUEST", message: "Display name must be a string." });
       return;
     }
-    let verifiedEmail = null;
+    if (photoUrl !== void 0 && photoUrl !== null && typeof photoUrl !== "string") {
+      res.status(400).json({ error: "BAD_REQUEST", message: "Photo URL must be a string or null." });
+      return;
+    }
     let verifiedUid = null;
-    if (typeof idToken === "string" && idToken.trim()) {
+    let verifiedEmail = null;
+    if (FIREBASE_API_KEY) {
       try {
         const verifyRes = await fetch(
-          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken.trim())}`
+          `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(FIREBASE_API_KEY)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idToken: idToken.trim() })
+          }
         );
         if (verifyRes.ok) {
-          const info = await verifyRes.json();
-          if (info.email && (info.email_verified === "true" || info.email_verified === true)) {
-            verifiedEmail = info.email.toLowerCase();
-            verifiedUid = info.sub;
+          const data = await verifyRes.json();
+          const userRecord = data?.users?.[0];
+          if (userRecord && userRecord.localId) {
+            verifiedUid = userRecord.localId;
+            verifiedEmail = userRecord.email ? userRecord.email.toLowerCase() : null;
           }
         }
-      } catch (tokenErr) {
-        console.warn("Google id_token verification notice:", tokenErr);
+      } catch (fbVerifyErr) {
+        console.warn("Identity Toolkit verification notice:", fbVerifyErr);
       }
     }
-    if (!verifiedEmail && typeof accessToken === "string" && accessToken.trim()) {
+    if (!verifiedUid || !verifiedEmail) {
       try {
-        const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-          headers: { Authorization: `Bearer ${accessToken.trim()}` }
-        });
-        if (userInfoRes.ok) {
-          const info = await userInfoRes.json();
-          if (info.email && (info.email_verified === true || info.email_verified === "true")) {
-            verifiedEmail = info.email.toLowerCase();
+        const oauthRes = await fetch(
+          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken.trim())}`
+        );
+        if (oauthRes.ok) {
+          const info = await oauthRes.json();
+          if (info.sub && info.email) {
             verifiedUid = info.sub;
+            verifiedEmail = info.email.toLowerCase();
           }
         }
-      } catch (userinfoErr) {
-        console.warn("Google accessToken userinfo notice:", userinfoErr);
+      } catch (oauthErr) {
+        console.warn("OAuth tokeninfo verification notice:", oauthErr);
       }
     }
-    if (!verifiedEmail || verifiedEmail !== email.trim().toLowerCase()) {
+    if (!verifiedUid || !verifiedEmail) {
       res.status(401).json({
-        error: "UNAUTHORIZED",
-        message: "Google identity verification failed. A valid, verified Google OAuth or ID token is required."
+        error: "INVALID_ID_TOKEN",
+        message: "Authentication failed: Invalid or expired Firebase ID token."
       });
       return;
     }
-    const user = await db.syncGoogleProfile({
-      uid: verifiedUid || uid,
+    const user = await db.syncFirebaseProfile({
+      uid: verifiedUid,
       email: verifiedEmail,
-      displayName: displayName || verifiedEmail.split("@")[0]
+      displayName: typeof displayName === "string" && displayName.trim() ? displayName.trim() : verifiedEmail.split("@")[0],
+      photoUrl: typeof photoUrl === "string" ? photoUrl : void 0,
+      authProvider: provider === "google" || provider === "google.com" ? "google" : "password"
     });
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "24h" });
     res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
     const isBrowserClient = req.headers["x-requested-with"] === "XMLHttpRequest";
     res.json({ token, user, isBrowserClient: !!isBrowserClient });
   } catch (err) {
-    sendSafeErrorResponse(err, req, res, "GOOGLE_SYNC_FAILED");
+    sendSafeErrorResponse(err, req, res, "FIREBASE_SYNC_FAILED");
   }
 });
 app.post("/api/auth/logout", (req, res) => {
@@ -2364,7 +2470,7 @@ app.get("/api/groups/:groupId/files", authenticateToken, async (req, res) => {
 });
 app.post("/api/groups/:groupId/files", authenticateToken, async (req, res) => {
   try {
-    const { name, size, mimeType, category, fileData, driveFileId, driveLink, isDriveDirect } = req.body || {};
+    const { name, size, mimeType, category, fileData } = req.body || {};
     if (!name || typeof name !== "string" || !name.trim()) {
       res.status(400).json({ error: "BAD_REQUEST", message: "File name is required." });
       return;
@@ -2380,10 +2486,7 @@ app.post("/api/groups/:groupId/files", authenticateToken, async (req, res) => {
       size: typeof size === "number" ? size : 0,
       mimeType: mimeType || "application/octet-stream",
       category,
-      fileData,
-      driveFileId: typeof driveFileId === "string" ? driveFileId : void 0,
-      driveLink: typeof driveLink === "string" ? driveLink : void 0,
-      isDriveDirect: !!isDriveDirect
+      fileData
     });
     res.status(201).json({ file });
   } catch (err) {
@@ -2696,14 +2799,14 @@ app.get(
 );
 if (!isProd && process.env.ENABLE_DEV_ENDPOINTS === "true") {
   app.get("/api/dev/force-error", authenticateToken, (req, _res) => {
-    if (req.user?.email !== (process.env.ADMIN_EMAIL || "avishah.as118@gmail.com")) {
+    if (req.user?.email !== (process.env.ADMIN_EMAIL || "anilshah.as118@gmail.com")) {
       _res.status(403).json({ error: "FORBIDDEN" });
       return;
     }
     throw new Error("Controlled test server error for SEC-007 verification");
   });
   app.get("/api/dev/force-type-error", authenticateToken, (req, _res) => {
-    if (req.user?.email !== (process.env.ADMIN_EMAIL || "avishah.as118@gmail.com")) {
+    if (req.user?.email !== (process.env.ADMIN_EMAIL || "anilshah.as118@gmail.com")) {
       _res.status(403).json({ error: "FORBIDDEN" });
       return;
     }
@@ -2727,15 +2830,27 @@ async function startServer() {
   const distPath = path2.resolve(process.cwd(), "dist");
   const indexPath = path2.join(distPath, "index.html");
   const hasDist = fs2.existsSync(indexPath);
-  if (isProd && hasDist) {
-    app.use(express.static(distPath));
+  if (isProd && hasDist && process.env.npm_lifecycle_event !== "dev") {
+    app.use(
+      "/assets",
+      express.static(path2.join(distPath, "assets"), {
+        maxAge: "1y",
+        immutable: true
+      })
+    );
+    app.use(
+      express.static(distPath, {
+        maxAge: "1h"
+      })
+    );
     app.get("*", (req, res) => {
+      res.setHeader("Cache-Control", "no-cache, must-revalidate");
       res.sendFile(indexPath);
     });
   } else {
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, hmr: false },
       appType: "spa"
     });
     app.use(vite.middlewares);

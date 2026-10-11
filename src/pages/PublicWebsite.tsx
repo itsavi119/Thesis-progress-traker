@@ -151,20 +151,13 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                 Go to Workspace →
               </button>
             ) : (
-              <>
-                <button
-                  onClick={() => onNavigateToAuth('login')}
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
-                >
-                  Sign In
-                </button>
-                <button
-                  onClick={() => onNavigateToAuth('register')}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-xs transition-all active:scale-[0.98] cursor-pointer"
-                >
-                  Sign Up
-                </button>
-              </>
+              <button
+                onClick={() => onNavigateToAuth('login')}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-xs transition-all active:scale-[0.98] cursor-pointer flex items-center gap-1.5"
+              >
+                <span>Get Started</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             )}
           </div>
 
@@ -229,26 +222,16 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
                   Go to Research Workspace →
                 </button>
               ) : (
-                <>
-                  <button
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      onNavigateToAuth('login');
-                    }}
-                    className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-center text-slate-800 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
-                  >
-                    Sign In
-                  </button>
-                  <button
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      onNavigateToAuth('register');
-                    }}
-                    className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-center text-white bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer"
-                  >
-                    Sign Up
-                  </button>
-                </>
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onNavigateToAuth('login');
+                  }}
+                  className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-center text-white bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span>Get Started</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
               )}
             </div>
           </div>
@@ -280,19 +263,13 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
             </p>
 
             {/* CTAs */}
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
-              <button
-                onClick={() => onNavigateToAuth('register')}
-                className="w-full sm:w-auto min-h-[46px] px-7 py-3 rounded-xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2"
-              >
-                <span>Sign Up</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+            <div className="pt-2 flex items-center justify-center max-w-md mx-auto">
               <button
                 onClick={() => onNavigateToAuth('login')}
-                className="w-full sm:w-auto min-h-[46px] px-6 py-3 rounded-xl font-bold text-sm text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 transition-all cursor-pointer flex items-center justify-center"
+                className="w-full sm:w-auto min-h-[48px] px-8 py-3 rounded-xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/20 transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2"
               >
-                Sign In
+                <span>Get Started</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
             </div>
 
@@ -698,22 +675,14 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({
 
             {/* Col 3: Support & Account */}
             <div className="space-y-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-white">Account</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-white">Access</span>
               <ul className="space-y-2 text-slate-400">
                 <li>
                   <button
                     onClick={() => onNavigateToAuth('login')}
                     className="hover:text-white transition-colors cursor-pointer"
                   >
-                    Sign In
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => onNavigateToAuth('register')}
-                    className="hover:text-white transition-colors cursor-pointer"
-                  >
-                    Sign Up
+                    Get Started
                   </button>
                 </li>
               </ul>

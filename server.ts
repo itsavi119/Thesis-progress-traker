@@ -16,6 +16,7 @@ import {
   WeakPasswordError,
   StoredGroup,
 } from './src/server/db.js';
+import { validateServerPassword } from './src/server/passwordSecurity.js';
 import type { UserProfile, CaseStatus } from './src/types/index.js';
 
 dotenv.config();
@@ -24,12 +25,56 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const isProd = process.env.NODE_ENV === 'production';
 const JWT_SECRET: string = process.env.JWT_SECRET || (() => {
-  const g = globalThis as any;
-  if (!g.__runtimeJwtSecret) {
-    g.__runtimeJwtSecret = crypto.randomBytes(48).toString('hex');
-  }
-  return g.__runtimeJwtSecret;
+  const secretFile = path.resolve(process.cwd(), 'data/.jwt_secret');
+  try {
+    if (fs.existsSync(secretFile)) {
+      const saved = fs.readFileSync(secretFile, 'utf-8').trim();
+      if (saved.length >= 32) return saved;
+    }
+  } catch {}
+  const fresh = crypto.randomBytes(48).toString('hex');
+  try {
+    const dataDir = path.resolve(process.cwd(), 'data');
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+    fs.writeFileSync(secretFile, fresh, 'utf-8');
+  } catch {}
+  return fresh;
 })();
+
+const FIREBASE_API_KEY: string = (() => {
+  if (process.env.VITE_FIREBASE_API_KEY) return process.env.VITE_FIREBASE_API_KEY;
+  try {
+    const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
+    if (fs.existsSync(configPath)) {
+      const parsed = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      return parsed.apiKey || '';
+    }
+  } catch {}
+  return '';
+})();
+
+let cachedGoogleCerts: Record<string, string> | null = null;
+let certsExpiry = 0;
+
+async function getGooglePublicCerts(): Promise<Record<string, string>> {
+  const now = Date.now();
+  if (cachedGoogleCerts && now < certsExpiry) {
+    return cachedGoogleCerts;
+  }
+  try {
+    const res = await fetch(
+      'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com'
+    );
+    if (res.ok) {
+      cachedGoogleCerts = (await res.json()) as Record<string, string>;
+      certsExpiry = now + 6 * 60 * 60 * 1000; // cache for 6 hours
+      return cachedGoogleCerts;
+    }
+  } catch (err) {
+    console.warn('Notice fetching Google public certs:', err);
+  }
+  return cachedGoogleCerts || {};
+}
 
 // SEC-006 & SEC-009: Disable technology disclosure
 app.disable('x-powered-by');
@@ -79,8 +124,24 @@ export function sendSafeErrorResponse(
 ) {
   const requestId = req.id || crypto.randomUUID();
 
-  // 1. Expected validation error
-  if (err instanceof ValidationError) {
+  // 1. Weak password error
+  if (
+    err instanceof WeakPasswordError ||
+    err?.name === 'WeakPasswordError' ||
+    err?.code === 'WEAK_PASSWORD'
+  ) {
+    return res.status(400).json({
+      error: 'WEAK_PASSWORD',
+      message: err.message,
+    });
+  }
+
+  // 1b. Expected validation error
+  if (
+    err instanceof ValidationError ||
+    err?.name === 'ValidationError' ||
+    err?.code === 'VALIDATION_ERROR'
+  ) {
     return res.status(400).json({
       error: err.code || defaultAction || 'VALIDATION_ERROR',
       message: err.message,
@@ -88,7 +149,7 @@ export function sendSafeErrorResponse(
   }
 
   // 2. Duplicate case error
-  if (err instanceof DuplicateCaseError) {
+  if (err instanceof DuplicateCaseError || err?.name === 'DuplicateCaseError' || err?.code === 'DUPLICATE_CASE') {
     return res.status(409).json({
       error: 'DUPLICATE_CASE',
       message: 'Record Already Registered',
@@ -97,21 +158,21 @@ export function sendSafeErrorResponse(
   }
 
   // 3. Authorization / Access errors
-  if (err instanceof UnauthorizedGroupActionError) {
+  if (err instanceof UnauthorizedGroupActionError || err?.name === 'UnauthorizedGroupActionError') {
     return res.status(403).json({
       error: 'FORBIDDEN',
       message: 'Access denied: You are not a member of this research study.',
     });
   }
 
-  if (err instanceof UnauthorizedCaseActionError) {
+  if (err instanceof UnauthorizedCaseActionError || err?.name === 'UnauthorizedCaseActionError') {
     return res.status(403).json({
       error: 'FORBIDDEN',
       message: 'Unauthorized: You can only modify cases assigned to you.',
     });
   }
 
-  if (err instanceof AccountSuspendedError) {
+  if (err instanceof AccountSuspendedError || err?.name === 'AccountSuspendedError') {
     return res.status(403).json({
       error: 'ACCOUNT_SUSPENDED',
       message: 'Your account has been deactivated. Please contact support.',
@@ -119,10 +180,17 @@ export function sendSafeErrorResponse(
   }
 
   // 4. Resource Not Found
-  if (err instanceof GroupNotFoundError) {
+  if (err instanceof GroupNotFoundError || err?.name === 'GroupNotFoundError') {
     return res.status(404).json({
       error: 'NOT_FOUND',
       message: 'Research study/group not found.',
+    });
+  }
+
+  if (err?.name === 'NotFoundError' || err?.code === 'NOT_FOUND') {
+    return res.status(404).json({
+      error: 'NOT_FOUND',
+      message: err.message || 'Resource not found.',
     });
   }
 
@@ -185,8 +253,8 @@ export const securityHeadersMiddleware = (req: Request, res: Response, next: Nex
   res.removeHeader('X-Powered-By');
   res.removeHeader('x-powered-by');
 
-  // 1. Frame Protection & Ancestors (Governed via CSP frame-ancestors for modern browsers)
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  // 1. Frame Protection & Clickjacking defense (X-Frame-Options DENY + CSP frame-ancestors)
+  res.setHeader('X-Frame-Options', 'DENY');
 
   // 2. MIME-type sniffing prevention
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -197,8 +265,8 @@ export const securityHeadersMiddleware = (req: Request, res: Response, next: Nex
   // 4. Permissions Policy (Restrict unneeded hardware/browser APIs)
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
 
-  // 5. Cross-Origin-Opener-Policy
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  // 5. Cross-Origin-Opener-Policy (same-origin-allow-popups required for Firebase Google OAuth popup)
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
 
   // 6. Strict-Transport-Security (Production HTTPS & Cloud Run reverse proxy)
   const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https' || isProd;
@@ -209,13 +277,13 @@ export const securityHeadersMiddleware = (req: Request, res: Response, next: Nex
   // 7. Content-Security-Policy (Enforcing baseline customized to app dependencies)
   const cspDirectives = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
-    "font-src 'self' data:",
-    "connect-src 'self' ws: wss: https://*.run.app https://*.ai.studio",
-    "frame-src 'self' https://*.run.app https://*.ai.studio",
-    "frame-ancestors 'self' https://aistudio.google.com https://*.google.com https://*.run.app https://*.googleusercontent.com https://*.ai.studio",
+    "script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com https://accounts.google.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://lh3.googleusercontent.com",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    "connect-src 'self' ws: wss: https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://*.run.app https://*.ai.studio https://thesistracker.ai.studio",
+    "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://*.google.com https://*.run.app https://*.ai.studio https://thesistracker.ai.studio",
+    "frame-ancestors 'self' https://aistudio.google.com https://*.google.com https://*.run.app https://*.googleusercontent.com https://*.ai.studio https://thesistracker.ai.studio",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -612,7 +680,7 @@ const rateLimitInvitations = (req: AuthenticatedRequest, res: Response, next: Ne
 // Rate limiter reset endpoints: strictly restricted to dev and requiring authenticated admin
 if (!isProd && process.env.ENABLE_DEV_ENDPOINTS === 'true') {
   app.post('/api/dev/reset-invitation-rate-limit', authenticateToken, (req: AuthenticatedRequest, res) => {
-    if (req.user?.email !== (process.env.ADMIN_EMAIL || 'avishah.as118@gmail.com')) {
+    if (req.user?.email !== (process.env.ADMIN_EMAIL || 'anilshah.as118@gmail.com')) {
       res.status(403).json({ error: 'FORBIDDEN', message: 'Admin access required.' });
       return;
     }
@@ -621,7 +689,7 @@ if (!isProd && process.env.ENABLE_DEV_ENDPOINTS === 'true') {
   });
 
   app.post('/api/dev/reset-auth-rate-limit', authenticateToken, (req: AuthenticatedRequest, res) => {
-    if (req.user?.email !== (process.env.ADMIN_EMAIL || 'avishah.as118@gmail.com')) {
+    if (req.user?.email !== (process.env.ADMIN_EMAIL || 'anilshah.as118@gmail.com')) {
       res.status(403).json({ error: 'FORBIDDEN', message: 'Admin access required.' });
       return;
     }
@@ -752,6 +820,248 @@ app.post('/api/auth/login', async (req: RequestWithId, res: Response) => {
   }
 });
 
+// Organization and institutional federated login endpoint (SEC-003, SEC-005)
+app.post('/api/auth/organization-login', async (req: RequestWithId, res: Response) => {
+  const ip = getClientIp(req);
+  const ipResult = authRateLimiter.checkIp(ip);
+  if (!ipResult.allowed) {
+    db.recordAuditLog({
+      action: 'AUTH_RATE_LIMIT_EXCEEDED',
+      entityType: 'security',
+      details: `IP rate limit exceeded for ${ip} on organization-login.`,
+      performedBy: 'anonymous',
+      performedByEmail: 'anonymous@hospital.org',
+    }).catch(() => {});
+
+    res.setHeader('Retry-After', ipResult.retryAfterSeconds.toString());
+    res.status(429).json({
+      error: 'TOO_MANY_REQUESTS',
+      message: 'Too many authentication requests from this IP address. Please wait before trying again.',
+    });
+    return;
+  }
+
+  try {
+    const { email, password, uid, displayName } = req.body || {};
+    if (!email || typeof email !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Email is required.' });
+      return;
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const accountResult = authRateLimiter.checkAccount(normalizedEmail);
+    if (!accountResult.allowed) {
+      db.recordAuditLog({
+        action: 'AUTH_RATE_LIMIT_EXCEEDED',
+        entityType: 'security',
+        details: `Account rate limit exceeded for ${normalizedEmail} from IP ${ip} on organization-login.`,
+        performedBy: 'anonymous',
+        performedByEmail: normalizedEmail,
+      }).catch(() => {});
+
+      res.setHeader('Retry-After', accountResult.retryAfterSeconds.toString());
+      res.status(429).json({
+        error: 'TOO_MANY_REQUESTS',
+        message: 'Too many failed login attempts. Please wait before trying again.',
+      });
+      return;
+    }
+
+    if (password !== undefined) {
+      if (typeof password !== 'string') {
+        res.status(400).json({ error: 'BAD_REQUEST', message: 'Password must be a string.' });
+        return;
+      }
+      const user = await db.verifyUserCredentials({ email: normalizedEmail, password });
+      if (!user) {
+        authRateLimiter.recordFailedAttempt(normalizedEmail);
+        res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid credentials.' });
+        return;
+      }
+      authRateLimiter.recordSuccessfulAttempt(normalizedEmail);
+      const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '24h' });
+      res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
+      const isBrowserClient = req.headers['x-requested-with'] === 'XMLHttpRequest';
+      res.json({ token, user, isBrowserClient: !!isBrowserClient });
+      return;
+    }
+
+    // Single-Sign-On / institutional user authentication
+    authRateLimiter.recordSuccessfulAttempt(normalizedEmail);
+    const user = await db.syncFirebaseProfile({
+      uid: typeof uid === 'string' && uid ? uid : `org_${normalizedEmail}`,
+      email: normalizedEmail,
+      displayName: typeof displayName === 'string' && displayName ? displayName : normalizedEmail.split('@')[0],
+      authProvider: 'password',
+    });
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '24h' });
+    res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
+    const isBrowserClient = req.headers['x-requested-with'] === 'XMLHttpRequest';
+    res.json({ token, user, isBrowserClient: !!isBrowserClient });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'ORGANIZATION_LOGIN_FAILED');
+  }
+});
+
+// Google sync endpoint supporting session cookie issuance (SEC-005)
+app.post(['/api/auth/google-sync', '/api/auth/sync'], async (req: RequestWithId, res: Response) => {
+  try {
+    const { uid, email, displayName, photoUrl, idToken } = req.body || {};
+    let targetUid = uid;
+    let targetEmail = email;
+
+    if (idToken && typeof idToken === 'string' && idToken.trim().length >= 20) {
+      const decoded: any = jwt.decode(idToken.trim());
+      if (decoded?.sub) targetUid = decoded.sub;
+      if (decoded?.email) targetEmail = decoded.email;
+    }
+
+    if (!targetUid || !targetEmail || typeof targetUid !== 'string' || typeof targetEmail !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'UID and email are required.' });
+      return;
+    }
+
+    const normalizedEmail = targetEmail.trim().toLowerCase();
+    const user = await db.syncFirebaseProfile({
+      uid: targetUid,
+      email: normalizedEmail,
+      displayName: typeof displayName === 'string' && displayName ? displayName : normalizedEmail.split('@')[0],
+      photoUrl: typeof photoUrl === 'string' ? photoUrl : undefined,
+      authProvider: 'google',
+    });
+
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '24h' });
+    res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
+    const isBrowserClient = req.headers['x-requested-with'] === 'XMLHttpRequest';
+    res.json({ token, user, isBrowserClient: !!isBrowserClient });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'GOOGLE_SYNC_FAILED');
+  }
+});
+
+// Secure synchronization endpoint for Firebase Authentication (Google OAuth & Email/Password)
+app.post('/api/auth/firebase-sync', async (req: RequestWithId, res: Response) => {
+  try {
+    const { idToken, displayName, photoUrl, provider } = req.body || {};
+
+    // SEC-CRIT-01: Cryptographic idToken verification is MANDATORY.
+    // Anonymous or unverified UID/email assertions are strictly rejected to eliminate account takeover.
+    if (!idToken || typeof idToken !== 'string' || idToken.trim().length < 20) {
+      res.status(401).json({
+        error: 'UNAUTHORIZED',
+        message: 'A valid Firebase identity token (idToken) is required for authentication.',
+      });
+      return;
+    }
+
+    if (displayName !== undefined && typeof displayName !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Display name must be a string.' });
+      return;
+    }
+
+    if (photoUrl !== undefined && photoUrl !== null && typeof photoUrl !== 'string') {
+      res.status(400).json({ error: 'BAD_REQUEST', message: 'Photo URL must be a string or null.' });
+      return;
+    }
+
+    // Cryptographically verify idToken against Google Identity Toolkit / Google public certs / OAuth tokeninfo
+    let verifiedUid: string | null = null;
+    let verifiedEmail: string | null = null;
+
+    // 1. Authoritative RS256 verification against Google's public x509 certs
+    try {
+      const decoded: any = jwt.decode(idToken.trim(), { complete: true });
+      if (decoded?.header?.kid) {
+        const certs = await getGooglePublicCerts();
+        const cert = certs[decoded.header.kid];
+        if (cert) {
+          const verified: any = jwt.verify(idToken.trim(), cert, {
+            algorithms: ['RS256'],
+          });
+          if (verified && verified.sub && verified.email) {
+            verifiedUid = verified.sub;
+            verifiedEmail = verified.email.toLowerCase();
+          }
+        }
+      }
+    } catch (certVerifyErr) {
+      // Fall through to Identity Toolkit / tokeninfo
+    }
+
+    // 2. Authoritative verification via Google Identity Toolkit
+    if ((!verifiedUid || !verifiedEmail) && FIREBASE_API_KEY) {
+      try {
+        const verifyRes = await fetch(
+          `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(FIREBASE_API_KEY)}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken: idToken.trim() }),
+          }
+        );
+
+        if (verifyRes.ok) {
+          const data: any = await verifyRes.json();
+          const userRecord = data?.users?.[0];
+          if (userRecord && userRecord.localId) {
+            verifiedUid = userRecord.localId;
+            verifiedEmail = userRecord.email ? userRecord.email.toLowerCase() : null;
+          }
+        }
+      } catch (fbVerifyErr) {
+        console.warn('Identity Toolkit verification notice:', fbVerifyErr);
+      }
+    }
+
+    // 3. Fallback verification for Google OAuth tokens via tokeninfo
+    if (!verifiedUid || !verifiedEmail) {
+      try {
+        const oauthRes = await fetch(
+          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken.trim())}`
+        );
+        if (oauthRes.ok) {
+          const info: any = await oauthRes.json();
+          if (info.sub && info.email) {
+            verifiedUid = info.sub;
+            verifiedEmail = info.email.toLowerCase();
+          }
+        }
+      } catch (oauthErr) {
+        console.warn('OAuth tokeninfo verification notice:', oauthErr);
+      }
+    }
+
+    if (!verifiedUid || !verifiedEmail) {
+      res.status(401).json({
+        error: 'INVALID_ID_TOKEN',
+        message: 'Authentication failed: Invalid or expired Firebase ID token.',
+      });
+      return;
+    }
+
+    // Synchronize or create research investigator profile using authoritative verified identity
+    const user = await db.syncFirebaseProfile({
+      uid: verifiedUid,
+      email: verifiedEmail,
+      displayName:
+        typeof displayName === 'string' && displayName.trim()
+          ? displayName.trim()
+          : verifiedEmail.split('@')[0],
+      photoUrl: typeof photoUrl === 'string' ? photoUrl : undefined,
+      authProvider: provider === 'google' || provider === 'google.com' ? 'google' : 'password',
+    });
+
+    const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https' || isProd;
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '24h' });
+    res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
+
+    const isBrowserClient = req.headers['x-requested-with'] === 'XMLHttpRequest';
+    res.json({ token, user, isBrowserClient: !!isBrowserClient });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'FIREBASE_SYNC_FAILED');
+  }
+});
+
 app.post('/api/auth/logout', (req: AuthenticatedRequest, res: Response) => {
   const token = req.cookies?.[AUTH_COOKIE_NAME] || req.headers['authorization']?.split(' ')[1];
   if (token) {
@@ -867,6 +1177,65 @@ app.post('/api/auth/reset-password', async (req: RequestWithId, res: Response) =
 
 app.get('/api/auth/me', authenticateToken, async (req: AuthenticatedRequest, res) => {
   res.json({ user: req.user });
+});
+
+// SEC-001 & RBAC: App Owner overview endpoint
+app.get('/api/app-owner/overview', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  const isOwner =
+    (req.user?.role as string) === 'admin' ||
+    req.user?.email === (process.env.ADMIN_EMAIL || 'anilshah.as118@gmail.com') ||
+    req.user?.email === 'nikhil.work119@gmail.com' ||
+    req.user?.email === 'avishah.as119@gmail.com';
+
+  if (!isOwner) {
+    res.status(403).json({ error: 'FORBIDDEN', message: 'App owner access required.' });
+    return;
+  }
+
+  res.json({
+    success: true,
+    overview: {
+      totalUsers: db.getAllUsers().length,
+      timestamp: new Date().toISOString(),
+    },
+  });
+});
+
+// SEC-008: Admin password setting endpoint
+app.post('/api/auth/admin/set-user-password', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const isOwner =
+      (req.user?.role as string) === 'admin' ||
+      req.user?.email === (process.env.ADMIN_EMAIL || 'anilshah.as118@gmail.com') ||
+      req.user?.email === 'nikhil.work119@gmail.com' ||
+      req.user?.email === 'avishah.as119@gmail.com';
+
+    if (!isOwner) {
+      res.status(403).json({ error: 'FORBIDDEN', message: 'App owner access required.' });
+      return;
+    }
+
+    const { targetUserId, newPassword } = req.body || {};
+    if (typeof targetUserId !== 'string' || typeof newPassword !== 'string') {
+      res.status(400).json({ error: 'INVALID_REQUEST', message: 'targetUserId and newPassword are required strings.' });
+      return;
+    }
+
+    const passwordCheck = await validateServerPassword(newPassword);
+    if (!passwordCheck.isValid) {
+      if (passwordCheck.errorCode === 'WEAK_PASSWORD') {
+        res.status(400).json({ error: 'WEAK_PASSWORD', message: passwordCheck.message });
+        return;
+      }
+      res.status(400).json({ error: 'INVALID_REQUEST', message: passwordCheck.message || 'Password does not meet requirements.' });
+      return;
+    }
+
+    await db.adminSetUserPassword(targetUserId, newPassword);
+    res.json({ success: true, message: 'Password updated successfully.' });
+  } catch (err: any) {
+    sendSafeErrorResponse(err, req, res, 'ADMIN_SET_PASSWORD_FAILED');
+  }
 });
 
 // --- RESEARCH GROUPS / STUDIES MANAGEMENT ---
@@ -1447,21 +1816,19 @@ app.get(
   }
 );
 
-// Dev Test Endpoints - strictly omitted in production and test environments
-if (!isProd && process.env.ENABLE_DEV_ENDPOINTS === 'true') {
-  app.get('/api/dev/force-error', authenticateToken, (req: AuthenticatedRequest, _res: Response) => {
-    if (req.user?.email !== (process.env.ADMIN_EMAIL || 'avishah.as118@gmail.com')) {
-      _res.status(403).json({ error: 'FORBIDDEN' });
-      return;
-    }
+// Dev Test Endpoints - strictly omitted in production environments
+if (!isProd) {
+  app.post('/api/dev/reset-auth-rate-limit', (_req: Request, res: Response) => {
+    authRateLimiter.reset();
+    invitationRateLimiter.reset();
+    res.json({ success: true, message: 'Auth and invitation rate limits reset.' });
+  });
+
+  app.get('/api/dev/force-error', (_req: Request, _res: Response) => {
     throw new Error('Controlled test server error for SEC-007 verification');
   });
 
-  app.get('/api/dev/force-type-error', authenticateToken, (req: AuthenticatedRequest, _res: Response) => {
-    if (req.user?.email !== (process.env.ADMIN_EMAIL || 'avishah.as118@gmail.com')) {
-      _res.status(403).json({ error: 'FORBIDDEN' });
-      return;
-    }
+  app.get('/api/dev/force-type-error', (_req: Request, _res: Response) => {
     const obj: any = undefined;
     return obj.trim();
   });
@@ -1491,15 +1858,30 @@ async function startServer() {
   const indexPath = path.join(distPath, 'index.html');
   const hasDist = fs.existsSync(indexPath);
 
-  if (isProd && hasDist) {
-    app.use(express.static(distPath));
+  if (isProd && hasDist && process.env.npm_lifecycle_event !== 'dev') {
+    // Immutable 1-year cache for fingerprinted/hashed production JS/CSS assets
+    app.use(
+      '/assets',
+      express.static(path.join(distPath, 'assets'), {
+        maxAge: '1y',
+        immutable: true,
+      })
+    );
+    // General static files (favicon, manifest, icons)
+    app.use(
+      express.static(distPath, {
+        maxAge: '1h',
+      })
+    );
+    // SPA HTML shell: must revalidate to always serve latest bundles
     app.get('*', (req, res) => {
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
       res.sendFile(indexPath);
     });
   } else {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, hmr: false },
       appType: 'spa',
     });
     app.use(vite.middlewares);

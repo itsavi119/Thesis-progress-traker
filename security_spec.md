@@ -3,7 +3,7 @@
 ## Application Architecture
 - **Application**: Thesis & Clinical Case Progress Tracker
 - **Database**: Relational Database & Express API
-- **Authentication**: Native Self-Hosted Authentication & Secure JWT Session Cookies
+- **Authentication**: Firebase Authentication (Google OAuth & Email/Password) & Secure JWT Session Cookies
 
 ---
 

@@ -19,6 +19,8 @@ import { useAuth } from '../context/AuthContext.js';
 import { useGroup } from '../context/GroupContext.js';
 import { PrivacyNotice } from '../components/PrivacyNotice.js';
 import { Logo } from '../components/Logo.js';
+import { MilestonesBarChart } from '../components/MilestonesBarChart.js';
+import { WeeklyProgressSummary } from '../components/WeeklyProgressSummary.js';
 import type { DashboardStats, CaseRecord } from '../types/index.js';
 
 interface DashboardProps {
@@ -39,6 +41,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     remaining: 220,
     progressPercentage: 0,
   });
+  const [allCases, setAllCases] = useState<CaseRecord[]>([]);
   const [recentCases, setRecentCases] = useState<CaseRecord[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +59,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         api.getAllCases({ groupId: currentGroup.id }),
       ]);
       setStats(statsRes.stats);
-      setRecentCases(casesRes.cases.slice(0, 5));
+      setAllCases(casesRes.cases || []);
+      setRecentCases((casesRes.cases || []).slice(0, 5));
     } catch (err: any) {
       setError(err.message || 'Failed to load case data from research group.');
     } finally {
@@ -271,6 +275,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           <p className="text-[11px] text-slate-400 mt-1">Ineligible / dropped</p>
         </div>
       </div>
+
+      {/* RESEARCH MILESTONES BAR CHART (RECHARTS) */}
+      <MilestonesBarChart
+        groupId={currentGroup.id}
+        groupName={currentGroup.name}
+        studyTitle={currentGroup.studyTitle}
+        stats={stats}
+        targetSampleSize={target}
+      />
+
+      {/* WEEKLY PROGRESS SUMMARY (TREND LINE VIA RECHARTS) */}
+      <WeeklyProgressSummary
+        groupId={currentGroup.id}
+        groupName={currentGroup.name}
+        studyTitle={currentGroup.studyTitle}
+        cases={allCases}
+        stats={stats}
+        targetSampleSize={target}
+        groupCreatedAt={currentGroup.createdAt}
+      />
 
       {/* RECENT CASES */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">

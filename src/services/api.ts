@@ -25,8 +25,10 @@ class ApiService {
 
   constructor() {
     if (typeof window !== 'undefined') {
-      this.token = localStorage.getItem('thesis_tracker_jwt_token');
-      this.activeGroupId = localStorage.getItem('thesis_tracker_active_group_id');
+      try {
+        this.token = sessionStorage.getItem('thesis_tracker_session_token');
+        this.activeGroupId = localStorage.getItem('thesis_tracker_active_group_id');
+      } catch {}
     }
   }
 
@@ -44,17 +46,21 @@ class ApiService {
   public setToken(token?: string | null) {
     this.token = token || null;
     if (typeof window !== 'undefined') {
-      if (token) {
-        localStorage.setItem('thesis_tracker_jwt_token', token);
-      } else {
-        localStorage.removeItem('thesis_tracker_jwt_token');
-      }
+      try {
+        if (token) {
+          sessionStorage.setItem('thesis_tracker_session_token', token);
+        } else {
+          sessionStorage.removeItem('thesis_tracker_session_token');
+        }
+      } catch {}
     }
   }
 
   public getToken(): string | null {
     if (!this.token && typeof window !== 'undefined') {
-      this.token = localStorage.getItem('thesis_tracker_jwt_token');
+      try {
+        this.token = sessionStorage.getItem('thesis_tracker_session_token');
+      } catch {}
     }
     return this.token;
   }
@@ -86,14 +92,16 @@ class ApiService {
     try {
       await fetch('/api/auth/logout', {
         method: 'POST',
-        credentials: 'same-origin',
+        credentials: 'include',
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
       });
     } catch {}
 
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('thesis_tracker_jwt_token');
-      localStorage.removeItem('thesis_tracker_active_group_id');
+      try {
+        sessionStorage.removeItem('thesis_tracker_session_token');
+        localStorage.removeItem('thesis_tracker_active_group_id');
+      } catch {}
     }
 
     if (uid) {
@@ -121,7 +129,7 @@ class ApiService {
     const response = await fetch(endpoint, {
       ...options,
       headers,
-      credentials: 'same-origin', // Transmits secure HttpOnly cookie automatically
+      credentials: 'include', // Transmits secure HttpOnly cookie automatically across all hosts/iframes
     });
 
     // Safely consume the response body stream exactly once to prevent "body stream already read"
@@ -181,6 +189,23 @@ class ApiService {
     password: string;
   }): Promise<AuthResponse> {
     const data = await this.request<AuthResponse>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    this.setToken(data.token);
+    this.setCurrentUserId(data.user.id);
+    return data;
+  }
+
+  public async syncFirebaseUser(params: {
+    uid: string;
+    email: string;
+    displayName?: string;
+    photoUrl?: string | null;
+    idToken?: string;
+    provider?: string;
+  }): Promise<AuthResponse> {
+    const data = await this.request<AuthResponse>('/api/auth/firebase-sync', {
       method: 'POST',
       body: JSON.stringify(params),
     });
@@ -578,10 +603,8 @@ class ApiService {
       if (groupId) {
         params.append('groupId', groupId);
       }
-      const token = this.getToken();
-      if (token) {
-        params.append('token', token);
-      }
+      // SEC-HIGH-05: Authenticated via secure HttpOnly cookie with withCredentials: true.
+      // Omit token from URL query string to prevent leak into proxy and access logs.
 
       const url = `/api/cases/events?${params.toString()}`;
       es = new EventSource(url, { withCredentials: true });
