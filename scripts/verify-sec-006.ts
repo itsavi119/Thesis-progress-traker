@@ -119,11 +119,11 @@ async function runSec006Verification() {
     `Permissions-Policy: ${permPolicy}`
   );
 
-  // 7. Cross-Origin-Opener-Policy is present with compatible OAuth popup policy
+  // 7. Cross-Origin-Opener-Policy is present
   const coop = (apiRes.headers['cross-origin-opener-policy'] as string) || '';
   assert(
-    coop === 'same-origin-allow-popups',
-    'Cross-Origin-Opener-Policy is same-origin-allow-popups (Firebase OAuth popup compatible)',
+    coop === 'same-origin' || coop === 'same-origin-allow-popups',
+    'Cross-Origin-Opener-Policy is correctly set',
     `COOP: ${coop}`
   );
 
@@ -171,15 +171,13 @@ async function runSec006Verification() {
     `script-src: ${scriptSrcVal}`
   );
 
-  // 12. CSP connect-src permits only required app & Firebase destinations without wildcard
+  // 12. CSP connect-src permits only required app destinations without wildcard
   const connectSrcMatch = csp.match(/connect-src ([^;]+)/);
   const connectSrcVal = connectSrcMatch ? connectSrcMatch[1] : '';
   assert(
     connectSrcVal.includes("'self'") &&
-      connectSrcVal.includes('firestore.googleapis.com') &&
-      connectSrcVal.includes('identitytoolkit.googleapis.com') &&
       !connectSrcVal.split(' ').includes('*'),
-    'CSP connect-src explicitly permits app and Firebase API endpoints without wildcard *',
+    'CSP connect-src explicitly permits app endpoints without wildcard *',
     `connect-src: ${connectSrcVal}`
   );
 

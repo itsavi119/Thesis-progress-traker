@@ -2,8 +2,8 @@
 
 ## Application Architecture
 - **Application**: Thesis & Clinical Case Progress Tracker
-- **Database**: Google Cloud Firestore & Express API
-- **Authentication**: Google OAuth / Firebase Authentication & JWT session cookies
+- **Database**: Relational Database & Express API
+- **Authentication**: Native Self-Hosted Authentication & Secure JWT Session Cookies
 
 ---
 

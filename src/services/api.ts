@@ -189,22 +189,6 @@ class ApiService {
     return data;
   }
 
-  public async syncGoogleUser(params: {
-    uid: string;
-    email: string;
-    displayName: string;
-    idToken?: string;
-    accessToken?: string;
-  }): Promise<AuthResponse> {
-    const data = await this.request<AuthResponse>('/api/auth/google-sync', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    });
-    this.setToken(data.token);
-    this.setCurrentUserId(data.user.id);
-    return data;
-  }
-
   public async getMe(): Promise<{ user: UserProfile }> {
     const res = await this.request<{ user: UserProfile }>('/api/auth/me');
     if (res.user?.id) {

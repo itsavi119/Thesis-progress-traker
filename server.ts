@@ -198,8 +198,7 @@ export const securityHeadersMiddleware = (req: Request, res: Response, next: Nex
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
 
   // 5. Cross-Origin-Opener-Policy
-  // Note: Set to 'unsafe-none' so Firebase Auth Google popup can communicate with parent window across origins
-  res.setHeader('Cross-Origin-Opener-Policy', 'unsafe-none');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
 
   // 6. Strict-Transport-Security (Production HTTPS & Cloud Run reverse proxy)
   const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https' || isProd;
@@ -210,12 +209,12 @@ export const securityHeadersMiddleware = (req: Request, res: Response, next: Nex
   // 7. Content-Security-Policy (Enforcing baseline customized to app dependencies)
   const cspDirectives = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com https://accounts.google.com",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com",
+    "img-src 'self' data: blob:",
     "font-src 'self' data:",
-    "connect-src 'self' ws: wss: https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://*.run.app https://*.ai.studio",
-    "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://*.google.com https://*.run.app https://*.ai.studio",
+    "connect-src 'self' ws: wss: https://*.run.app https://*.ai.studio",
+    "frame-src 'self' https://*.run.app https://*.ai.studio",
     "frame-ancestors 'self' https://aistudio.google.com https://*.google.com https://*.run.app https://*.googleusercontent.com https://*.ai.studio",
     "object-src 'none'",
     "base-uri 'self'",
@@ -750,81 +749,6 @@ app.post('/api/auth/login', async (req: RequestWithId, res: Response) => {
     res.json({ token, user, isBrowserClient: !!isBrowserClient });
   } catch (err: any) {
     sendSafeErrorResponse(err, req, res, 'LOGIN_FAILED');
-  }
-});
-
-app.post('/api/auth/google-sync', async (req: RequestWithId, res: Response) => {
-  try {
-    const { uid, email, displayName, idToken, accessToken } = req.body || {};
-    if (!uid || !email || typeof uid !== 'string' || typeof email !== 'string') {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'UID and email are required as strings.' });
-      return;
-    }
-    if (displayName !== undefined && typeof displayName !== 'string') {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'Display name must be a string.' });
-      return;
-    }
-
-    // Cryptographic validation of Google identity
-    let verifiedEmail: string | null = null;
-    let verifiedUid: string | null = null;
-
-    if (typeof idToken === 'string' && idToken.trim()) {
-      try {
-        const verifyRes = await fetch(
-          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken.trim())}`
-        );
-        if (verifyRes.ok) {
-          const info = await verifyRes.json();
-          if (info.email && (info.email_verified === 'true' || info.email_verified === true)) {
-            verifiedEmail = info.email.toLowerCase();
-            verifiedUid = info.sub;
-          }
-        }
-      } catch (tokenErr) {
-        console.warn('Google id_token verification notice:', tokenErr);
-      }
-    }
-
-    if (!verifiedEmail && typeof accessToken === 'string' && accessToken.trim()) {
-      try {
-        const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: `Bearer ${accessToken.trim()}` },
-        });
-        if (userInfoRes.ok) {
-          const info = await userInfoRes.json();
-          if (info.email && (info.email_verified === true || info.email_verified === 'true')) {
-            verifiedEmail = info.email.toLowerCase();
-            verifiedUid = info.sub;
-          }
-        }
-      } catch (userinfoErr) {
-        console.warn('Google accessToken userinfo notice:', userinfoErr);
-      }
-    }
-
-    // Strict validation: Require verified token from Google
-    if (!verifiedEmail || verifiedEmail !== email.trim().toLowerCase()) {
-      res.status(401).json({
-        error: 'UNAUTHORIZED',
-        message: 'Google identity verification failed. A valid, verified Google OAuth or ID token is required.',
-      });
-      return;
-    }
-
-    const user = await db.syncGoogleProfile({
-      uid: verifiedUid || uid,
-      email: verifiedEmail,
-      displayName: displayName || verifiedEmail.split('@')[0],
-    });
-
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '24h' });
-    res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
-
-    const isBrowserClient = req.headers['x-requested-with'] === 'XMLHttpRequest';
-    res.json({ token, user, isBrowserClient: !!isBrowserClient });
-  } catch (err: any) {
-    sendSafeErrorResponse(err, req, res, 'GOOGLE_SYNC_FAILED');
   }
 });
 
