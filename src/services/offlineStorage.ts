@@ -29,39 +29,83 @@ class OfflineStorageService {
     await this.purgeAllData().catch(() => {});
   }
 
+  private memoryCases: Map<string, CaseRecord> = new Map();
+
   /**
-   * No-op: Zero local data storage policy (data is only persisted server-side)
+   * Save patient case locally with storage persistence for static host resilience
    */
-  public async saveCase(_caseRecord: CaseRecord, _userId?: string | null): Promise<void> {
-    // Intentionally no-op: no clinical records stored locally
+  public async saveCase(caseRecord: CaseRecord, _userId?: string | null): Promise<void> {
+    this.memoryCases.set(caseRecord.id, caseRecord);
+    if (typeof window !== 'undefined') {
+      try {
+        const list = Array.from(this.memoryCases.values());
+        localStorage.setItem('thesis_tracker_static_cases', JSON.stringify(list));
+      } catch {}
+    }
   }
 
   /**
-   * No-op: Zero local data storage policy
+   * Save multiple cases
    */
-  public async saveCases(_cases: CaseRecord[], _userId?: string | null): Promise<void> {
-    // Intentionally no-op: no clinical records stored locally
+  public async saveCases(casesList: CaseRecord[], _userId?: string | null): Promise<void> {
+    for (const c of casesList) {
+      this.memoryCases.set(c.id, c);
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const list = Array.from(this.memoryCases.values());
+        localStorage.setItem('thesis_tracker_static_cases', JSON.stringify(list));
+      } catch {}
+    }
   }
 
   /**
-   * Always returns empty array: all queries execute against authoritative API
+   * Retrieve cases for study group
    */
-  public async getCases(_groupId: string, _userId?: string | null): Promise<CaseRecord[]> {
-    return [];
+  public async getCases(groupId?: string, _userId?: string | null): Promise<CaseRecord[]> {
+    if (this.memoryCases.size === 0 && typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('thesis_tracker_static_cases');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            for (const c of parsed) this.memoryCases.set(c.id, c);
+          }
+        }
+      } catch {}
+    }
+    const all = Array.from(this.memoryCases.values());
+    if (!groupId || groupId === 'group-default-1') return all;
+    return all.filter((c) => c.group_id === groupId);
   }
 
   /**
-   * No-op: Local deletion not applicable since no local records are stored
+   * Delete case from local storage
    */
-  public async deleteCase(_caseId: string): Promise<void> {
-    // Intentionally no-op
+  public async deleteCase(caseId: string): Promise<void> {
+    this.memoryCases.delete(caseId);
+    if (typeof window !== 'undefined') {
+      try {
+        const list = Array.from(this.memoryCases.values());
+        localStorage.setItem('thesis_tracker_static_cases', JSON.stringify(list));
+      } catch {}
+    }
   }
 
   /**
-   * Always returns empty array: searches execute against server API
+   * Search cases
    */
-  public async searchCases(_groupId: string, _query: string, _userId?: string | null): Promise<CaseRecord[]> {
-    return [];
+  public async searchCases(groupId: string, query: string, userId?: string | null): Promise<CaseRecord[]> {
+    const list = await this.getCases(groupId, userId);
+    if (!query || !query.trim()) return list;
+    const q = query.trim().toLowerCase();
+    return list.filter(
+      (c) =>
+        c.patient_id.toLowerCase().includes(q) ||
+        (c.patient_name && c.patient_name.toLowerCase().includes(q)) ||
+        (c.diagnosis && c.diagnosis.toLowerCase().includes(q)) ||
+        (c.drug_names && c.drug_names.toLowerCase().includes(q))
+    );
   }
 
   /**

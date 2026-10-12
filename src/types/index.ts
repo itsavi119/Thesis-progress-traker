@@ -151,6 +151,7 @@ export interface DuplicateCheckResult {
 export interface AuthResponse {
   token?: string;
   user: UserProfile;
+  isBrowserClient?: boolean;
 }
 
 export interface AuditLogEntry {

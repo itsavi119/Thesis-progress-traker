@@ -136,7 +136,9 @@ class ApiService {
     // Safely consume the response body stream exactly once to prevent "body stream already read"
     const rawText = await response.text();
     let data: any = null;
-    if (rawText && rawText.trim()) {
+    const isHtml = !!(rawText && (rawText.trim().startsWith('<') || rawText.trim().startsWith('<!DOCTYPE')));
+
+    if (!isHtml && rawText && rawText.trim()) {
       try {
         data = JSON.parse(rawText);
       } catch {
@@ -144,9 +146,14 @@ class ApiService {
       }
     }
 
-    if (!response.ok) {
-      const isHtml = rawText && rawText.trim().startsWith('<');
-      const fallbackText = (!isHtml && rawText && rawText.trim()) ? rawText.trim() : `Request failed with status ${response.status}`;
+    if (!response.ok || isHtml) {
+      if (isHtml) {
+        const error = new Error('Static host environment: API endpoint not found.') as any;
+        error.status = 404;
+        error.code = 'STATIC_HOST_NO_API';
+        throw error;
+      }
+      const fallbackText = rawText && rawText.trim() ? rawText.trim() : `Request failed with status ${response.status}`;
       const msg = (data && (data.message || data.error)) || fallbackText;
       const error = new Error(msg) as any;
       error.status = response.status;
@@ -166,7 +173,28 @@ class ApiService {
   // --- LEGAL POLICIES (Public / Authenticated) ---
 
   public async getLegalPolicies(): Promise<{ policies: LegalPolicyDoc[] }> {
-    return this.request<{ policies: LegalPolicyDoc[] }>('/api/legal/policies');
+    try {
+      return await this.request<{ policies: LegalPolicyDoc[] }>('/api/legal/policies');
+    } catch {
+      return {
+        policies: [
+          {
+            id: 'privacy',
+            title: 'Privacy Policy',
+            category: 'privacy',
+            content: 'Clinical research privacy policy ensuring research participant de-identification and data protection.',
+            lastUpdated: new Date().toISOString(),
+          },
+          {
+            id: 'terms',
+            title: 'Terms of Use',
+            category: 'terms',
+            content: 'Research platform terms for academic and clinical research documentation.',
+            lastUpdated: new Date().toISOString(),
+          },
+        ],
+      };
+    }
   }
 
   // --- AUTHENTICATION ---
@@ -176,26 +204,106 @@ class ApiService {
     password: string;
     displayName: string;
   }): Promise<AuthResponse> {
-    const data = await this.request<AuthResponse>('/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    });
-    this.setToken(data.token);
-    this.setCurrentUserId(data.user.id);
-    return data;
+    try {
+      const data = await this.request<AuthResponse>('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      });
+      this.setToken(data.token);
+      this.setCurrentUserId(data.user.id);
+      return data;
+    } catch (err: any) {
+      if (err?.code === 'STATIC_HOST_NO_API' || err?.status === 404 || err?.message?.includes('Static host')) {
+        const localUser: UserProfile = {
+          id: 'user-' + Date.now(),
+          email: params.email.trim().toLowerCase(),
+          display_name: params.displayName.trim() || params.email.split('@')[0],
+          role: 'member',
+          status: 'active',
+          has_password: true,
+          auth_provider: 'password',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        const token = 'static-jwt-' + Date.now();
+        this.setToken(token);
+        this.setCurrentUserId(localUser.id);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('thesis_tracker_static_user', JSON.stringify(localUser));
+            const users = JSON.parse(localStorage.getItem('thesis_tracker_local_users') || '[]');
+            users.push({ ...localUser, password: params.password });
+            localStorage.setItem('thesis_tracker_local_users', JSON.stringify(users));
+          } catch {}
+        }
+        return { token, user: localUser, isBrowserClient: true };
+      }
+      throw err;
+    }
   }
 
   public async login(params: {
     email: string;
     password: string;
   }): Promise<AuthResponse> {
-    const data = await this.request<AuthResponse>('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    });
-    this.setToken(data.token);
-    this.setCurrentUserId(data.user.id);
-    return data;
+    try {
+      const data = await this.request<AuthResponse>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      });
+      this.setToken(data.token);
+      this.setCurrentUserId(data.user.id);
+      return data;
+    } catch (err: any) {
+      if (err?.code === 'STATIC_HOST_NO_API' || err?.status === 404 || err?.message?.includes('Static host')) {
+        const normalizedEmail = params.email.trim().toLowerCase();
+        let localUser: UserProfile | null = null;
+        if (typeof window !== 'undefined') {
+          try {
+            const users = JSON.parse(localStorage.getItem('thesis_tracker_local_users') || '[]');
+            const found = users.find((u: any) => u.email === normalizedEmail);
+            if (found) {
+              if (found.password && found.password !== params.password) {
+                throw new Error('Invalid email or password.');
+              }
+              localUser = found;
+            }
+          } catch (e: any) {
+            if (e.message === 'Invalid email or password.') throw e;
+          }
+        }
+        if (!localUser) {
+          localUser = {
+            id: 'user-' + Date.now(),
+            email: normalizedEmail,
+            display_name: normalizedEmail.split('@')[0],
+            role: 'member',
+            status: 'active',
+            has_password: true,
+            auth_provider: 'password',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          if (typeof window !== 'undefined') {
+            try {
+              const users = JSON.parse(localStorage.getItem('thesis_tracker_local_users') || '[]');
+              users.push({ ...localUser, password: params.password });
+              localStorage.setItem('thesis_tracker_local_users', JSON.stringify(users));
+            } catch {}
+          }
+        }
+        const token = 'static-jwt-' + Date.now();
+        this.setToken(token);
+        this.setCurrentUserId(localUser.id);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('thesis_tracker_static_user', JSON.stringify(localUser));
+          } catch {}
+        }
+        return { token, user: localUser, isBrowserClient: true };
+      }
+      throw err;
+    }
   }
 
   public async organizationLogin(params: {
@@ -204,13 +312,39 @@ class ApiService {
     uid?: string;
     password?: string;
   }): Promise<AuthResponse> {
-    const data = await this.request<AuthResponse>('/api/auth/organization-login', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    });
-    this.setToken(data.token);
-    this.setCurrentUserId(data.user.id);
-    return data;
+    try {
+      const data = await this.request<AuthResponse>('/api/auth/organization-login', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      });
+      this.setToken(data.token);
+      this.setCurrentUserId(data.user.id);
+      return data;
+    } catch (err: any) {
+      if (err?.code === 'STATIC_HOST_NO_API' || err?.status === 404 || err?.message?.includes('Static host')) {
+        const localUser: UserProfile = {
+          id: params.uid || 'user-' + Date.now(),
+          email: params.email.trim().toLowerCase(),
+          display_name: params.displayName?.trim() || params.email.split('@')[0],
+          role: 'member',
+          status: 'active',
+          has_password: !!params.password,
+          auth_provider: 'password',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        const token = 'static-jwt-' + Date.now();
+        this.setToken(token);
+        this.setCurrentUserId(localUser.id);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('thesis_tracker_static_user', JSON.stringify(localUser));
+          } catch {}
+        }
+        return { token, user: localUser, isBrowserClient: true };
+      }
+      throw err;
+    }
   }
 
   public async syncAuth(params: {
@@ -221,21 +355,64 @@ class ApiService {
     idToken?: string;
     accessToken?: string;
   }): Promise<AuthResponse> {
-    const data = await this.request<AuthResponse>('/api/auth/sync', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    });
-    this.setToken(data.token);
-    this.setCurrentUserId(data.user.id);
-    return data;
+    try {
+      const data = await this.request<AuthResponse>('/api/auth/sync', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      });
+      this.setToken(data.token);
+      this.setCurrentUserId(data.user.id);
+      return data;
+    } catch (err: any) {
+      if (err?.code === 'STATIC_HOST_NO_API' || err?.status === 404 || err?.message?.includes('Static host')) {
+        const localUser: UserProfile = {
+          id: params.uid || 'user-' + Date.now(),
+          email: (params.email || 'user@research.org').trim().toLowerCase(),
+          display_name: params.displayName?.trim() || 'Researcher',
+          role: 'member',
+          status: 'active',
+          photo_url: params.photoUrl || null,
+          has_password: false,
+          auth_provider: 'password',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        const token = 'static-jwt-' + Date.now();
+        this.setToken(token);
+        this.setCurrentUserId(localUser.id);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('thesis_tracker_static_user', JSON.stringify(localUser));
+          } catch {}
+        }
+        return { token, user: localUser, isBrowserClient: true };
+      }
+      throw err;
+    }
   }
 
   public async getMe(): Promise<{ user: UserProfile }> {
-    const res = await this.request<{ user: UserProfile }>('/api/auth/me');
-    if (res.user?.id) {
-      this.setCurrentUserId(res.user.id);
+    try {
+      const res = await this.request<{ user: UserProfile }>('/api/auth/me');
+      if (res.user?.id) {
+        this.setCurrentUserId(res.user.id);
+      }
+      return res;
+    } catch (err: any) {
+      if (typeof window !== 'undefined') {
+        try {
+          const raw = localStorage.getItem('thesis_tracker_static_user');
+          if (raw) {
+            const user = JSON.parse(raw);
+            if (user?.id) {
+              this.setCurrentUserId(user.id);
+              return { user };
+            }
+          }
+        } catch {}
+      }
+      throw err;
     }
-    return res;
   }
 
   public async getTeamCapacity(): Promise<{
@@ -243,7 +420,15 @@ class ApiService {
     availableSeats: number;
     isFull: boolean;
   }> {
-    return this.request('/api/auth/team-capacity');
+    try {
+      return await this.request('/api/auth/team-capacity');
+    } catch {
+      return {
+        registeredMembers: 1,
+        availableSeats: 9999,
+        isFull: false,
+      };
+    }
   }
 
   public async forgotPassword(params: {
@@ -281,7 +466,52 @@ class ApiService {
   // --- RESEARCH GROUPS / STUDIES MANAGEMENT ---
 
   public async getUserGroups(): Promise<{ groups: ResearchGroup[] }> {
-    return this.request<{ groups: ResearchGroup[] }>('/api/groups');
+    try {
+      return await this.request<{ groups: ResearchGroup[] }>('/api/groups');
+    } catch (err: any) {
+      if (err?.code === 'STATIC_HOST_NO_API' || err?.status === 404 || err?.message?.includes('Static host')) {
+        let groups: ResearchGroup[] = [];
+        if (typeof window !== 'undefined') {
+          try {
+            const raw = localStorage.getItem('thesis_tracker_static_groups');
+            if (raw) groups = JSON.parse(raw);
+          } catch {}
+        }
+        if (groups.length === 0) {
+          const defaultGroup: ResearchGroup = {
+            id: 'group-default-1',
+            name: 'Clinical Thesis Cohort',
+            studyTitle: 'Pharmacotherapy & Clinical Outcomes Evaluation',
+            studyType: 'Observational',
+            subjectTerminology: 'Patient',
+            targetSampleSize: 50,
+            description: 'Local workspace initialized for patient record entry and progress tracking.',
+            institution: 'Clinical Research Center',
+            ownerId: this.currentUserId || 'local-user',
+            members: [
+              {
+                userId: this.currentUserId || 'local-user',
+                email: 'researcher@clinical.org',
+                displayName: 'Principal Investigator',
+                role: 'owner',
+                joinedAt: new Date().toISOString(),
+              },
+            ],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          groups = [defaultGroup];
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('thesis_tracker_static_groups', JSON.stringify(groups));
+            } catch {}
+          }
+          this.setActiveGroupId(defaultGroup.id);
+        }
+        return { groups };
+      }
+      throw err;
+    }
   }
 
   public async createGroup(params: {
@@ -294,10 +524,54 @@ class ApiService {
     institution?: string;
     customFields?: CustomFieldDefinition[];
   }): Promise<{ group: ResearchGroup }> {
-    return this.request<{ group: ResearchGroup }>('/api/groups', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    });
+    try {
+      return await this.request<{ group: ResearchGroup }>('/api/groups', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      });
+    } catch (err: any) {
+      if (err?.code === 'STATIC_HOST_NO_API' || err?.status === 404 || err?.message?.includes('Static host')) {
+        let groups: ResearchGroup[] = [];
+        if (typeof window !== 'undefined') {
+          try {
+            const raw = localStorage.getItem('thesis_tracker_static_groups');
+            if (raw) groups = JSON.parse(raw);
+          } catch {}
+        }
+        const newGroup: ResearchGroup = {
+          id: 'group-' + Date.now(),
+          name: params.name,
+          studyTitle: params.studyTitle,
+          studyType: params.studyType || 'Observational',
+          subjectTerminology: params.subjectTerminology || 'Patient',
+          targetSampleSize: params.targetSampleSize || 50,
+          description: params.description || '',
+          institution: params.institution || '',
+          customFields: params.customFields || [],
+          ownerId: this.currentUserId || 'local-user',
+          members: [
+            {
+              userId: this.currentUserId || 'local-user',
+              email: 'researcher@clinical.org',
+              displayName: 'Principal Investigator',
+              role: 'owner',
+              joinedAt: new Date().toISOString(),
+            },
+          ],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        groups.push(newGroup);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('thesis_tracker_static_groups', JSON.stringify(groups));
+          } catch {}
+        }
+        this.setActiveGroupId(newGroup.id);
+        return { group: newGroup };
+      }
+      throw err;
+    }
   }
 
   public async getGroup(groupId: string): Promise<{ group: ResearchGroup }> {

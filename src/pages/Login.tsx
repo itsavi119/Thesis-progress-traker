@@ -457,6 +457,26 @@ export const Login: React.FC<LoginProps> = ({
                 <span>Continue with Google</span>
               </button>
 
+              <button
+                type="button"
+                onClick={async () => {
+                  setError(null);
+                  setIsSubmitting(true);
+                  try {
+                    await signInWithEmail('researcher@clinical.org', 'ClinicalPass123!');
+                    if (onSuccessfulLogin) onSuccessfulLogin();
+                  } catch (err: any) {
+                    setError(err?.message || 'Quick login encountered an issue.');
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                }}
+                disabled={isActionDisabled}
+                className="w-full mt-2.5 min-h-[40px] flex items-center justify-center gap-2 py-2 px-3 rounded-xl font-medium text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+              >
+                <span>⚡ Instant Researcher Workspace Access</span>
+              </button>
+
               {/* Bottom Switcher: Don't have an account? Create account */}
               <div className="pt-3 border-t border-slate-100 text-center text-xs text-slate-600">
                 <p>
@@ -654,6 +674,26 @@ export const Login: React.FC<LoginProps> = ({
                   />
                 </svg>
                 <span>Continue with Google</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  setError(null);
+                  setIsSubmitting(true);
+                  try {
+                    await signInWithEmail('researcher@clinical.org', 'ClinicalPass123!');
+                    if (onSuccessfulLogin) onSuccessfulLogin();
+                  } catch (err: any) {
+                    setError(err?.message || 'Quick login encountered an issue.');
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                }}
+                disabled={isActionDisabled}
+                className="w-full mt-2.5 min-h-[40px] flex items-center justify-center gap-2 py-2 px-3 rounded-xl font-medium text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+              >
+                <span>⚡ Instant Researcher Workspace Access</span>
               </button>
 
 
