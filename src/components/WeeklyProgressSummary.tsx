@@ -7,17 +7,11 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ReferenceLine,
 } from 'recharts';
 import {
   TrendingUp,
-  Calendar,
-  Activity,
-  CheckCircle2,
-  Clock,
   ArrowUpRight,
-  Layers,
   Sparkles,
   Info,
 } from 'lucide-react';
@@ -25,8 +19,8 @@ import type { CaseRecord, DashboardStats } from '../types/index.js';
 
 interface WeeklyProgressSummaryProps {
   groupId: string;
-  groupName: string;
-  studyTitle: string;
+  groupName?: string;
+  studyTitle?: string;
   cases: CaseRecord[];
   stats: DashboardStats;
   targetSampleSize: number;
@@ -46,8 +40,6 @@ interface WeekDataPoint {
 }
 
 export const WeeklyProgressSummary: React.FC<WeeklyProgressSummaryProps> = ({
-  groupName,
-  studyTitle,
   cases,
   stats,
   targetSampleSize,
@@ -62,7 +54,6 @@ export const WeeklyProgressSummary: React.FC<WeeklyProgressSummaryProps> = ({
   const { weeklyData, velocity, weeklyGrowthRate, weeksToTarget } = useMemo(() => {
     const numWeeks = timeRange === '6w' ? 6 : 10;
     const now = new Date();
-    const createdDate = groupCreatedAt ? new Date(groupCreatedAt) : new Date(now.getTime() - 42 * 86400000);
 
     // Calculate weekly intervals leading up to now
     const points: WeekDataPoint[] = [];
@@ -122,7 +113,7 @@ export const WeeklyProgressSummary: React.FC<WeeklyProgressSummaryProps> = ({
     // Ensure realistic baseline visualization: if group has few cases, simulate earlier zero-point trajectory
     if (points.length > 0 && points[points.length - 1].cumulativeCases === 0) {
       // If no cases registered yet, milestone baseline is protocol clearance only (20% overall)
-      points.forEach((p, idx) => {
+      points.forEach((p) => {
         p.overallCompletion = 20;
         p.enrollmentRate = 0;
         p.verificationRate = 0;
@@ -154,7 +145,7 @@ export const WeeklyProgressSummary: React.FC<WeeklyProgressSummaryProps> = ({
   const currentCases = weeklyData.length > 0 ? weeklyData[weeklyData.length - 1].cumulativeCases : 0;
 
   // Custom Glassmorphic Tooltip
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data: WeekDataPoint = payload[0].payload;
       return (

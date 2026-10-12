@@ -24,7 +24,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen
 
   if (!isOpen) return null;
 
-  const isGoogleAccount = user?.auth_provider === 'google' || user?.has_password === false;
+  const hasNoPassword = user?.has_password === false;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,18 +92,18 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen
           </button>
         </div>
 
-        {isGoogleAccount ? (
+        {hasNoPassword ? (
           <div className="space-y-4 py-2">
             <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 space-y-2 text-xs text-blue-900">
               <div className="flex items-center gap-2 font-bold text-sm text-blue-800">
                 <ShieldCheck className="w-4 h-4 text-blue-600" />
-                <span>Google Single Sign-On Active</span>
+                <span>Account Password Status</span>
               </div>
               <p className="leading-relaxed">
-                You are signed in with your <strong>Google Account</strong> ({user?.email}). Because your authentication is managed securely by Google, you do not have a separate local password for this application.
+                This account ({user?.email}) does not currently have a password assigned.
               </p>
               <p className="leading-relaxed text-blue-700">
-                To update your password or two-factor authentication, please visit your Google Account Security settings.
+                To set or change your password, use the "Forgot Password" option on the sign-in screen or register your credentials.
               </p>
             </div>
 

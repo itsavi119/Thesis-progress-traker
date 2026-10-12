@@ -1,0 +1,6 @@
+{
+  "summary":  "Plan to detach Firebase Auth and Firestore completely, replacing them with reliable built-in server authentication (email, password, and instant workspace access) and local relational database storage.",
+  "updatedAt":  "2026-10-11T18:47:06.307327797Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

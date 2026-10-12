@@ -10,6 +10,7 @@ import {
   Eye,
   EyeOff,
   Check,
+  KeyRound,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.js';
 import { Logo } from '../components/Logo.js';
@@ -32,13 +33,12 @@ export const Login: React.FC<LoginProps> = ({
   onSwitchMode,
   initialMode = 'login',
 }) => {
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset } = useAuth();
+  const { signInWithEmail, signUpWithEmail, sendPasswordReset, resetPassword } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>(initialMode);
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [displayName, setDisplayName] = useState<string>('');
-  const [rememberMe, setRememberMe] = useState<boolean>(false);
 
   // Password visibility toggles
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -46,25 +46,33 @@ export const Login: React.FC<LoginProps> = ({
 
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState<boolean>(false);
 
-  // Forgot Password modal state
+  // Forgot & Reset Password modal state
   const [showForgotPassword, setShowForgotPassword] = useState<boolean>(false);
+  const [forgotStep, setForgotStep] = useState<'request' | 'reset' | 'done'>('request');
   const [forgotEmail, setForgotEmail] = useState<string>('');
-  const [forgotStatus, setForgotStatus] = useState<'idle' | 'submitting' | 'success'>('idle');
+  const [forgotToken, setForgotToken] = useState<string>('');
+  const [forgotNewPassword, setForgotNewPassword] = useState<string>('');
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState<string>('');
+  const [showForgotNewPassword, setShowForgotNewPassword] = useState<boolean>(false);
+  const [showForgotConfirmPassword, setShowForgotConfirmPassword] = useState<boolean>(false);
+  const [forgotStatus, setForgotStatus] = useState<'idle' | 'submitting'>('idle');
   const [forgotError, setForgotError] = useState<string | null>(null);
+  const [forgotNotice, setForgotNotice] = useState<string | null>(null);
 
-  // Restore remembered email
+  // Check URL parameters for password reset link (e.g. ?token=...)
   useEffect(() => {
     try {
-      const savedEmail = localStorage.getItem('thesis_tracker_remembered_email');
-      if (savedEmail) {
-        setEmail(savedEmail);
-        setRememberMe(true);
+      const searchParams = new URLSearchParams(window.location.search);
+      const tokenParam = searchParams.get('reset_token') || searchParams.get('token');
+      const emailParam = searchParams.get('email');
+      if (tokenParam) {
+        setForgotToken(tokenParam);
+        if (emailParam) setForgotEmail(emailParam);
+        setForgotStep('reset');
+        setShowForgotPassword(true);
       }
-    } catch {
-      // Ignore storage access issues
-    }
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -82,46 +90,10 @@ export const Login: React.FC<LoginProps> = ({
 
   const isRegistering = mode === 'register';
 
-  // Google Sign-In Handler
-  const handleGoogleSignIn = async () => {
-    if (isSubmitting || isGoogleSubmitting) return;
-    setError(null);
-    setIsGoogleSubmitting(true);
-
-    try {
-      const success = await signInWithGoogle();
-      if (success) {
-        onSuccessfulLogin?.();
-      }
-    } catch (err: any) {
-      console.warn('Google sign-in notice:', err?.message || err);
-      setError(err?.message || 'Google authentication was not completed. Please try again.');
-    } finally {
-      setIsGoogleSubmitting(false);
-    }
-  };
-
-  // Instant login for Anil Shah (Admin / App Owner)
-  const handleQuickLoginAnil = async () => {
-    if (isSubmitting || isGoogleSubmitting) return;
-    setEmail('anilshah.as118@gmail.com');
-    setPassword('Research2026!');
-    setError(null);
-    setIsSubmitting(true);
-    try {
-      await signInWithEmail('anilshah.as118@gmail.com', 'Research2026!');
-      onSuccessfulLogin?.();
-    } catch (err: any) {
-      setError(err?.message || 'Login failed.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   // Form Submit Handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmitting || isGoogleSubmitting) return;
+    if (isSubmitting) return;
     setError(null);
 
     // Basic Client Validations
@@ -157,16 +129,6 @@ export const Login: React.FC<LoginProps> = ({
         onSuccessfulLogin?.();
       } else {
         // Sign In
-        if (rememberMe) {
-          try {
-            localStorage.setItem('thesis_tracker_remembered_email', email.trim());
-          } catch {}
-        } else {
-          try {
-            localStorage.removeItem('thesis_tracker_remembered_email');
-          } catch {}
-        }
-
         await signInWithEmail(email.trim(), password);
         onSuccessfulLogin?.();
       }
@@ -177,10 +139,11 @@ export const Login: React.FC<LoginProps> = ({
     }
   };
 
-  // Forgot Password Handler
+  // Forgot Password (Request Token) Handler
   const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setForgotError(null);
+    setForgotNotice(null);
     if (!forgotEmail.trim()) {
       setForgotError('Please enter your email address.');
       return;
@@ -188,15 +151,67 @@ export const Login: React.FC<LoginProps> = ({
 
     setForgotStatus('submitting');
     try {
-      await sendPasswordReset(forgotEmail.trim());
-      setForgotStatus('success');
+      const res = await sendPasswordReset(forgotEmail.trim());
+      setForgotStatus('idle');
+      if (res?.devResetToken) {
+        setForgotToken(res.devResetToken);
+        setForgotNotice('Security reset token generated successfully. You can now set your new password below.');
+      } else {
+        setForgotNotice('Reset instructions generated. Enter your reset token below to complete.');
+      }
+      setForgotStep('reset');
     } catch (err: any) {
-      console.warn('Password reset notice:', err);
-      setForgotStatus('success');
+      setForgotError(err?.message || 'Failed to dispatch password reset request.');
+      setForgotStatus('idle');
     }
   };
 
-  const isActionDisabled = isSubmitting || isGoogleSubmitting;
+  // Reset Password Confirmation Handler
+  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError(null);
+
+    if (!forgotEmail.trim()) {
+      setForgotError('Please enter your email address.');
+      return;
+    }
+
+    if (!forgotToken.trim()) {
+      setForgotError('Please enter the password reset token.');
+      return;
+    }
+
+    const valResult = validatePasswordBasic(forgotNewPassword);
+    if (!valResult.isValid) {
+      setForgotError(valResult.message || `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      return;
+    }
+
+    const matchResult = validatePasswordConfirmation(forgotNewPassword, forgotConfirmPassword);
+    if (!matchResult.isValid) {
+      setForgotError(matchResult.message || 'Passwords do not match.');
+      return;
+    }
+
+    setForgotStatus('submitting');
+    try {
+      await resetPassword({
+        email: forgotEmail.trim(),
+        resetToken: forgotToken.trim(),
+        newPassword: forgotNewPassword,
+        confirmPassword: forgotConfirmPassword,
+      });
+      setForgotStatus('idle');
+      setForgotStep('done');
+      setEmail(forgotEmail.trim());
+      setPassword('');
+    } catch (err: any) {
+      setForgotError(err?.message || 'Failed to reset password. Please check your reset token.');
+      setForgotStatus('idle');
+    }
+  };
+
+  const isActionDisabled = isSubmitting;
 
   return (
     <div className="min-h-screen bg-slate-50/90 text-slate-900 flex flex-col justify-center items-center p-4 sm:p-6 antialiased selection:bg-blue-100 selection:text-blue-900">
@@ -265,63 +280,35 @@ export const Login: React.FC<LoginProps> = ({
 
           {/* Error Banner */}
           {error && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200/90 flex items-start gap-2.5 text-xs text-rose-800 animate-in fade-in duration-150">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              <p className="font-medium leading-relaxed">{error}</p>
+            <div className="p-3.5 rounded-2xl bg-rose-50/95 border border-rose-200/90 shadow-xs text-xs text-rose-900 animate-in fade-in duration-150 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 font-bold text-rose-700 uppercase tracking-wider text-[10px]">
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  Authentication Notice
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setError(null)}
+                  aria-label="Dismiss notice"
+                  className="p-1 rounded-lg text-rose-400 hover:text-rose-700 hover:bg-rose-100/60 transition-colors cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <p className="font-semibold leading-relaxed text-rose-900 text-xs break-words">
+                {error}
+              </p>
             </div>
           )}
 
           {/* =========================================================================
               SIGN-IN VIEW
               Order:
-              1. Primary: Continue with Google
-              2. OR
-              3. Form (Email, Password, Forgot Password?, Sign In)
-              4. Bottom: Don't have an account? Create account
+              1. Email & Password Form (Email, Password, Forgot Password?, Sign In)
+              2. Bottom: Don't have an account? Create account
              ========================================================================= */}
           {!isRegistering && (
-            <div className="space-y-4">
-              {/* Primary Google Sign-In Button */}
-              <button
-                type="button"
-                onClick={handleGoogleSignIn}
-                disabled={isActionDisabled}
-                className="w-full min-h-[46px] flex items-center justify-center gap-3 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 hover:border-slate-400 rounded-xl font-semibold text-sm shadow-xs transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer touch-manipulation"
-              >
-                {isGoogleSubmitting ? (
-                  <span className="w-4 h-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
-                ) : (
-                  <svg className="w-4.5 h-4.5 shrink-0" viewBox="0 0 24 24">
-                    <path
-                      fill="#4285F4"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                    />
-                  </svg>
-                )}
-                <span>Continue with Google</span>
-              </button>
-
-              {/* Divider: OR */}
-              <div className="relative flex items-center justify-center my-3">
-                <div className="border-t border-slate-200 w-full" />
-                <span className="bg-white px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0">
-                  OR
-                </span>
-                <div className="border-t border-slate-200 w-full" />
-              </div>
-
+            <div className="space-y-3.5">
               {/* Email + Password Sign-In Form */}
               <form onSubmit={handleSubmit} className="space-y-3.5">
                 <div>
@@ -352,8 +339,13 @@ export const Login: React.FC<LoginProps> = ({
                       type="button"
                       onClick={() => {
                         setForgotEmail(email);
+                        setForgotStep('request');
+                        setForgotToken('');
+                        setForgotNewPassword('');
+                        setForgotConfirmPassword('');
                         setForgotStatus('idle');
                         setForgotError(null);
+                        setForgotNotice(null);
                         setShowForgotPassword(true);
                       }}
                       className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
@@ -384,20 +376,6 @@ export const Login: React.FC<LoginProps> = ({
                   </div>
                 </div>
 
-                {/* Remember Me */}
-                <div className="flex items-center justify-between text-xs pt-0.5">
-                  <label className="flex items-center gap-2 cursor-pointer select-none text-slate-600 hover:text-slate-900">
-                    <input
-                      type="checkbox"
-                      checked={rememberMe}
-                      disabled={isActionDisabled}
-                      onChange={(e) => setRememberMe(e.target.checked)}
-                      className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500/30"
-                    />
-                    <span className="font-medium">Remember me</span>
-                  </label>
-                </div>
-
                 {/* Primary Email Submit Button: Sign In */}
                 <button
                   type="submit"
@@ -414,28 +392,6 @@ export const Login: React.FC<LoginProps> = ({
                   )}
                 </button>
               </form>
-
-              {/* Instant Access for Anil Shah (Admin) */}
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-800">Workspace Administrator</span>
-                  <span className="text-[10px] px-1.5 py-0.5 font-bold uppercase tracking-wider bg-blue-100 text-blue-700 rounded-md">
-                    Admin
-                  </span>
-                </div>
-                <p className="text-slate-500 text-[11px] leading-relaxed">
-                  Direct access for <span className="font-mono text-slate-700 font-medium">anilshah.as118@gmail.com</span>
-                </p>
-                <button
-                  type="button"
-                  onClick={handleQuickLoginAnil}
-                  disabled={isActionDisabled}
-                  className="w-full mt-1 py-2 px-3 bg-white hover:bg-blue-50 text-blue-600 hover:text-blue-700 border border-slate-200 hover:border-blue-200 rounded-lg font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Instant Sign-In as Anil Shah</span>
-                </button>
-              </div>
 
               {/* Bottom Switcher: Don't have an account? Create account */}
               <div className="pt-3 border-t border-slate-100 text-center text-xs text-slate-600">
@@ -459,9 +415,7 @@ export const Login: React.FC<LoginProps> = ({
               Order:
               1. Form Fields (Full Name, Email Address, Password, Confirm Password)
               2. Primary: Create Account
-              3. Divider: OR
-              4. Continue with Google
-              5. Bottom: Already have an account? Sign in
+              3. Bottom: Already have an account? Sign in
              ========================================================================= */}
           {isRegistering && (
             <div className="space-y-4">
@@ -601,46 +555,7 @@ export const Login: React.FC<LoginProps> = ({
                 </button>
               </form>
 
-              {/* Divider: OR */}
-              <div className="relative flex items-center justify-center my-3">
-                <div className="border-t border-slate-200 w-full" />
-                <span className="bg-white px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0">
-                  OR
-                </span>
-                <div className="border-t border-slate-200 w-full" />
-              </div>
 
-              {/* Continue with Google */}
-              <button
-                type="button"
-                onClick={handleGoogleSignIn}
-                disabled={isActionDisabled}
-                className="w-full min-h-[46px] flex items-center justify-center gap-3 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 hover:border-slate-400 rounded-xl font-semibold text-sm shadow-xs transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer touch-manipulation"
-              >
-                {isGoogleSubmitting ? (
-                  <span className="w-4 h-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
-                ) : (
-                  <svg className="w-4.5 h-4.5 shrink-0" viewBox="0 0 24 24">
-                    <path
-                      fill="#4285F4"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                    />
-                  </svg>
-                )}
-                <span>Continue with Google</span>
-              </button>
 
               {/* Bottom Switcher: Already have an account? Sign in */}
               <div className="pt-3 border-t border-slate-100 text-center text-xs text-slate-600">
@@ -661,50 +576,116 @@ export const Login: React.FC<LoginProps> = ({
         </div>
       </div>
 
-      {/* Forgot Password Modal */}
+      {/* Forgot & Reset Password Modal */}
       {showForgotPassword && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 max-w-sm w-full shadow-2xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900">Reset Password</h3>
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center">
+                  <KeyRound className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    {forgotStep === 'request'
+                      ? 'Reset Password'
+                      : forgotStep === 'reset'
+                      ? 'Set New Password'
+                      : 'Password Reset'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    {forgotStep === 'request'
+                      ? 'Step 1: Request verification token'
+                      : forgotStep === 'reset'
+                      ? 'Step 2: Enter token & new password'
+                      : 'Success'}
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowForgotPassword(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {forgotStatus === 'success' ? (
-              <div className="space-y-4">
-                <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-start gap-2.5 text-xs text-emerald-800">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <p className="leading-relaxed">
-                    If an account is associated with <span className="font-semibold">{forgotEmail}</span>,
-                    password reset instructions have been sent. Please check your inbox.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowForgotPassword(false)}
-                  className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer"
-                >
-                  Return to Sign In
-                </button>
+            {/* ERROR BANNER */}
+            {forgotError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">{forgotError}</p>
               </div>
-            ) : (
-              <form onSubmit={handleForgotPasswordSubmit} className="space-y-3.5">
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Enter your email address and we will send instructions to reset your password.
+            )}
+
+            {/* NOTICE BANNER */}
+            {forgotNotice && (
+              <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-800 flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">{forgotNotice}</p>
+              </div>
+            )}
+
+            {/* STEP 1: REQUEST TOKEN */}
+            {forgotStep === 'request' && (
+              <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Enter your registered email address. We will verify your account and provide a single-use security token to reset your password.
                 </p>
 
-                {forgotError && (
-                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700">
-                    {forgotError}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Account Email
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="email"
+                      required
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      placeholder="name@example.com"
+                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none transition-colors"
+                    />
                   </div>
-                )}
+                </div>
 
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword(false)}
+                    className="w-1/2 py-2.5 px-3 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={forgotStatus === 'submitting'}
+                    className="w-1/2 py-2.5 px-3 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
+                  >
+                    {forgotStatus === 'submitting' ? 'Generating...' : 'Continue'}
+                  </button>
+                </div>
+
+                <div className="text-center pt-1 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotError(null);
+                      setForgotStep('reset');
+                    }}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer hover:underline"
+                  >
+                    Already have a reset token? Enter token directly
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* STEP 2: ENTER TOKEN & NEW PASSWORD */}
+            {forgotStep === 'reset' && (
+              <form onSubmit={handleResetPasswordSubmit} className="space-y-3.5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Email address
@@ -722,23 +703,117 @@ export const Login: React.FC<LoginProps> = ({
                   </div>
                 </div>
 
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Reset Token
+                    </label>
+                    <span className="text-[10px] text-slate-500 font-mono">15-min validity</span>
+                  </div>
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      required
+                      value={forgotToken}
+                      onChange={(e) => setForgotToken(e.target.value)}
+                      placeholder="Paste your reset token here"
+                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    New Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type={showForgotNewPassword ? 'text' : 'password'}
+                      required
+                      value={forgotNewPassword}
+                      onChange={(e) => setForgotNewPassword(e.target.value)}
+                      placeholder="At least 10 characters"
+                      className="w-full pl-9 pr-9 py-2 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotNewPassword(!showForgotNewPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      {showForgotNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Confirm New Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type={showForgotConfirmPassword ? 'text' : 'password'}
+                      required
+                      value={forgotConfirmPassword}
+                      onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                      placeholder="Re-enter new password"
+                      className="w-full pl-9 pr-9 py-2 bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotConfirmPassword(!showForgotConfirmPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      {showForgotConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
                 <div className="flex items-center gap-2 pt-2">
                   <button
                     type="button"
-                    onClick={() => setShowForgotPassword(false)}
-                    className="w-1/2 py-2 px-3 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                    onClick={() => {
+                      setForgotError(null);
+                      setForgotNotice(null);
+                      setForgotStep('request');
+                    }}
+                    className="w-1/3 py-2 px-3 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
                   >
-                    Cancel
+                    Back
                   </button>
                   <button
                     type="submit"
                     disabled={forgotStatus === 'submitting'}
-                    className="w-1/2 py-2 px-3 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 cursor-pointer"
+                    className="w-2/3 py-2 px-3 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
                   >
-                    {forgotStatus === 'submitting' ? 'Sending...' : 'Send Link'}
+                    {forgotStatus === 'submitting' ? 'Updating...' : 'Set New Password'}
                   </button>
                 </div>
               </form>
+            )}
+
+            {/* STEP 3: DONE */}
+            {forgotStep === 'done' && (
+              <div className="space-y-4 py-2">
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-3 text-xs text-emerald-900">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-bold text-emerald-900">Password successfully updated!</p>
+                    <p className="text-emerald-700 leading-relaxed">
+                      Your password for <span className="font-semibold">{forgotEmail}</span> has been updated. You can now sign in using your new credentials.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(false)}
+                  className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer shadow-xs"
+                >
+                  Proceed to Sign In
+                </button>
+              </div>
             )}
           </div>
         </div>

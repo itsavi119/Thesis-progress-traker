@@ -35,9 +35,8 @@ export interface UserProfile {
   last_login?: string;
   last_active_at?: string;
   has_password?: boolean;
-  auth_provider?: 'google' | 'password';
+  auth_provider?: 'password';
   photo_url?: string | null;
-  firebase_uid?: string;
   created_at: string;
   updated_at: string;
 }

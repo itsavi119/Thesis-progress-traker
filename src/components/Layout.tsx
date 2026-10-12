@@ -20,7 +20,6 @@ import {
 import { useAuth } from '../context/AuthContext.js';
 import { useGroup } from '../context/GroupContext.js';
 import { api } from '../services/api.js';
-import { PrivacyNotice } from './PrivacyNotice.js';
 import { Logo } from './Logo.js';
 import { CreateGroupModal } from './CreateGroupModal.js';
 import { JoinGroupModal } from './JoinGroupModal.js';
@@ -265,17 +264,11 @@ export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, childre
             <div className="min-w-0 flex-1">
               <p className="text-xs font-bold text-slate-900 truncate">{user?.display_name}</p>
               <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
-              {user?.auth_provider === 'google' || user?.has_password === false ? (
-                <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-semibold tracking-wide text-emerald-700 bg-emerald-50/90 px-2 py-0.5 rounded-md border border-emerald-200/80 shadow-2xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  Google SSO
-                </span>
-              ) : null}
             </div>
           </div>
 
           <div className="flex gap-2">
-            {user?.auth_provider !== 'google' && user?.has_password !== false && (
+            {user?.has_password !== false && (
               <button
                 onClick={() => setChangePasswordModalOpen(true)}
                 title="Change Password"
@@ -289,7 +282,7 @@ export const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, childre
               onClick={logout}
               title="Sign Out"
               className={`${
-                user?.auth_provider === 'google' || user?.has_password === false ? 'w-full' : 'flex-1'
+                user?.has_password === false ? 'w-full' : 'flex-1'
               } flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200 hover:border-rose-200 text-xs font-semibold transition-colors cursor-pointer touch-manipulation`}
             >
               <LogOut className="w-3.5 h-3.5" />

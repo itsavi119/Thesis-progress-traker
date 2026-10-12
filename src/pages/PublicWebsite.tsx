@@ -3,9 +3,7 @@ import {
   BookOpen,
   CheckCircle2,
   Users2,
-  ShieldCheck,
   BarChart3,
-  CheckSquare,
   Lock,
   ArrowRight,
   Menu,
@@ -13,10 +11,7 @@ import {
   Building2,
   Mail,
   Send,
-  FileText,
   Shield,
-  HelpCircle,
-  ExternalLink,
 } from 'lucide-react';
 import { Logo } from '../components/Logo.js';
 import { LegalDocsModal } from './LegalDocsModal.js';

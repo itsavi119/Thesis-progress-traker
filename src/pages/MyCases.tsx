@@ -12,7 +12,6 @@ import {
   Edit3,
   Stethoscope,
   Pill,
-  User,
   X,
   AlertTriangle,
   Search,

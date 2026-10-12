@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Users, AlertCircle, CheckCircle2, Plus, Trash2, FolderPlus, HelpCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, AlertCircle, CheckCircle2, Trash2, FolderPlus } from 'lucide-react';
 import { useGroup } from '../context/GroupContext.js';
 import type { CustomFieldDefinition, StudyType, SubjectTerminology } from '../types/index.js';
 

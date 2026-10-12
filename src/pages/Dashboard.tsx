@@ -7,15 +7,12 @@ import {
   AlertCircle,
   RefreshCw,
   ArrowRight,
-  Shield,
   Layers,
   Target,
-  Users,
   ChevronRight,
   AlertTriangle,
 } from 'lucide-react';
 import { api } from '../services/api.js';
-import { useAuth } from '../context/AuthContext.js';
 import { useGroup } from '../context/GroupContext.js';
 import { PrivacyNotice } from '../components/PrivacyNotice.js';
 import { Logo } from '../components/Logo.js';
@@ -28,7 +25,6 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
-  const { user } = useAuth();
   const { currentGroup, isOwner } = useGroup();
 
   const [stats, setStats] = useState<DashboardStats>({

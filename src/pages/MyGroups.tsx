@@ -4,12 +4,9 @@ import {
   Plus,
   UserPlus,
   ArrowRight,
-  Shield,
   FolderOpen,
   Target,
-  Sparkles,
   Building2,
-  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.js';
 import { useGroup } from '../context/GroupContext.js';

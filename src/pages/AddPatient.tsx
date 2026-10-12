@@ -10,7 +10,6 @@ import {
   Calendar,
   Layers,
   ExternalLink,
-  Pill,
   Stethoscope,
 } from 'lucide-react';
 import { api } from '../services/api.js';

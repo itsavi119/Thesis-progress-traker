@@ -11,7 +11,6 @@ import type {
   CustomFieldDefinition,
   DashboardStats,
   GroupInvitation,
-  GroupMember,
   GroupMemberRole,
   LegalPolicyDoc,
   ResearchFile,
@@ -36,7 +35,7 @@ export interface StoredProfile {
   last_login?: string;
   last_active_at?: string;
   photo_url?: string | null;
-  auth_provider?: 'google' | 'password';
+  auth_provider?: 'password';
   reset_token_hash?: string | null;
   reset_token_expires_at?: string | null;
   created_at: string;
@@ -473,9 +472,8 @@ export class RelationalDatabase {
       last_login: p.last_login,
       last_active_at: p.last_active_at,
       has_password: hasPassword,
-      auth_provider: p.auth_provider || (hasPassword ? 'password' : 'google'),
+      auth_provider: 'password',
       photo_url: p.photo_url || null,
-      firebase_uid: p.id,
     };
   }
 
@@ -652,7 +650,7 @@ export class RelationalDatabase {
       const existing = this.data.profiles.find((p) => p.email.toLowerCase() === email);
       if (existing) {
         if (!existing.password_hash || existing.password_hash.trim() === '') {
-          // Existing Google account without password: set password so researcher can sign in with credentials
+          // Existing account without password: set password so researcher can sign in with credentials
           const salt = await bcrypt.genSalt(10);
           existing.password_hash = await bcrypt.hash(params.password, salt);
           if (displayName) existing.display_name = displayName;
@@ -685,61 +683,12 @@ export class RelationalDatabase {
     });
   }
 
-  public async syncGoogleProfile(params: {
-    uid: string;
-    email: string;
-    displayName: string;
-  }): Promise<UserProfile> {
-    return this.mutex.runExclusive(async () => {
-      if (!params || typeof params.uid !== 'string' || typeof params.email !== 'string') {
-        throw new ValidationError('UID and email must be valid strings.');
-      }
-      const email = params.email.trim().toLowerCase();
-      let profile = this.data.profiles.find((p) => p.id === params.uid || p.email.toLowerCase() === email);
-
-      if (profile) {
-        if (profile.status === 'suspended') {
-          throw new AccountSuspendedError();
-        }
-        profile.last_login = new Date().toISOString();
-        profile.last_active_at = profile.last_login;
-        profile.display_name = (typeof params.displayName === 'string' && params.displayName.trim()) ? params.displayName.trim() : profile.display_name;
-        profile.updated_at = new Date().toISOString();
-        await this.persist();
-        return this.resolveUserProfile(profile);
-      }
-
-      if (this.data.app_settings && !this.data.app_settings.allow_registration) {
-        throw new ValidationError('New researcher registration is temporarily paused.');
-      }
-
-      const now = new Date().toISOString();
-      const newProfile: StoredProfile = {
-        id: params.uid,
-        email,
-        password_hash: '',
-        display_name: (typeof params.displayName === 'string' && params.displayName.trim()) ? params.displayName.trim() : email.split('@')[0],
-        role: 'member',
-        status: 'active',
-        last_login: now,
-        last_active_at: now,
-        created_at: now,
-        updated_at: now,
-      };
-
-      this.data.profiles.push(newProfile);
-      await this.persist();
-
-      return this.resolveUserProfile(newProfile);
-    });
-  }
-
-  public async syncFirebaseProfile(params: {
+  public async syncUserProfile(params: {
     uid: string;
     email: string;
     displayName: string;
     photoUrl?: string;
-    authProvider?: 'google' | 'password';
+    authProvider?: 'password';
   }): Promise<UserProfile> {
     return this.mutex.runExclusive(async () => {
       if (!params || typeof params.uid !== 'string' || typeof params.email !== 'string') {
@@ -755,7 +704,6 @@ export class RelationalDatabase {
         if (profile.status === 'suspended') {
           throw new AccountSuspendedError();
         }
-        // Link Firebase UID as primary ID if registered prior to Firebase migration
         if (profile.id !== uid) {
           const oldId = profile.id;
           profile.id = uid;
@@ -794,12 +742,12 @@ export class RelationalDatabase {
       const newProfile: StoredProfile = {
         id: uid,
         email,
-        password_hash: '', // Handled exclusively by Firebase identity platform
+        password_hash: '',
         display_name: (typeof params.displayName === 'string' && params.displayName.trim()) ? params.displayName.trim() : email.split('@')[0],
-        role: 'member', // Normal Google/email users NEVER become administrators
+        role: 'member',
         status: 'active',
         photo_url: params.photoUrl || null,
-        auth_provider: params.authProvider || 'google',
+        auth_provider: 'password',
         last_login: now,
         last_active_at: now,
         created_at: now,

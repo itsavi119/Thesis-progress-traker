@@ -11,7 +11,6 @@ import {
 } from 'recharts';
 import {
   Award,
-  CheckCircle2,
   Clock,
   Sparkles,
   Edit3,
@@ -93,36 +92,20 @@ export const MilestonesBarChart: React.FC<MilestonesBarChartProps> = ({
   const [overrides, setOverrides] = useState<Record<string, number>>({});
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
-  // Restore stored manual milestone overrides per group ID
+  // In-memory milestone overrides per group ID (no local storage persistence)
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(`thesis_tracker_milestones_${groupId}`);
-      if (stored) {
-        setOverrides(JSON.parse(stored));
-      } else {
-        setOverrides({});
-      }
-    } catch {
-      setOverrides({});
-    }
+    setOverrides({});
   }, [groupId]);
 
   const handleUpdateOverride = (id: string, value: number) => {
-    const updated = {
-      ...overrides,
+    setOverrides((prev) => ({
+      ...prev,
       [id]: Math.min(100, Math.max(0, value)),
-    };
-    setOverrides(updated);
-    try {
-      localStorage.setItem(`thesis_tracker_milestones_${groupId}`, JSON.stringify(updated));
-    } catch {}
+    }));
   };
 
   const handleResetOverrides = () => {
     setOverrides({});
-    try {
-      localStorage.removeItem(`thesis_tracker_milestones_${groupId}`);
-    } catch {}
   };
 
   const target = targetSampleSize || stats.targetSampleSize || 100;

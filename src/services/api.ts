@@ -1,5 +1,4 @@
 import type {
-  AuditLogEntry,
   AuthResponse,
   CaseRecord,
   CaseStatus,
@@ -14,7 +13,6 @@ import type {
   SubjectTerminology,
   TeamSummaryResponse,
   UserProfile,
-  UserRole,
 } from '../types/index.js';
 import { offlineStorage } from './offlineStorage.js';
 
@@ -197,15 +195,13 @@ class ApiService {
     return data;
   }
 
-  public async syncFirebaseUser(params: {
-    uid: string;
+  public async organizationLogin(params: {
     email: string;
     displayName?: string;
-    photoUrl?: string | null;
-    idToken?: string;
-    provider?: string;
+    uid?: string;
+    password?: string;
   }): Promise<AuthResponse> {
-    const data = await this.request<AuthResponse>('/api/auth/firebase-sync', {
+    const data = await this.request<AuthResponse>('/api/auth/organization-login', {
       method: 'POST',
       body: JSON.stringify(params),
     });

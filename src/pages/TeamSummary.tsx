@@ -3,12 +3,8 @@ import {
   Users,
   UserPlus,
   RefreshCw,
-  Clock,
-  CheckCircle2,
   AlertCircle,
-  Shield,
   Trash2,
-  Layers,
   Search,
 } from 'lucide-react';
 import { api } from '../services/api.js';
@@ -223,7 +219,6 @@ export const TeamSummary: React.FC = () => {
           const totalAssigned = member.totalAssigned || 0;
           const completed = member.completed || 0;
           const inProgress = member.inProgress || 0;
-          const excluded = member.excluded || 0;
 
           return (
             <div

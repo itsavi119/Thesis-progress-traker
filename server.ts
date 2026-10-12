@@ -41,40 +41,7 @@ const JWT_SECRET: string = process.env.JWT_SECRET || (() => {
   return fresh;
 })();
 
-const FIREBASE_API_KEY: string = (() => {
-  if (process.env.VITE_FIREBASE_API_KEY) return process.env.VITE_FIREBASE_API_KEY;
-  try {
-    const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
-    if (fs.existsSync(configPath)) {
-      const parsed = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      return parsed.apiKey || '';
-    }
-  } catch {}
-  return '';
-})();
 
-let cachedGoogleCerts: Record<string, string> | null = null;
-let certsExpiry = 0;
-
-async function getGooglePublicCerts(): Promise<Record<string, string>> {
-  const now = Date.now();
-  if (cachedGoogleCerts && now < certsExpiry) {
-    return cachedGoogleCerts;
-  }
-  try {
-    const res = await fetch(
-      'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com'
-    );
-    if (res.ok) {
-      cachedGoogleCerts = (await res.json()) as Record<string, string>;
-      certsExpiry = now + 6 * 60 * 60 * 1000; // cache for 6 hours
-      return cachedGoogleCerts;
-    }
-  } catch (err) {
-    console.warn('Notice fetching Google public certs:', err);
-  }
-  return cachedGoogleCerts || {};
-}
 
 // SEC-006 & SEC-009: Disable technology disclosure
 app.disable('x-powered-by');
@@ -265,8 +232,8 @@ export const securityHeadersMiddleware = (req: Request, res: Response, next: Nex
   // 4. Permissions Policy (Restrict unneeded hardware/browser APIs)
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
 
-  // 5. Cross-Origin-Opener-Policy (same-origin-allow-popups required for Firebase Google OAuth popup)
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  // 5. Cross-Origin-Opener-Policy
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
 
   // 6. Strict-Transport-Security (Production HTTPS & Cloud Run reverse proxy)
   const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https' || isProd;
@@ -281,8 +248,8 @@ export const securityHeadersMiddleware = (req: Request, res: Response, next: Nex
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://lh3.googleusercontent.com",
     "font-src 'self' data: https://fonts.gstatic.com",
-    "connect-src 'self' ws: wss: https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://*.run.app https://*.ai.studio https://thesistracker.ai.studio",
-    "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://*.google.com https://*.run.app https://*.ai.studio https://thesistracker.ai.studio",
+    "connect-src 'self' ws: wss: https://*.googleapis.com https://accounts.google.com https://*.run.app https://*.ai.studio https://thesistracker.ai.studio",
+    "frame-src 'self' https://accounts.google.com https://*.google.com https://*.run.app https://*.ai.studio https://thesistracker.ai.studio",
     "frame-ancestors 'self' https://aistudio.google.com https://*.google.com https://*.run.app https://*.googleusercontent.com https://*.ai.studio https://thesistracker.ai.studio",
     "object-src 'none'",
     "base-uri 'self'",
@@ -713,13 +680,13 @@ function getGroupId(req: AuthenticatedRequest): string | null {
 
 // --- PUBLIC & AUTHENTICATED LEGAL POLICIES ---
 
-app.get('/api/legal/policies', (req, res) => {
+app.get('/api/legal/policies', (_req, res) => {
   res.json({ policies: db.getLegalPolicies() });
 });
 
 // --- AUTHENTICATION ROUTES ---
 
-app.get('/api/auth/team-capacity', async (req, res) => {
+app.get('/api/auth/team-capacity', async (_req, res) => {
   res.json({
     registeredMembers: 0,
     availableSeats: 9999,
@@ -888,7 +855,7 @@ app.post('/api/auth/organization-login', async (req: RequestWithId, res: Respons
 
     // Single-Sign-On / institutional user authentication
     authRateLimiter.recordSuccessfulAttempt(normalizedEmail);
-    const user = await db.syncFirebaseProfile({
+    const user = await db.syncUserProfile({
       uid: typeof uid === 'string' && uid ? uid : `org_${normalizedEmail}`,
       email: normalizedEmail,
       displayName: typeof displayName === 'string' && displayName ? displayName : normalizedEmail.split('@')[0],
@@ -903,8 +870,8 @@ app.post('/api/auth/organization-login', async (req: RequestWithId, res: Respons
   }
 });
 
-// Google sync endpoint supporting session cookie issuance (SEC-005)
-app.post(['/api/auth/google-sync', '/api/auth/sync'], async (req: RequestWithId, res: Response) => {
+// Auth sync endpoint supporting session cookie issuance (SEC-005)
+app.post('/api/auth/sync', async (req: RequestWithId, res: Response) => {
   try {
     const { uid, email, displayName, photoUrl, idToken } = req.body || {};
     let targetUid = uid;
@@ -922,12 +889,12 @@ app.post(['/api/auth/google-sync', '/api/auth/sync'], async (req: RequestWithId,
     }
 
     const normalizedEmail = targetEmail.trim().toLowerCase();
-    const user = await db.syncFirebaseProfile({
+    const user = await db.syncUserProfile({
       uid: targetUid,
       email: normalizedEmail,
       displayName: typeof displayName === 'string' && displayName ? displayName : normalizedEmail.split('@')[0],
       photoUrl: typeof photoUrl === 'string' ? photoUrl : undefined,
-      authProvider: 'google',
+      authProvider: 'password',
     });
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '24h' });
@@ -935,130 +902,7 @@ app.post(['/api/auth/google-sync', '/api/auth/sync'], async (req: RequestWithId,
     const isBrowserClient = req.headers['x-requested-with'] === 'XMLHttpRequest';
     res.json({ token, user, isBrowserClient: !!isBrowserClient });
   } catch (err: any) {
-    sendSafeErrorResponse(err, req, res, 'GOOGLE_SYNC_FAILED');
-  }
-});
-
-// Secure synchronization endpoint for Firebase Authentication (Google OAuth & Email/Password)
-app.post('/api/auth/firebase-sync', async (req: RequestWithId, res: Response) => {
-  try {
-    const { idToken, displayName, photoUrl, provider } = req.body || {};
-
-    // SEC-CRIT-01: Cryptographic idToken verification is MANDATORY.
-    // Anonymous or unverified UID/email assertions are strictly rejected to eliminate account takeover.
-    if (!idToken || typeof idToken !== 'string' || idToken.trim().length < 20) {
-      res.status(401).json({
-        error: 'UNAUTHORIZED',
-        message: 'A valid Firebase identity token (idToken) is required for authentication.',
-      });
-      return;
-    }
-
-    if (displayName !== undefined && typeof displayName !== 'string') {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'Display name must be a string.' });
-      return;
-    }
-
-    if (photoUrl !== undefined && photoUrl !== null && typeof photoUrl !== 'string') {
-      res.status(400).json({ error: 'BAD_REQUEST', message: 'Photo URL must be a string or null.' });
-      return;
-    }
-
-    // Cryptographically verify idToken against Google Identity Toolkit / Google public certs / OAuth tokeninfo
-    let verifiedUid: string | null = null;
-    let verifiedEmail: string | null = null;
-
-    // 1. Authoritative RS256 verification against Google's public x509 certs
-    try {
-      const decoded: any = jwt.decode(idToken.trim(), { complete: true });
-      if (decoded?.header?.kid) {
-        const certs = await getGooglePublicCerts();
-        const cert = certs[decoded.header.kid];
-        if (cert) {
-          const verified: any = jwt.verify(idToken.trim(), cert, {
-            algorithms: ['RS256'],
-          });
-          if (verified && verified.sub && verified.email) {
-            verifiedUid = verified.sub;
-            verifiedEmail = verified.email.toLowerCase();
-          }
-        }
-      }
-    } catch (certVerifyErr) {
-      // Fall through to Identity Toolkit / tokeninfo
-    }
-
-    // 2. Authoritative verification via Google Identity Toolkit
-    if ((!verifiedUid || !verifiedEmail) && FIREBASE_API_KEY) {
-      try {
-        const verifyRes = await fetch(
-          `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(FIREBASE_API_KEY)}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idToken: idToken.trim() }),
-          }
-        );
-
-        if (verifyRes.ok) {
-          const data: any = await verifyRes.json();
-          const userRecord = data?.users?.[0];
-          if (userRecord && userRecord.localId) {
-            verifiedUid = userRecord.localId;
-            verifiedEmail = userRecord.email ? userRecord.email.toLowerCase() : null;
-          }
-        }
-      } catch (fbVerifyErr) {
-        console.warn('Identity Toolkit verification notice:', fbVerifyErr);
-      }
-    }
-
-    // 3. Fallback verification for Google OAuth tokens via tokeninfo
-    if (!verifiedUid || !verifiedEmail) {
-      try {
-        const oauthRes = await fetch(
-          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken.trim())}`
-        );
-        if (oauthRes.ok) {
-          const info: any = await oauthRes.json();
-          if (info.sub && info.email) {
-            verifiedUid = info.sub;
-            verifiedEmail = info.email.toLowerCase();
-          }
-        }
-      } catch (oauthErr) {
-        console.warn('OAuth tokeninfo verification notice:', oauthErr);
-      }
-    }
-
-    if (!verifiedUid || !verifiedEmail) {
-      res.status(401).json({
-        error: 'INVALID_ID_TOKEN',
-        message: 'Authentication failed: Invalid or expired Firebase ID token.',
-      });
-      return;
-    }
-
-    // Synchronize or create research investigator profile using authoritative verified identity
-    const user = await db.syncFirebaseProfile({
-      uid: verifiedUid,
-      email: verifiedEmail,
-      displayName:
-        typeof displayName === 'string' && displayName.trim()
-          ? displayName.trim()
-          : verifiedEmail.split('@')[0],
-      photoUrl: typeof photoUrl === 'string' ? photoUrl : undefined,
-      authProvider: provider === 'google' || provider === 'google.com' ? 'google' : 'password',
-    });
-
-    const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https' || isProd;
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '24h' });
-    res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
-
-    const isBrowserClient = req.headers['x-requested-with'] === 'XMLHttpRequest';
-    res.json({ token, user, isBrowserClient: !!isBrowserClient });
-  } catch (err: any) {
-    sendSafeErrorResponse(err, req, res, 'FIREBASE_SYNC_FAILED');
+    sendSafeErrorResponse(err, req, res, 'AUTH_SYNC_FAILED');
   }
 });
 
@@ -1837,7 +1681,7 @@ if (!isProd) {
 // SEC-010: Unknown API Routes 404 Handler
 // Any unmatched request under /api (regardless of HTTP method) returns a strict JSON 404.
 // This prevents nonexistent API routes from falling through to the frontend SPA HTML shell.
-app.all(['/api', '/api/*'], (req: Request, res: Response) => {
+app.all(['/api', '/api/*'], (_req: Request, res: Response) => {
   res.status(404).json({
     error: 'NOT_FOUND',
     message: 'API endpoint not found.',
@@ -1874,7 +1718,7 @@ async function startServer() {
       })
     );
     // SPA HTML shell: must revalidate to always serve latest bundles
-    app.get('*', (req, res) => {
+    app.get('*', (_req, res) => {
       res.setHeader('Cache-Control', 'no-cache, must-revalidate');
       res.sendFile(indexPath);
     });

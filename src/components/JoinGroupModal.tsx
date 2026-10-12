@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, UserPlus, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
+import { X, UserPlus, AlertCircle, ArrowRight } from 'lucide-react';
 import { api } from '../services/api.js';
 import { useGroup } from '../context/GroupContext.js';
 
