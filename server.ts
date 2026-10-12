@@ -244,12 +244,12 @@ export const securityHeadersMiddleware = (req: Request, res: Response, next: Nex
   // 7. Content-Security-Policy (Enforcing baseline customized to app dependencies)
   const cspDirectives = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com",
+    "script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com https://accounts.google.com https://*.firebaseapp.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://lh3.googleusercontent.com",
     "font-src 'self' data: https://fonts.gstatic.com",
-    "connect-src 'self' ws: wss: https://*.googleapis.com https://accounts.google.com https://*.run.app https://*.ai.studio https://thesistracker.ai.studio",
-    "frame-src 'self' https://accounts.google.com https://*.google.com https://*.run.app https://*.ai.studio https://thesistracker.ai.studio",
+    "connect-src 'self' ws: wss: https://*.googleapis.com https://accounts.google.com https://*.firebaseapp.com https://*.firebaseio.com https://*.run.app https://*.ai.studio https://thesistracker.ai.studio",
+    "frame-src 'self' https://accounts.google.com https://*.google.com https://*.firebaseapp.com https://*.firebase.com https://*.run.app https://*.ai.studio https://thesistracker.ai.studio",
     "frame-ancestors 'self' https://aistudio.google.com https://*.google.com https://*.run.app https://*.googleusercontent.com https://*.ai.studio https://thesistracker.ai.studio",
     "object-src 'none'",
     "base-uri 'self'",
@@ -703,7 +703,19 @@ app.get('/api/auth/team-capacity', async (_req, res) => {
   });
 });
 
-
+app.get('/api/auth/google-client-id', async (_req, res) => {
+  let clientId =
+    process.env.GOOGLE_CLIENT_ID ||
+    '316905229392-vlbm26gmdut9flij49ddl7gjhfc4d781.apps.googleusercontent.com';
+  try {
+    const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
+    if (fs.existsSync(configPath)) {
+      const cfg = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      if (cfg?.oAuthClientId) clientId = cfg.oAuthClientId;
+    }
+  } catch {}
+  res.json({ clientId });
+});
 
 app.post('/api/auth/register', async (req: RequestWithId, res: Response) => {
   try {

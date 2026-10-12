@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api.js';
 import { offlineStorage } from '../services/offlineStorage.js';
+import { triggerGoogleOAuth } from '../services/googleAuth.js';
 import type { UserProfile } from '../types/index.js';
 
 interface TeamCapacity {
@@ -44,6 +45,7 @@ interface AuthContextType {
   register: (email: string, password: string, displayName: string) => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string, displayName: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<{ success: boolean; devResetToken?: string; message: string }>;
   resetPassword: (params: {
     email: string;
@@ -169,7 +171,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await api.resetPassword(params);
   };
 
-
+  // Google Sign-In via Google Identity Services (Zero API keys in URLs or bundles)
+  const signInWithGoogle = async (): Promise<void> => {
+    try {
+      const userProfile = await triggerGoogleOAuth();
+      setUser(userProfile);
+      setAuthStatus('AUTHENTICATED');
+      await refreshTeamCapacity();
+    } catch (err: any) {
+      const error = new Error(err?.message || 'Google sign-in failed. Please try again.');
+      (error as any).code = err?.code;
+      throw error;
+    }
+  };
 
   // Sign-Out
   const logout = () => {
@@ -204,6 +218,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register: signUpWithEmail,
         signInWithEmail,
         signUpWithEmail,
+        signInWithGoogle,
         sendPasswordReset,
         resetPassword,
         logout,

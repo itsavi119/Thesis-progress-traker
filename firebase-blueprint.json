@@ -1,0 +1,250 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Registered researcher or platform user profile",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "User unique identifier matching auth UID",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "description": "User email address",
+          "maxLength": 255
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User display name",
+          "maxLength": 120
+        },
+        "role": {
+          "type": "string",
+          "description": "User platform role",
+          "enum": ["member", "admin"]
+        },
+        "status": {
+          "type": "string",
+          "description": "Account status",
+          "enum": ["active", "suspended"]
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp of creation"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last update"
+        }
+      },
+      "required": ["id", "email", "displayName", "role", "status"]
+    },
+    "ResearchGroup": {
+      "title": "ResearchGroup",
+      "description": "Collaborative research study / thesis tracking workspace",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Group unique identifier",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Study group name",
+          "maxLength": 150
+        },
+        "studyTitle": {
+          "type": "string",
+          "description": "Full study or thesis title",
+          "maxLength": 300
+        },
+        "studyType": {
+          "type": "string",
+          "description": "Study design methodology",
+          "maxLength": 60
+        },
+        "subjectTerminology": {
+          "type": "string",
+          "description": "Subject terminology label",
+          "maxLength": 30
+        },
+        "targetSampleSize": {
+          "type": "number",
+          "description": "Target sample enrollment goal"
+        },
+        "description": {
+          "type": "string",
+          "description": "Study objective or summary",
+          "maxLength": 2000
+        },
+        "institution": {
+          "type": "string",
+          "description": "Academic hospital or university",
+          "maxLength": 200
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "UID of the group creator / principal investigator",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerEmail": {
+          "type": "string",
+          "description": "Email of the group owner",
+          "maxLength": 255
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last update timestamp"
+        }
+      },
+      "required": ["id", "name", "studyTitle", "ownerId", "ownerEmail"]
+    },
+    "GroupMember": {
+      "title": "GroupMember",
+      "description": "Authorized researcher in a study group",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "User UID",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "description": "Researcher email",
+          "maxLength": 255
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Researcher display name",
+          "maxLength": 120
+        },
+        "role": {
+          "type": "string",
+          "description": "Role in study",
+          "enum": ["owner", "researcher"]
+        },
+        "joinedAt": {
+          "type": "string",
+          "description": "Join timestamp"
+        }
+      },
+      "required": ["userId", "email", "displayName", "role"]
+    },
+    "CaseRecord": {
+      "title": "CaseRecord",
+      "description": "Clinical or academic research subject / patient case entry",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Case unique identifier",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "groupId": {
+          "type": "string",
+          "description": "Associated study group ID",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "patientId": {
+          "type": "string",
+          "description": "Normalized study subject / case ID",
+          "maxLength": 100
+        },
+        "initials": {
+          "type": "string",
+          "description": "Anonymized subject initials",
+          "maxLength": 20
+        },
+        "age": {
+          "type": "number",
+          "description": "Age of participant"
+        },
+        "gender": {
+          "type": "string",
+          "description": "Biological sex / gender category",
+          "enum": ["Male", "Female", "Other"]
+        },
+        "diagnosis": {
+          "type": "string",
+          "description": "Primary clinical diagnosis",
+          "maxLength": 500
+        },
+        "treatment": {
+          "type": "string",
+          "description": "Treatment regimen or arm",
+          "maxLength": 500
+        },
+        "status": {
+          "type": "string",
+          "description": "Tracking status",
+          "enum": ["In Progress", "Completed", "Excluded"]
+        },
+        "notes": {
+          "type": "string",
+          "description": "Anonymized investigator clinical notes",
+          "maxLength": 2000
+        },
+        "assignedTo": {
+          "type": "string",
+          "description": "UID of assigned researcher",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "assignedToName": {
+          "type": "string",
+          "description": "Name of assigned researcher",
+          "maxLength": 120
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Enrollment timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last progress update timestamp"
+        }
+      },
+      "required": ["id", "groupId", "patientId", "status", "assignedTo"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "User profile document isolated per UID"
+    },
+    "/groups/{groupId}": {
+      "schema": {
+        "$ref": "#/entities/ResearchGroup"
+      },
+      "description": "Research study group document created by principal investigator"
+    },
+    "/groups/{groupId}/members/{memberId}": {
+      "schema": {
+        "$ref": "#/entities/GroupMember"
+      },
+      "description": "Members authorized in the research study group"
+    },
+    "/groups/{groupId}/cases/{caseId}": {
+      "schema": {
+        "$ref": "#/entities/CaseRecord"
+      },
+      "description": "Research study cases and patient records strictly scoped to study members"
+    }
+  }
+}
