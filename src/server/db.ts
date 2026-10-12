@@ -329,7 +329,7 @@ export class RelationalDatabase {
   private changeListeners: Array<(event: string, groupId: string, payload: any) => void> = [];
 
   constructor(storageDir?: string) {
-    const dir = storageDir || path.resolve(process.cwd(), 'data');
+    const dir = storageDir || process.env.DATA_DIR || path.resolve(process.cwd(), 'data');
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }

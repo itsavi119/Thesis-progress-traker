@@ -1,0 +1,12 @@
+node_modules
+dist
+build
+.git
+.github
+*.log
+.env
+.env.local
+coverage
+data/*.json
+data/.jwt_secret
+.DS_Store

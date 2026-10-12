@@ -101,6 +101,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setAuthStatus('UNAUTHENTICATED');
         }
       } catch {
+        // Fallback for static hosts (e.g. Netlify)
+        if (typeof window !== 'undefined') {
+          try {
+            const raw = localStorage.getItem('thesis_tracker_static_user');
+            if (raw) {
+              const staticUser = JSON.parse(raw);
+              if (staticUser?.id && isMounted) {
+                setUser(staticUser);
+                setAuthStatus('AUTHENTICATED');
+                return;
+              }
+            }
+          } catch {}
+        }
         if (isMounted) {
           setUser(null);
           setAuthStatus('UNAUTHENTICATED');
@@ -191,6 +205,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (typeof window !== 'undefined') {
       try {
         sessionStorage.removeItem('thesis_tracker_auth_mode');
+        localStorage.removeItem('thesis_tracker_static_user');
       } catch {}
     }
 

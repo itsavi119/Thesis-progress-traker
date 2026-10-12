@@ -1739,7 +1739,7 @@ async function startServer() {
   const indexPath = path.join(distPath, 'index.html');
   const hasDist = fs.existsSync(indexPath);
 
-  if (isProd && hasDist && process.env.npm_lifecycle_event !== 'dev') {
+  if (hasDist && process.env.npm_lifecycle_event !== 'dev') {
     // Immutable 1-year cache for fingerprinted/hashed production JS/CSS assets
     app.use(
       '/assets',

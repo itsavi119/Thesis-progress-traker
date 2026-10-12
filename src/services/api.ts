@@ -124,7 +124,10 @@ class ApiService {
       headers['X-Group-Id'] = groupId;
     }
 
-    const response = await fetch(endpoint, {
+    const baseUrl = typeof window !== 'undefined' ? (((import.meta as any).env?.VITE_API_URL || '') as string).replace(/\/+$/, '') : '';
+    const targetUrl = endpoint.startsWith('http') ? endpoint : `${baseUrl}${endpoint}`;
+
+    const response = await fetch(targetUrl, {
       ...options,
       headers,
       credentials: 'include', // Transmits secure HttpOnly cookie automatically across all hosts/iframes

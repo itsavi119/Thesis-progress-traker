@@ -68,6 +68,20 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setUserGroups([]);
         setCurrentGroup(null);
       } else {
+        // Fallback for static Netlify host
+        try {
+          const raw = localStorage.getItem('thesis_tracker_static_groups');
+          if (raw) {
+            const staticGroups: ResearchGroup[] = JSON.parse(raw);
+            if (Array.isArray(staticGroups) && staticGroups.length > 0) {
+              setUserGroups(staticGroups);
+              setCurrentGroup(staticGroups[0]);
+              api.setActiveGroupId(staticGroups[0].id);
+              setIsLoadingGroups(false);
+              return;
+            }
+          }
+        } catch {}
         console.warn('Notice loading user research groups:', err?.message || err);
       }
     } finally {
@@ -106,11 +120,48 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     institution?: string;
     customFields?: CustomFieldDefinition[];
   }): Promise<ResearchGroup> => {
-    const res = await api.createGroup(params);
-    setUserGroups((prev) => [...prev, res.group]);
-    setCurrentGroup(res.group);
-    api.setActiveGroupId(res.group.id);
-    return res.group;
+    try {
+      const res = await api.createGroup(params);
+      setUserGroups((prev) => [...prev, res.group]);
+      setCurrentGroup(res.group);
+      api.setActiveGroupId(res.group.id);
+      return res.group;
+    } catch (apiErr: any) {
+      // If server is unavailable (e.g. static Netlify), persist locally
+      const newGroup: ResearchGroup = {
+        id: 'group-' + Date.now(),
+        name: params.name,
+        studyTitle: params.studyTitle,
+        studyType: params.studyType || 'Observational',
+        subjectTerminology: params.subjectTerminology || 'Patient',
+        targetSampleSize: params.targetSampleSize || 50,
+        description: params.description || '',
+        institution: params.institution || '',
+        customFields: params.customFields || [],
+        ownerId: user?.id || 'local-user',
+        members: [
+          {
+            userId: user?.id || 'local-user',
+            email: user?.email || '',
+            displayName: user?.display_name || 'Owner',
+            role: 'owner',
+            joinedAt: new Date().toISOString(),
+          },
+        ],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      setUserGroups((prev) => {
+        const next = [...prev, newGroup];
+        try {
+          localStorage.setItem('thesis_tracker_static_groups', JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+      setCurrentGroup(newGroup);
+      api.setActiveGroupId(newGroup.id);
+      return newGroup;
+    }
   };
 
   const joinGroup = async (code: string): Promise<ResearchGroup> => {
