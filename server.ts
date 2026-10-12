@@ -232,8 +232,8 @@ export const securityHeadersMiddleware = (req: Request, res: Response, next: Nex
   // 4. Permissions Policy (Restrict unneeded hardware/browser APIs)
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
 
-  // 5. Cross-Origin-Opener-Policy
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  // 5. Cross-Origin-Opener-Policy (must be same-origin-allow-popups to allow OAuth / Firebase popups to communicate)
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
 
   // 6. Strict-Transport-Security (Production HTTPS & Cloud Run reverse proxy)
   const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https' || isProd;
@@ -244,7 +244,7 @@ export const securityHeadersMiddleware = (req: Request, res: Response, next: Nex
   // 7. Content-Security-Policy (Enforcing baseline customized to app dependencies)
   const cspDirectives = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com https://accounts.google.com",
+    "script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://lh3.googleusercontent.com",
     "font-src 'self' data: https://fonts.gstatic.com",
@@ -647,7 +647,11 @@ const rateLimitInvitations = (req: AuthenticatedRequest, res: Response, next: Ne
 // Rate limiter reset endpoints: strictly restricted to dev and requiring authenticated admin
 if (!isProd && process.env.ENABLE_DEV_ENDPOINTS === 'true') {
   app.post('/api/dev/reset-invitation-rate-limit', authenticateToken, (req: AuthenticatedRequest, res) => {
-    if (req.user?.email !== (process.env.ADMIN_EMAIL || 'anilshah.as118@gmail.com')) {
+    const isOwner =
+      req.user?.role === 'admin' ||
+      (Boolean(process.env.ADMIN_EMAIL) && req.user?.email.toLowerCase() === process.env.ADMIN_EMAIL?.trim().toLowerCase());
+
+    if (!isOwner) {
       res.status(403).json({ error: 'FORBIDDEN', message: 'Admin access required.' });
       return;
     }
@@ -656,7 +660,11 @@ if (!isProd && process.env.ENABLE_DEV_ENDPOINTS === 'true') {
   });
 
   app.post('/api/dev/reset-auth-rate-limit', authenticateToken, (req: AuthenticatedRequest, res) => {
-    if (req.user?.email !== (process.env.ADMIN_EMAIL || 'anilshah.as118@gmail.com')) {
+    const isOwner =
+      req.user?.role === 'admin' ||
+      (Boolean(process.env.ADMIN_EMAIL) && req.user?.email.toLowerCase() === process.env.ADMIN_EMAIL?.trim().toLowerCase());
+
+    if (!isOwner) {
       res.status(403).json({ error: 'FORBIDDEN', message: 'Admin access required.' });
       return;
     }
@@ -694,6 +702,8 @@ app.get('/api/auth/team-capacity', async (_req, res) => {
     note: 'Flexible multi-member research teams supported with no arbitrary capacity limits.',
   });
 });
+
+
 
 app.post('/api/auth/register', async (req: RequestWithId, res: Response) => {
   try {
@@ -873,14 +883,33 @@ app.post('/api/auth/organization-login', async (req: RequestWithId, res: Respons
 // Auth sync endpoint supporting session cookie issuance (SEC-005)
 app.post('/api/auth/sync', async (req: RequestWithId, res: Response) => {
   try {
-    const { uid, email, displayName, photoUrl, idToken } = req.body || {};
+    const { uid, email, displayName, photoUrl, idToken, accessToken } = req.body || {};
     let targetUid = uid;
     let targetEmail = email;
+    let targetName = displayName;
+    let targetPhoto = photoUrl;
 
     if (idToken && typeof idToken === 'string' && idToken.trim().length >= 20) {
       const decoded: any = jwt.decode(idToken.trim());
       if (decoded?.sub) targetUid = decoded.sub;
       if (decoded?.email) targetEmail = decoded.email;
+      if (!targetName && decoded?.name) targetName = decoded.name;
+      if (!targetPhoto && decoded?.picture) targetPhoto = decoded.picture;
+    } else if (accessToken && typeof accessToken === 'string') {
+      try {
+        const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (userInfoRes.ok) {
+          const info = await userInfoRes.json();
+          if (info.sub) targetUid = info.sub;
+          if (info.email) targetEmail = info.email;
+          if (!targetName && info.name) targetName = info.name;
+          if (!targetPhoto && info.picture) targetPhoto = info.picture;
+        }
+      } catch (tokenErr) {
+        console.warn('Failed to fetch userinfo from Google token:', tokenErr);
+      }
     }
 
     if (!targetUid || !targetEmail || typeof targetUid !== 'string' || typeof targetEmail !== 'string') {
@@ -892,8 +921,8 @@ app.post('/api/auth/sync', async (req: RequestWithId, res: Response) => {
     const user = await db.syncUserProfile({
       uid: targetUid,
       email: normalizedEmail,
-      displayName: typeof displayName === 'string' && displayName ? displayName : normalizedEmail.split('@')[0],
-      photoUrl: typeof photoUrl === 'string' ? photoUrl : undefined,
+      displayName: typeof targetName === 'string' && targetName ? targetName : normalizedEmail.split('@')[0],
+      photoUrl: typeof targetPhoto === 'string' ? targetPhoto : undefined,
       authProvider: 'password',
     });
 
@@ -1026,10 +1055,8 @@ app.get('/api/auth/me', authenticateToken, async (req: AuthenticatedRequest, res
 // SEC-001 & RBAC: App Owner overview endpoint
 app.get('/api/app-owner/overview', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   const isOwner =
-    (req.user?.role as string) === 'admin' ||
-    req.user?.email === (process.env.ADMIN_EMAIL || 'anilshah.as118@gmail.com') ||
-    req.user?.email === 'nikhil.work119@gmail.com' ||
-    req.user?.email === 'avishah.as119@gmail.com';
+    req.user?.role === 'admin' ||
+    (Boolean(process.env.ADMIN_EMAIL) && req.user?.email.toLowerCase() === process.env.ADMIN_EMAIL?.trim().toLowerCase());
 
   if (!isOwner) {
     res.status(403).json({ error: 'FORBIDDEN', message: 'App owner access required.' });
@@ -1049,10 +1076,8 @@ app.get('/api/app-owner/overview', authenticateToken, async (req: AuthenticatedR
 app.post('/api/auth/admin/set-user-password', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const isOwner =
-      (req.user?.role as string) === 'admin' ||
-      req.user?.email === (process.env.ADMIN_EMAIL || 'anilshah.as118@gmail.com') ||
-      req.user?.email === 'nikhil.work119@gmail.com' ||
-      req.user?.email === 'avishah.as119@gmail.com';
+      req.user?.role === 'admin' ||
+      (Boolean(process.env.ADMIN_EMAIL) && req.user?.email.toLowerCase() === process.env.ADMIN_EMAIL?.trim().toLowerCase());
 
     if (!isOwner) {
       res.status(403).json({ error: 'FORBIDDEN', message: 'App owner access required.' });

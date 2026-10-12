@@ -382,9 +382,11 @@ export class RelationalDatabase {
         // Filter out any synthetic mock benchmark accounts (@hospital.org)
         this.data.profiles = this.data.profiles.filter((p) => !p.email.includes('@hospital.org'));
 
-        // All profiles have role member
+        // Preserve user roles or default to member
         for (const profile of this.data.profiles) {
-          profile.role = 'member';
+          if (!profile.role) {
+            profile.role = 'member';
+          }
         }
 
         // Migrate legacy invitations: compute deterministic token_hash if missing
@@ -665,12 +667,15 @@ export class RelationalDatabase {
       const password_hash = await bcrypt.hash(params.password, salt);
       const now = new Date().toISOString();
 
+      const isFirstUser = this.data.profiles.length === 0;
+      const isAdminByEnv = Boolean(process.env.ADMIN_EMAIL) && email === process.env.ADMIN_EMAIL?.trim().toLowerCase();
+
       const newProfile: StoredProfile = {
         id: crypto.randomUUID(),
         email,
         password_hash,
         display_name: displayName,
-        role: 'member',
+        role: isFirstUser || isAdminByEnv ? 'admin' : 'member',
         status: 'active',
         created_at: now,
         updated_at: now,
@@ -739,12 +744,15 @@ export class RelationalDatabase {
       }
 
       const now = new Date().toISOString();
+      const isFirstUser = this.data.profiles.length === 0;
+      const isAdminByEnv = Boolean(process.env.ADMIN_EMAIL) && email === process.env.ADMIN_EMAIL?.trim().toLowerCase();
+
       const newProfile: StoredProfile = {
         id: uid,
         email,
         password_hash: '',
         display_name: (typeof params.displayName === 'string' && params.displayName.trim()) ? params.displayName.trim() : email.split('@')[0],
-        role: 'member',
+        role: isFirstUser || isAdminByEnv ? 'admin' : 'member',
         status: 'active',
         photo_url: params.photoUrl || null,
         auth_provider: 'password',
@@ -956,7 +964,7 @@ export class RelationalDatabase {
         entityId: profile.id,
         details: `Administrator set password for user ${profile.email}.`,
         performedBy: 'admin',
-        performedByEmail: 'admin@hospital.org',
+        performedByEmail: 'admin',
       });
     });
   }

@@ -7,3 +7,5 @@ coverage/
 .env*
 !*.env.example
 bun.lock*
+firebase-applet-config.json
+data/.jwt_secret

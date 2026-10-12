@@ -169,6 +169,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await api.resetPassword(params);
   };
 
+
+
   // Sign-Out
   const logout = () => {
     const uid = user?.id;

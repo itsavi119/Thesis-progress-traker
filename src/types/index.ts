@@ -1,6 +1,6 @@
 export type CaseStatus = 'In Progress' | 'Completed' | 'Excluded';
 
-export type UserRole = 'member';
+export type UserRole = 'member' | 'admin';
 
 export type GroupMemberRole = 'owner' | 'researcher';
 
